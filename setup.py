@@ -2,6 +2,8 @@
 
 import distutils
 from distutils.command.install import install
+# from distutils.command.bdist import bdist
+from wheel.bdist_wheel import bdist_wheel
 import os
 from pathlib import Path
 import platform
@@ -62,6 +64,21 @@ class post_develop(nexus_base, develop):
         self._build_nexus(nexus_native_path)
 
 
+class post_bdist(bdist_wheel, nexus_base):
+
+    def run(self):
+        base = self.bdist_dir
+        # print("RUN3", base, bdist_wheel)
+        # try:
+        #     print("R", os.listdir(base))
+        # except:
+        #     print("R none")
+        bdist_wheel.run(self)
+        # got = Path(self.bdist_base) / "pizza"
+        # os.makedirs(got, exist_ok=True)
+        # assert False
+
+
 setup(
     name="wandb-nexus",
     version="0.0.1.dev1",
@@ -74,5 +91,6 @@ setup(
     cmdclass={
         "install": post_install,
         "develop": post_develop,
+        "bdist_wheel": post_bdist,
         },
 )
