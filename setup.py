@@ -11,15 +11,24 @@ PACKAGE: str = "wandb_nexus"
 
 
 class post_install(install):
-    def _get_nexus_path(self, goos=None, goarch=None):
+    def _get_package_path(self):
+        base = Path(self.install_platlib) / PACKAGE
+        return base
+
+    def _get_wheel_nexus_path(self, goos=None, goarch=None):
         goos = goos or platform.system().lower()
         goarch = goarch or platform.machine().lower()
-        base = Path(self.install_platlib) / PACKAGE
+        base = self._get_package_path()
         path = (base / f"bin-{goos}-{goarch}" / "wandb-nexus").resolve()
         return path
 
-    def _build_nexus(self, goos=None, goarch=None):
-        nexus_path = self._get_nexus_path(goos=goos, goarch=goarch)
+    def _get_native_nexus_path(self):
+        base = self._get_package_path()
+        path = (base / f"bin" / "wandb-nexus").resolve()
+        return path
+
+    def _build_nexus(self, nexus_path=None, goos=None, goarch=None):
+        nexus_path = nexus_path or self._get_wheel_nexus_path(goos=goos, goarch=goarch)
         src_dir = Path(__file__).parent / "nexus"
         env = {}
         if goos:
@@ -34,9 +43,10 @@ class post_install(install):
     def run(self):
         install.run(self)
 
-        nexus_path = self._get_nexus_path()
-        if not nexus_path.exists():
-            self._build_nexus()
+        nexus_wheel_path = self._get_wheel_nexus_path()
+        if not nexus_wheel_path.exists():
+            nexus_native_path = self._get_native_nexus_path()
+            self._build_nexus(nexus_native_path)
 
 
 setup(
