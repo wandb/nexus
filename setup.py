@@ -1,16 +1,18 @@
 """nexus setup."""
 
+import distutils
 from distutils.command.install import install
 import os
 from pathlib import Path
 import platform
 import subprocess
 from setuptools import setup
+from setuptools.command.develop import develop
 
 PACKAGE: str = "wandb_nexus"
 
 
-class post_install(install):
+class nexus_base:
     def _get_package_path(self):
         base = Path(self.install_platlib) / PACKAGE
         return base
@@ -22,8 +24,8 @@ class post_install(install):
         path = (base / f"bin-{goos}-{goarch}" / "wandb-nexus").resolve()
         return path
 
-    def _get_native_nexus_path(self):
-        base = self._get_package_path()
+    def _get_native_nexus_path(self, base=None):
+        base = base or self._get_package_path()
         path = (base / f"bin" / "wandb-nexus").resolve()
         return path
 
@@ -40,6 +42,9 @@ class post_install(install):
         cmd = ("go", "build", f"-ldflags={ldflags}", "-o", str(nexus_path), "cmd/nexus_server/main.go")
         subprocess.check_call(cmd, cwd=src_dir, env=dict(os.environ, **env))
 
+
+class post_install(nexus_base, install):
+
     def run(self):
         install.run(self)
 
@@ -47,6 +52,14 @@ class post_install(install):
         if not nexus_wheel_path.exists():
             nexus_native_path = self._get_native_nexus_path()
             self._build_nexus(nexus_native_path)
+
+
+class post_develop(nexus_base, develop):
+
+    def run(self):
+        develop.run(self)
+        nexus_native_path = self._get_native_nexus_path(Path("wandb_nexus"))
+        self._build_nexus(nexus_native_path)
 
 
 setup(
@@ -58,5 +71,8 @@ setup(
     include_package_data=True,
     license="MIT license",
     python_requires=">=3.6",
-    cmdclass={"install": post_install},
+    cmdclass={
+        "install": post_install,
+        "develop": post_develop,
+        },
 )
