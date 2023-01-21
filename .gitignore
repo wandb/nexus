@@ -1,3 +1,5 @@
 wandb_nexus.egg-info/
 __pycache__/
-wandb_nexus/bin/
+wandb_nexus/bin-*/
+.tox/
+mypy-results/

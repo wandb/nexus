@@ -1,25 +1,27 @@
 """nexus setup."""
 
-import distutils
-from distutils.command.install import install
-# from distutils.command.bdist import bdist
-from wheel.bdist_wheel import bdist_wheel
 import os
-from pathlib import Path
 import platform
 import subprocess
+from distutils.command.install import install
+from pathlib import Path
+
 from setuptools import setup
 from setuptools.command.develop import develop
 
+# from distutils.command.bdist import bdist
+from wheel.bdist_wheel import bdist_wheel
+
 PACKAGE: str = "wandb_nexus"
-ALL_PLATFORMS = (("darwin", "arm64"),
-                 ("darwin", "amd64"),
-                 ("linux", "amd64"),
-                 ("windows", "amd64"),
-                 )
+ALL_PLATFORMS = (
+    ("darwin", "arm64"),
+    ("darwin", "amd64"),
+    ("linux", "amd64"),
+    ("windows", "amd64"),
+)
 
 
-class nexus_base:
+class NexusBase:
     def _get_package_path(self):
         base = Path(self.install_platlib) / PACKAGE
         return base
@@ -45,10 +47,10 @@ class nexus_base:
         subprocess.check_call(cmd, cwd=src_dir, env=dict(os.environ, **env))
 
 
-class wrap_install(install, nexus_base):
+class WrapInstall(install, NexusBase):
 
     user_options = [
-        ('nexus-build=', None, "nexus binaries to build comma separated (eg darwin-arm64,linux-amd64)"),
+        ("nexus-build=", None, "nexus binaries to build comma separated (eg darwin-arm64,linux-amd64)"),
     ] + install.user_options
 
     def initialize_options(self):
@@ -57,7 +59,7 @@ class wrap_install(install, nexus_base):
 
     def finalize_options(self):
         super().finalize_options()
-        self.set_undefined_options('bdist_wheel', ('nexus_build', 'nexus_build'))
+        self.set_undefined_options("bdist_wheel", ("nexus_build", "nexus_build"))
 
     def run(self):
         install.run(self)
@@ -71,17 +73,16 @@ class wrap_install(install, nexus_base):
             self._build_nexus()
 
 
-class wrap_develop(develop, nexus_base):
-
+class WrapDevelop(develop, NexusBase):
     def run(self):
         develop.run(self)
         self._build_nexus(path=Path("wandb_nexus"))
 
 
-class post_bdist(bdist_wheel, nexus_base):
+class WrapBdistWheel(bdist_wheel, NexusBase):
 
     user_options = [
-        ('nexus-build=', None, "nexus binaries to build comma separated (eg darwin-arm64,linux-amd64)"),
+        ("nexus-build=", None, "nexus binaries to build comma separated (eg darwin-arm64,linux-amd64)"),
     ] + bdist_wheel.user_options
 
     def initialize_options(self):
@@ -105,8 +106,8 @@ setup(
     license="MIT license",
     python_requires=">=3.6",
     cmdclass={
-        "install": wrap_install,
-        "develop": wrap_develop,
-        "bdist_wheel": post_bdist,
-        },
+        "install": WrapInstall,
+        "develop": WrapDevelop,
+        "bdist_wheel": WrapBdistWheel,
+    },
 )
