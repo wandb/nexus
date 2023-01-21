@@ -5,5 +5,7 @@ from pathlib import Path
 
 def get_nexus_path():
     base = Path(__file__).parent
-    path = (base / f"bin" / "wandb-nexus").resolve()
+    goos = platform.system().lower()
+    goarch = platform.machine().lower()
+    path = (base / f"bin-{goos}-{goarch}" / "wandb-nexus").resolve()
     return path
