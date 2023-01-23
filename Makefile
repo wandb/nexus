@@ -9,6 +9,9 @@ release-tox: dist ## package and upload release
 release:
 	tox -e release
 
+release-test: dist ## package and upload test release
+	twine upload --repository testpypi dist/*
+
 dist: clean ## builds source and wheel package
 	python setup.py sdist bdist_wheel
 	ls -l dist
