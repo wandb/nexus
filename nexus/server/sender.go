@@ -9,6 +9,8 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	// "google.golang.org/protobuf/proto"
+	// "google.golang.org/protobuf/encoding/protojson"
 	"github.com/Khan/genqlient/graphql"
 	"github.com/wandb/wandb/nexus/service"
 	"net/http"
@@ -22,6 +24,7 @@ type Sender struct {
 	graphqlClient graphql.Client
 	respondResult func(result *service.Result)
 	settings      *Settings
+	run           *service.RunRecord
 }
 
 func NewSender(wg *sync.WaitGroup, respondResult func(result *service.Result), settings *Settings) *Sender {
@@ -107,7 +110,65 @@ func (sender *Sender) networkSendRecord(msg *service.Record) {
 }
 
 func (sender *Sender) networkSendFile(msg *service.Record, filesRecord *service.FilesRecord) {
-	fmt.Printf("GOTFILE", filesRecord)
+	fmt.Println("GOTFILE", filesRecord)
+
+	if sender.run == nil {
+		panic("upsert run not called before send file")
+	}
+
+	ctx := context.Background()
+	project := sender.run.Project
+	runId := sender.run.RunId
+	entity := sender.run.Entity
+	fname := "data.txt"
+	files := []*string{&fname}
+
+	resp, err := RunUploadUrls(
+		ctx,
+		sender.graphqlClient,
+		project,
+		files,
+		&entity,
+		runId,
+		nil, // description
+	)
+	check(err)
+	// func RunUploadUrls(
+    //     ctx context.Context,
+    //     client graphql.Client,
+    //     name string,
+    //     files []*string,
+    //     entity *string,
+    //     run string,
+    //     description *string,
+    // ) (*RunUploadUrlsResponse, error) {
+
+	// got := proto.MarshalTextString(resp)
+	// got := protojson.Format(resp)
+	// fmt.Printf("got: %s\n", got)
+	model := resp.GetModel()
+	bucket := model.GetBucket()
+
+	runID := bucket.GetId()
+	fmt.Printf("ID: %s\n", runID)
+
+	fileList := bucket.GetFiles()
+
+	headers := fileList.GetUploadHeaders()
+	fmt.Printf("HEADS: %s\n", headers)
+
+	edges := fileList.GetEdges()
+	// result := make([]*RunUploadUrlsModelProjectBucketRunFilesFileConnectionEdgesFileEdgeNodeFile, len(edges))
+	result := make([]*string, len(edges))
+	for i, e := range edges {
+		node := e.GetNode()
+		name := node.GetName()
+		url := node.GetUrl()
+		updated := node.GetUpdatedAt()
+		result[i] = url
+		fmt.Printf("url: %d %s %s %s\n", i, *url, name, updated)
+	}
+	fmt.Printf("got: %s\n", result)
 }
 
 func (sender *Sender) networkSendRun(msg *service.Record, record *service.RunRecord) {
@@ -149,6 +210,8 @@ func (sender *Sender) networkSendRun(msg *service.Record, record *service.RunRec
 	keepRun.DisplayName = displayName
 	keepRun.Project = projectName
 	keepRun.Entity = entityName
+
+	sender.run = &keepRun
 
 	// fmt.Println("RESP::", keepRun)
 
