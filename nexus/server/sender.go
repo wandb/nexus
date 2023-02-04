@@ -93,6 +93,8 @@ func (sender *Sender) networkSendRecord(msg *service.Record) {
 	case *service.Record_Run:
 		// fmt.Println("rungot:", x)
 		sender.networkSendRun(msg, x.Run)
+	case *service.Record_Files:
+		sender.networkSendFile(msg, x.Files)
 	case *service.Record_Request:
 		sender.sendRequest(msg, x.Request)
 	case nil:
@@ -102,6 +104,10 @@ func (sender *Sender) networkSendRecord(msg *service.Record) {
 		bad := fmt.Sprintf("REC UNKNOWN type %T", x)
 		panic(bad)
 	}
+}
+
+func (sender *Sender) networkSendFile(msg *service.Record, filesRecord *service.FilesRecord) {
+	fmt.Printf("GOTFILE", filesRecord)
 }
 
 func (sender *Sender) networkSendRun(msg *service.Record, record *service.RunRecord) {

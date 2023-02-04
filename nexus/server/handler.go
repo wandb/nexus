@@ -162,6 +162,8 @@ func (handler *Handler) handleRecord(msg *service.Record) {
 	case *service.Record_Run:
 		// fmt.Println("rungot:", x)
 		handler.handleRun(msg, x.Run)
+	case *service.Record_Files:
+		handler.sender.SendRecord(msg)
 	case *service.Record_History:
 		// fmt.Println("histgot:", x)
 	case *service.Record_Telemetry:
