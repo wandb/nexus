@@ -109,8 +109,11 @@ func (fs *FileStream) sendFinish() {
 	type FsFinishedData struct {
 		Complete bool `json:"complete"`
 		Exitcode int  `json:"exitcode"`
+		// Uploaded []string `json:"uploaded"`
 	}
 
+	// uploaded := []string{"data.txt"}
+	// fsdata := FsFinishedData{Complete: true, Exitcode: 0, Uploaded: uploaded}
 	fsdata := FsFinishedData{Complete: true, Exitcode: 0}
 	fs.send(fsdata)
 }
