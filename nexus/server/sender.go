@@ -121,9 +121,9 @@ func (sender *Sender) networkSendRecord(msg *service.Record) {
 	switch x := msg.RecordType.(type) {
 	case *service.Record_Run:
 		// fmt.Println("rungot:", x)
-		sender.networkSendRun(msg, x.Run)
+		sender.sendRun(msg, x.Run)
 	case *service.Record_Files:
-		sender.networkSendFile(msg, x.Files)
+		sender.sendFiles(msg, x.Files)
 	case *service.Record_History:
 		sender.sendHistory(msg, x.History)
 	case *service.Record_Request:
@@ -163,13 +163,16 @@ func sendData(fname, urlPath string) error {
 	return nil
 }
 
-func (sender *Sender) networkSendFile(msg *service.Record, filesRecord *service.FilesRecord) {
-	// fmt.Println("GOTFILE", filesRecord)
+func (sender *Sender) sendFiles(msg *service.Record, filesRecord *service.FilesRecord) {
 	myfiles := filesRecord.GetFiles()
-	if len(myfiles) != 1 {
-		panic("unsupported len")
+	for _, fi := range myfiles {
+		sender.doSendFile(msg, fi)
 	}
-	path := myfiles[0].GetPath()
+}
+
+func (sender *Sender) doSendFile(msg *service.Record, fileItem *service.FilesItem) {
+	// fmt.Println("GOTFILE", filesRecord)
+	path := fileItem.GetPath()
 
 	if sender.run == nil {
 		panic("upsert run not called before send file")
@@ -232,7 +235,7 @@ func (sender *Sender) networkSendFile(msg *service.Record, filesRecord *service.
 	// fmt.Printf("got: %s\n", result)
 }
 
-func (sender *Sender) networkSendRun(msg *service.Record, record *service.RunRecord) {
+func (sender *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 
 	keepRun := *record
 
