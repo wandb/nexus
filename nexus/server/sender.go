@@ -152,16 +152,19 @@ func sendData(fname, urlPath string) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", "application/octet-stream")
-	rsp, _ := client.Do(req)
+	// req.Header.Set("Content-Type", "application/octet-stream")
+	rsp, err := client.Do(req)
 	if rsp.StatusCode != http.StatusOK {
 		log.Printf("Request failed with response code: %d", rsp.StatusCode)
+		panic("badness")
 	}
+	// fmt.Println("GOTERR", rsp, err)
+	check(err)
 	return nil
 }
 
 func (sender *Sender) networkSendFile(msg *service.Record, filesRecord *service.FilesRecord) {
-	fmt.Println("GOTFILE", filesRecord)
+	// fmt.Println("GOTFILE", filesRecord)
 	myfiles := filesRecord.GetFiles()
 	if len(myfiles) != 1 {
 		panic("unsupported len")
@@ -205,24 +208,24 @@ func (sender *Sender) networkSendFile(msg *service.Record, filesRecord *service.
 	model := resp.GetModel()
 	bucket := model.GetBucket()
 
-	runID := bucket.GetId()
-	fmt.Printf("ID: %s\n", runID)
+	// runID := bucket.GetId()
+	// fmt.Printf("ID: %s\n", runID)
 
 	fileList := bucket.GetFiles()
 
-	headers := fileList.GetUploadHeaders()
-	fmt.Printf("HEADS: %s\n", headers)
+	// headers := fileList.GetUploadHeaders()
+	// fmt.Printf("HEADS: %s\n", headers)
 
 	edges := fileList.GetEdges()
 	// result := make([]*RunUploadUrlsModelProjectBucketRunFilesFileConnectionEdgesFileEdgeNodeFile, len(edges))
 	result := make([]*string, len(edges))
 	for i, e := range edges {
 		node := e.GetNode()
-		name := node.GetName()
+		// name := node.GetName()
 		url := node.GetUrl()
-		updated := node.GetUpdatedAt()
+		// updated := node.GetUpdatedAt()
 		result[i] = url
-		fmt.Printf("url: %d %s %s %s\n", i, *url, name, updated)
+		// fmt.Printf("url: %d %s %s %s\n", i, *url, name, updated)
 		err = sendData(fname, *url)
 		check(err)
 	}
