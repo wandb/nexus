@@ -5,6 +5,10 @@ import (
 	// "io"
 	// "google.golang.org/protobuf/reflect/protoreflect"
 	"sync"
+	"time"
+
+	"bytes"
+	"io/ioutil"
 
 	"context"
 	"encoding/base64"
@@ -109,8 +113,36 @@ func (sender *Sender) networkSendRecord(msg *service.Record) {
 	}
 }
 
+func sendData(fname, urlPath string) error {
+	method := "PUT"
+	client := &http.Client{
+		Timeout: time.Second * 10,
+	}
+
+	b, err := ioutil.ReadFile(fname)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(method, urlPath, bytes.NewReader(b))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/octet-stream")
+	rsp, _ := client.Do(req)
+	if rsp.StatusCode != http.StatusOK {
+		log.Printf("Request failed with response code: %d", rsp.StatusCode)
+	}
+	return nil
+}
+
 func (sender *Sender) networkSendFile(msg *service.Record, filesRecord *service.FilesRecord) {
 	fmt.Println("GOTFILE", filesRecord)
+	fileList = filesRecord.GetFiles()
+	if len(fileList) != 0 {
+		panic("unsupported len")
+	}
+	path := fileList[0].GetPath()
 
 	if sender.run == nil {
 		panic("upsert run not called before send file")
@@ -120,7 +152,7 @@ func (sender *Sender) networkSendFile(msg *service.Record, filesRecord *service.
 	project := sender.run.Project
 	runId := sender.run.RunId
 	entity := sender.run.Entity
-	fname := "data.txt"
+	fname := path
 	files := []*string{&fname}
 
 	resp, err := RunUploadUrls(
@@ -167,8 +199,10 @@ func (sender *Sender) networkSendFile(msg *service.Record, filesRecord *service.
 		updated := node.GetUpdatedAt()
 		result[i] = url
 		fmt.Printf("url: %d %s %s %s\n", i, *url, name, updated)
+		err = sendData(fname, *url)
+		check(err)
 	}
-	fmt.Printf("got: %s\n", result)
+	// fmt.Printf("got: %s\n", result)
 }
 
 func (sender *Sender) networkSendRun(msg *service.Record, record *service.RunRecord) {
