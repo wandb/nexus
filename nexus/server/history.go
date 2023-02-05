@@ -43,7 +43,7 @@ func (h *Handler) handlePartialHistory(rec *service.Record, req *service.Partial
 	h.storeRecord(&r)
 	h.updateSummary(&hrecord)
 
-	if h.fstream != nil {
-		h.fstream.StreamRecord(&r)
+	if h.sender != nil {
+		h.sender.SendRecord(&r)
 	}
 }

@@ -28,6 +28,7 @@ type Sender struct {
 	graphqlClient graphql.Client
 	respondResult func(result *service.Result)
 	settings      *Settings
+	fstream       *FileStream
 	run           *service.RunRecord
 }
 
@@ -45,7 +46,16 @@ func NewSender(wg *sync.WaitGroup, respondResult func(result *service.Result), s
 }
 
 func (sender *Sender) Stop() {
+	if sender.fstream != nil {
+		sender.fstream.Stop()
+	}
 	close(sender.senderChan)
+}
+
+func (sender *Sender) startRunWorkers() {
+	fsPath := fmt.Sprintf("%s/files/%s/%s/%s/file_stream",
+		sender.settings.BaseURL, sender.run.Entity, sender.run.Project, sender.run.RunId)
+	sender.fstream = NewFileStream(sender.wg, fsPath, sender.settings)
 }
 
 func (sender *Sender) SendRecord(rec *service.Record) {
@@ -87,10 +97,22 @@ func (sender *Sender) senderInit() {
 func (sender *Sender) sendNetworkStatusRequest(msg *service.NetworkStatusRequest) {
 }
 
+func (sender *Sender) sendRunStart(req *service.RunStartRequest) {
+	sender.startRunWorkers()
+}
+
+func (sender *Sender) sendHistory(msg *service.Record, history *service.HistoryRecord) {
+	if sender.fstream != nil {
+		sender.fstream.StreamRecord(msg)
+	}
+}
+
 func (sender *Sender) sendRequest(msg *service.Record, req *service.Request) {
 	switch x := req.RequestType.(type) {
 	case *service.Request_NetworkStatus:
 		sender.sendNetworkStatusRequest(x.NetworkStatus)
+	case *service.Request_RunStart:
+		sender.sendRunStart(x.RunStart)
 	default:
 	}
 }
@@ -102,6 +124,8 @@ func (sender *Sender) networkSendRecord(msg *service.Record) {
 		sender.networkSendRun(msg, x.Run)
 	case *service.Record_Files:
 		sender.networkSendFile(msg, x.Files)
+	case *service.Record_History:
+		sender.sendHistory(msg, x.History)
 	case *service.Record_Request:
 		sender.sendRequest(msg, x.Request)
 	case nil:
@@ -138,11 +162,11 @@ func sendData(fname, urlPath string) error {
 
 func (sender *Sender) networkSendFile(msg *service.Record, filesRecord *service.FilesRecord) {
 	fmt.Println("GOTFILE", filesRecord)
-	fileList = filesRecord.GetFiles()
-	if len(fileList) != 0 {
+	myfiles := filesRecord.GetFiles()
+	if len(myfiles) != 1 {
 		panic("unsupported len")
 	}
-	path := fileList[0].GetPath()
+	path := myfiles[0].GetPath()
 
 	if sender.run == nil {
 		panic("upsert run not called before send file")

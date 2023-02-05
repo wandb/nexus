@@ -17,7 +17,6 @@ type Handler struct {
 	wg      *sync.WaitGroup
 	writer  *Writer
 	sender  *Sender
-	fstream *FileStream
 	run     service.RunRecord
 
 	summary map[string]string
@@ -47,12 +46,6 @@ func (handler *Handler) Stop() {
 	close(handler.handlerChan)
 }
 
-func (h *Handler) startRunWorkers() {
-	fsPath := fmt.Sprintf("%s/files/%s/%s/%s/file_stream",
-		h.settings.BaseURL, h.run.Entity, h.run.Project, h.run.RunId)
-	h.fstream = NewFileStream(h.wg, fsPath, h.settings)
-}
-
 func (handler *Handler) HandleRecord(rec *service.Record) {
 	handler.handlerChan <- rec
 }
@@ -60,9 +53,6 @@ func (handler *Handler) HandleRecord(rec *service.Record) {
 func (h *Handler) shutdownStream() {
 	h.writer.Stop()
 	h.sender.Stop()
-	if h.fstream != nil {
-		h.fstream.Stop()
-	}
 	h.wg.Wait()
 }
 
@@ -73,7 +63,7 @@ func (h *Handler) captureRunInfo(run *service.RunRecord) {
 
 func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartRequest) {
 	h.captureRunInfo(req.Run)
-	h.startRunWorkers()
+	h.sender.SendRecord(rec)
 }
 
 func (h *Handler) handleRun(rec *service.Record, run *service.RunRecord) {
