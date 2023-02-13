@@ -1,6 +1,7 @@
 // typedef int (*finish_func)(int exit_code);
 
 struct wandb_run_s {
+    int num;
 };
 
 struct wandb_history_s {

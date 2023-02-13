@@ -66,6 +66,14 @@ func nexus_connect() int {
 	return 22
 }
 
+//export nexus_finish
+func nexus_finish(n int) {
+}
+
+//export nexus_log
+func nexus_log(n int) {
+}
+
 //export nexus_close
 func nexus_close(n int) {
 }
