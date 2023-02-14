@@ -8,6 +8,7 @@
 int wandb_init(wandb_run *run) {
     int n = nexus_start();
     run->num = n;
+    int d = nexus_recv(n);
     return 0;
 }
 
