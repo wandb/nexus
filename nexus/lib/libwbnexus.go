@@ -9,7 +9,7 @@ import (
 
 type NexusStream struct {
 	send chan service.Record
-	recv chan service.ServerResponse
+	recv chan service.Result
 }
 
 var m map[int]NexusStream = make(map[int]NexusStream)
@@ -17,11 +17,22 @@ var m map[int]NexusStream = make(map[int]NexusStream)
 func RespondServerResponse(serverResponse *service.ServerResponse) {
 }
 
+func ResultFromServerResponse(serverResponse *service.ServerResponse) *service.Result {
+	switch x := serverResponse.ServerResponseType.(type) {
+	case *service.ServerResponse_ResultCommunicate:
+		r := x.ResultCommunicate
+		return r
+	}
+	return nil
+}
+
 func FuncRespondServerResponse(num int) func(serverResponse *service.ServerResponse) {
 	return func(serverResponse *service.ServerResponse) {
-		fmt.Println("GOT", num, serverResponse)
+		// fmt.Println("GOT", num, serverResponse)
 		ns := m[num]
-		ns.recv <-*serverResponse
+
+		result := ResultFromServerResponse(serverResponse)
+		ns.recv <-*result
 	}
 }
 
@@ -54,9 +65,9 @@ func (ns *NexusStream) start(s *server.Stream) {
 
 //export nexus_recv
 func nexus_recv(num int) int {
-
 	ns := m[num]
-	_ = <-ns.recv
+	got := <-ns.recv
+	fmt.Println("RECV", &got)
 	return 1
 }
 
@@ -77,7 +88,7 @@ func nexus_start() int {
 	s := server.NewStream(FuncRespondServerResponse(num), settings)
 
 	c := make(chan service.Record)
-	d := make(chan service.ServerResponse)
+	d := make(chan service.Result)
 	if m == nil {
 		m = make(map[int]NexusStream)
 	}
