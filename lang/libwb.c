@@ -26,6 +26,11 @@ void wandb_log(wandb_run *run, wandb_history *hist) {
     nexus_log(num);
 }
 
+void wandb_log_scaler(wandb_run *run, char *key, float value) {
+    int num = run->num;
+    nexus_log_scaler(num, key, value);
+}
+
 void wandb_finish(wandb_run *run) {
     int num = run->num;
     nexus_finish(num);

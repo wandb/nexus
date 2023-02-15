@@ -75,7 +75,7 @@ func nexus_recv(num int) int {
 func nexus_start() int {
 	settings := &server.Settings{
 		BaseURL:  "https://api.wandb.ai",
-		ApiKey:   "6bb89ffd621b666f54fd6a6a2db6bd2aebcad909",
+		ApiKey:   "REDACTED",
 		SyncFile: "something.wandb",
 		Offline:  false}
 
@@ -105,10 +105,26 @@ func nexus_start() int {
 
 //export nexus_finish
 func nexus_finish(n int) {
+	ns := m[n]
+	exitRecord := service.RunExitRecord{}
+	r := service.Record{
+		RecordType: &service.Record_Exit{&exitRecord},
+	}
+	ns.sendRecord(&r)
 }
 
 //export nexus_log
 func nexus_log(n int) {
+	ns := m[n]
+	historyRecord := service.HistoryRecord{}
+	r := service.Record{
+		RecordType: &service.Record_History{&historyRecord},
+	}
+	ns.sendRecord(&r)
+}
+
+//export nexus_log_scaler
+func nexus_log_scaler(n int, log_key *C.char, log_value C.float) {
 	ns := m[n]
 	historyRecord := service.HistoryRecord{}
 	r := service.Record{
