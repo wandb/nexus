@@ -2,6 +2,7 @@ package main
 
 import (
 	"C"
+	"crypto/rand"
 	"os"
 	"fmt"
 	"github.com/wandb/wandb/nexus/server"
@@ -72,6 +73,18 @@ func nexus_recv(num int) int {
 	return 1
 }
 
+var chars = "abcdefghijklmnopqrstuvwxyz1234567890"
+
+func shortID(length int) string {
+    ll := len(chars)
+    b := make([]byte, length)
+    rand.Read(b) // generates len(b) random bytes
+    for i := 0; i < length; i++ {
+        b[i] = chars[int(b[i])%ll]
+    }
+    return string(b)
+}
+
 //export nexus_start
 func nexus_start() int {
 	base_url := os.Getenv("WANDB_BASE_URL")
@@ -82,6 +95,10 @@ func nexus_start() int {
 	if api_key == "" {
 		panic("set api key WANDB_API_KEY")
 	}
+	run_id := os.Getenv("WANDB_RUN_ID")
+	if run_id == "" {
+		run_id = shortID(8)
+	}
 
 	settings := &server.Settings{
 		BaseURL:  base_url,
@@ -89,7 +106,7 @@ func nexus_start() int {
 		SyncFile: "something.wandb",
 		Offline:  false}
 
-	runRecord := service.RunRecord{RunId:"jnk132"}
+	runRecord := service.RunRecord{RunId:run_id}
 	r := service.Record{
 		RecordType: &service.Record_Run{&runRecord},
 	}

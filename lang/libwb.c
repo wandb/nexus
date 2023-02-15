@@ -34,4 +34,5 @@ void wandb_log_scaler(wandb_run *run, char *key, float value) {
 void wandb_finish(wandb_run *run) {
     int num = run->num;
     nexus_finish(num);
+    int d = nexus_recv(num);
 }
