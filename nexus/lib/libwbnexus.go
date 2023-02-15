@@ -1,8 +1,9 @@
 package main
 
 import (
-    "C"
-    "fmt"
+	"C"
+	"os"
+	"fmt"
 	"github.com/wandb/wandb/nexus/server"
 	"github.com/wandb/wandb/nexus/service"
 )
@@ -73,9 +74,18 @@ func nexus_recv(num int) int {
 
 //export nexus_start
 func nexus_start() int {
+	base_url := os.Getenv("WANDB_BASE_URL")
+	if base_url == "" {
+		base_url = "https://api.wandb.ai"
+	}
+	api_key := os.Getenv("WANDB_API_KEY")
+	if api_key == "" {
+		panic("set api key WANDB_API_KEY")
+	}
+
 	settings := &server.Settings{
-		BaseURL:  "https://api.wandb.ai",
-		ApiKey:   "REDACTED",
+		BaseURL:  base_url,
+		ApiKey:   api_key,
 		SyncFile: "something.wandb",
 		Offline:  false}
 
