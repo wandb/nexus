@@ -7,7 +7,7 @@ import (
 
 const (
 	AddSrv = ":8080"
-	TemplatesDir = "."
+	TemplatesDir = "jsroot/"
 )
 
 func main() {
