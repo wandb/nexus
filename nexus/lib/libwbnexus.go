@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"os"
 	"fmt"
+	"strings"
 	"github.com/wandb/wandb/nexus/server"
 	"github.com/wandb/wandb/nexus/service"
 )
@@ -13,6 +14,7 @@ type NexusStream struct {
 	send chan service.Record
 	recv chan service.Result
 	run *service.RunRecord
+	settings *server.Settings
 }
 
 var m map[int]*NexusStream = make(map[int]*NexusStream)
@@ -49,6 +51,24 @@ func _nexus_list() []int {
 //
 //
 
+
+func (ns *NexusStream) printHeadFoot() {
+	// fmt.Println("GOT", ns.run)
+	settings := ns.settings
+	run := ns.run
+	appURL := strings.Replace(settings.BaseURL, "//api.", "//", 1)
+	url := fmt.Sprintf("%v/%v/%v/runs/%v", appURL, run.Entity, run.Project, run.RunId)
+	fmt.Printf("wandb: 🚀 View run %v at: %v\n", run.DisplayName, url)
+}
+
+func (ns *NexusStream) printHeader() {
+	ns.printHeadFoot()
+}
+
+func (ns *NexusStream) printFooter() {
+	ns.printHeadFoot()
+}
+
 func (ns *NexusStream) captureResult(result *service.Result) {
 	// fmt.Println("GOT CAPTURE", result)
 
@@ -56,8 +76,11 @@ func (ns *NexusStream) captureResult(result *service.Result) {
 	case *service.Result_RunResult:
 		if ns.run == nil {
 			ns.run = x.RunResult.GetRun()
+			ns.printHeader()
 			// fmt.Println("GOT RUN from RESULT", ns.run)
 		}
+	case *service.Result_ExitResult:
+		ns.printFooter()
 	}
 }
 
@@ -82,8 +105,8 @@ func (ns *NexusStream) start(s *server.Stream) {
 //export nexus_recv
 func nexus_recv(num int) int {
 	ns := m[num]
-	got := <-ns.recv
-	fmt.Println("RECV", &got)
+	_ = <-ns.recv
+	// fmt.Println("RECV", &got)
 	return 1
 }
 
@@ -135,7 +158,7 @@ func nexus_start() int {
 	if m == nil {
 		m = make(map[int]*NexusStream)
 	}
-	ns := &NexusStream{c, d, nil}
+	ns := &NexusStream{c, d, nil, settings}
 	m[num] = ns
 	ns.start(s)
 

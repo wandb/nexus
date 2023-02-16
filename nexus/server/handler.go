@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/wandb/wandb/nexus/service"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -91,6 +92,8 @@ func (h *Handler) handleRunExit(rec *service.Record, runExit *service.RunExitRec
 		Uuid:       rec.Uuid,
 	}
 	h.respondResult(result)
+	// FIXME: hack to make sure that filestream has no data before continuing
+	time.Sleep(2 * time.Second)
 	h.shutdownStream()
 }
 
