@@ -4,6 +4,7 @@ import (
 	"C"
 	"crypto/rand"
 	"os"
+	"time"
 	"fmt"
 	"strings"
 	"github.com/wandb/wandb/nexus/server"
@@ -67,6 +68,9 @@ func (ns *NexusStream) printHeader() {
 
 func (ns *NexusStream) printFooter() {
 	ns.printHeadFoot()
+
+	// FIXME: somehow need to quiesce all queues, this is a hack
+	time.Sleep(4 * time.Second)
 }
 
 func (ns *NexusStream) captureResult(result *service.Result) {

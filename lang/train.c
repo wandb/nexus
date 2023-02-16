@@ -18,6 +18,5 @@ int main(int argc, char **argv) {
         wandb_log_scaler(&run, "key", i);
     }
     wandb_finish(&run);
-    sleep(5);
     return 0;
 }
