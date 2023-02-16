@@ -117,6 +117,7 @@ func (h *Handler) handleRequest(rec *service.Record, req *service.Request) {
 	desc := ref.Descriptor()
 	num := ref.WhichOneof(desc.Oneofs().ByName("request_type")).Number()
 	log.WithFields(log.Fields{"type": num}).Debug("PROCESS: REQUEST")
+	noResult := false
 
 	response := &service.Response{}
 
@@ -124,12 +125,17 @@ func (h *Handler) handleRequest(rec *service.Record, req *service.Request) {
 	case *service.Request_PartialHistory:
 		log.WithFields(log.Fields{"req": x}).Debug("PROCESS: got partial")
 		h.handlePartialHistory(rec, x.PartialHistory)
+		noResult = true
 	case *service.Request_RunStart:
 		log.WithFields(log.Fields{"req": x}).Debug("PROCESS: got start")
 		h.handleRunStart(rec, x.RunStart)
 	case *service.Request_GetSummary:
 		h.handleGetSummary(rec, x.GetSummary, response)
 	default:
+	}
+
+	if noResult {
+		return
 	}
 
 	result := &service.Result{
@@ -141,6 +147,7 @@ func (h *Handler) handleRequest(rec *service.Record, req *service.Request) {
 }
 
 func (handler *Handler) handleRecord(msg *service.Record) {
+	// fmt.Println("HANDLEREC", msg)
 	switch x := msg.RecordType.(type) {
 	case *service.Record_Header:
 		// fmt.Println("headgot:", x)

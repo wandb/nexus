@@ -14,8 +14,10 @@ int main(int argc, char **argv) {
     assert(rc == 0);
 
     for (i=0; i < 10; i++) {
+        printf("log %d\n", i);
         wandb_log_scaler(&run, "key", i);
     }
     wandb_finish(&run);
+    sleep(5);
     return 0;
 }

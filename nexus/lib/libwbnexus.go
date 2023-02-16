@@ -12,9 +12,10 @@ import (
 type NexusStream struct {
 	send chan service.Record
 	recv chan service.Result
+	run *service.RunRecord
 }
 
-var m map[int]NexusStream = make(map[int]NexusStream)
+var m map[int]*NexusStream = make(map[int]*NexusStream)
 
 func RespondServerResponse(serverResponse *service.ServerResponse) {
 }
@@ -34,6 +35,7 @@ func FuncRespondServerResponse(num int) func(serverResponse *service.ServerRespo
 		ns := m[num]
 
 		result := ResultFromServerResponse(serverResponse)
+		ns.captureResult(result)
 		ns.recv <-*result
 	}
 }
@@ -46,6 +48,18 @@ func _nexus_list() []int {
 //
 //
 //
+
+func (ns *NexusStream) captureResult(result *service.Result) {
+	// fmt.Println("GOT CAPTURE", result)
+
+	switch x := result.ResultType.(type) {
+	case *service.Result_RunResult:
+		if ns.run == nil {
+			ns.run = x.RunResult.GetRun()
+			// fmt.Println("GOT RUN from RESULT", ns.run)
+		}
+	}
+}
 
 func (ns *NexusStream) sendRecord(r *service.Record) {
 	ns.send <- *r
@@ -87,6 +101,8 @@ func shortID(length int) string {
 
 //export nexus_start
 func nexus_start() int {
+	server.InitLogging()
+
 	base_url := os.Getenv("WANDB_BASE_URL")
 	if base_url == "" {
 		base_url = "https://api.wandb.ai"
@@ -117,9 +133,9 @@ func nexus_start() int {
 	c := make(chan service.Record)
 	d := make(chan service.Result)
 	if m == nil {
-		m = make(map[int]NexusStream)
+		m = make(map[int]*NexusStream)
 	}
-	ns := NexusStream{c, d}
+	ns := &NexusStream{c, d, nil}
 	m[num] = ns
 	ns.start(s)
 
@@ -128,6 +144,27 @@ func nexus_start() int {
 
 	// go processStuff()
 	return num
+}
+
+//export nexus_run_start
+func nexus_run_start(n int) {
+	ns := m[n]
+	run := m[n].run
+	// fmt.Println("SEND RUN START", n, run)
+
+	if run == nil {
+		panic("run cant be nil")
+	}
+
+	runStartRequest := service.RunStartRequest{}
+	runStartRequest.Run = run
+	req := service.Request{
+		RequestType: &service.Request_RunStart{&runStartRequest},
+	}
+	r := service.Record{
+		RecordType: &service.Record_Request{&req},
+	}
+	ns.sendRecord(&r)
 }
 
 //export nexus_finish
@@ -153,9 +190,22 @@ func nexus_log(n int) {
 //export nexus_log_scaler
 func nexus_log_scaler(n int, log_key *C.char, log_value C.float) {
 	ns := m[n]
-	historyRecord := service.HistoryRecord{}
+	key := C.GoString(log_key)
+	// fmt.Println("GOT", key, log_value)
+	value_json := fmt.Sprintf("%v", log_value)
+	historyRequest := service.PartialHistoryRequest{
+		Item: []*service.HistoryItem{
+			{
+				Key: key,
+				ValueJson: value_json,
+			},
+		},
+	}
+	req := service.Request{
+		RequestType: &service.Request_PartialHistory{&historyRequest},
+	}
 	r := service.Record{
-		RecordType: &service.Record_History{&historyRecord},
+		RecordType: &service.Record_Request{&req},
 	}
 	ns.sendRecord(&r)
 }

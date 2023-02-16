@@ -1,6 +1,7 @@
 
 
 
+#include <stdio.h>
 #include "libwb.h"
 #include "../nexus/libwbnexus.h"
 
@@ -9,6 +10,8 @@ int wandb_init(wandb_run *run) {
     int n = nexus_start();
     run->num = n;
     int d = nexus_recv(n);
+    nexus_run_start(n);
+    int d2 = nexus_recv(n);
     return 0;
 }
 
