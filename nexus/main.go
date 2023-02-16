@@ -7,7 +7,14 @@ import (
 
 func main() {
 	js.Global().Set("base64", encodeWrapper())
+	js.Global().Set("wandb_init", wandb_init())
 	<-make(chan bool)
+}
+
+func wandb_init() js.Func {
+	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return wrap("junk", "")
+	})
 }
 
 func encodeWrapper() js.Func {
