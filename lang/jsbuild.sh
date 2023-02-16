@@ -6,6 +6,7 @@ cd -
 cd jsroot
 cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" .
 cp ../../nexus/main.wasm .
+cp ../index.html .
 cd -
 # gcc -pthread foo.c foo.a -o foo
 # gcc -pthread foo.c foo.a -framework Cocoa -framework IOKit -framework Security  -o foo
