@@ -1,7 +1,6 @@
 #include <stdio.h>
-#include <unistd.h>
 #include <assert.h>
-#include "../nexus/libwbnexus.h"
+
 #include "libwb.h"
 
 
