@@ -55,11 +55,15 @@ func _nexus_list() []int {
 
 func (ns *NexusStream) printHeadFoot() {
 	// fmt.Println("GOT", ns.run)
+	colorReset := "\033[0m"
+	colorBlue := "\033[34m"
+	colorYellow := "\033[33m"
+
 	settings := ns.settings
 	run := ns.run
 	appURL := strings.Replace(settings.BaseURL, "//api.", "//", 1)
 	url := fmt.Sprintf("%v/%v/%v/runs/%v", appURL, run.Entity, run.Project, run.RunId)
-	fmt.Printf("wandb: 🚀 View run %v at: %v\n", run.DisplayName, url)
+	fmt.Printf("%vwandb%v: 🚀 View run %v%v%v at: %v%v%v\n", colorBlue, colorReset, colorYellow, run.DisplayName, colorReset, colorBlue, url, colorReset)
 }
 
 func (ns *NexusStream) printHeader() {
