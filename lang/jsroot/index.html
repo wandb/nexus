@@ -1,0 +1,46 @@
+<html>
+<head>
+    <meta charset="utf-8" />
+    <script src="wasm_exec.js"></script>
+    <script>
+        if (!WebAssembly.instantiateStreaming) {
+            WebAssembly.instantiateStreaming = async (resp, importObject) => {
+                const source = await (await resp).arrayBuffer();
+                return await WebAssembly.initiate(source, importObject);
+            };
+        }
+        const go = new Go();
+        WebAssembly
+            .instantiateStreaming(fetch("main.wasm"), go.importObject)
+            .then((result) => {
+                go.run(result.instance);
+            });
+    </script>
+</head>
+    <body style="text-align-last: center">
+        <div>
+            <textarea id="input" cols="40" rows="10">
+            </textarea>
+        </div>
+        <div>
+            <input type="submit"
+                   value="> Base64 Encode <"
+                   onclick="encodeJs(input.value)"/>
+        </div>
+        <div>
+            <textarea id="output" cols="40" rows="10">
+            </textarea>
+        </div>
+    </body>
+<script>
+        let encodeJs = function(input) {
+            let result = base64(input);
+            if (result.error !== '') {
+                alert(result.error);
+            } else {
+                output.value = result.encoded;
+            }
+        }
+</script>
+</html>
+
