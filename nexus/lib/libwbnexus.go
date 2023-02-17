@@ -2,25 +2,41 @@ package main
 
 import (
 	"C"
-	"crypto/rand"
 	"os"
 	"time"
-	"fmt"
 	"strings"
+	"fmt"
+	// "strings"
 	"github.com/wandb/wandb/nexus/server"
 	"github.com/wandb/wandb/nexus/service"
 )
 
-type NexusStream struct {
-	send chan service.Record
-	recv chan service.Result
-	run *service.RunRecord
-	settings *server.Settings
-}
-
-var m map[int]*NexusStream = make(map[int]*NexusStream)
+var m map[int]*server.NexusStream = make(map[int]*server.NexusStream)
 
 func RespondServerResponse(serverResponse *service.ServerResponse) {
+}
+
+func PrintHeadFoot(run *service.RunRecord, settings *server.Settings) {
+	// fmt.Println("GOT", ns.run)
+	colorReset := "\033[0m"
+	colorBlue := "\033[34m"
+	colorYellow := "\033[33m"
+
+	appURL := strings.Replace(settings.BaseURL, "//api.", "//", 1)
+	url := fmt.Sprintf("%v/%v/%v/runs/%v", appURL, run.Entity, run.Project, run.RunId)
+	fmt.Printf("%vwandb%v: 🚀 View run %v%v%v at: %v%v%v\n", colorBlue, colorReset, colorYellow, run.DisplayName, colorReset, colorBlue, url, colorReset)
+}
+
+func ResultCallback(run *service.RunRecord, settings *server.Settings, result *service.Result) {
+	switch result.ResultType.(type) {
+	case *service.Result_RunResult:
+		// TODO: distinguish between first and subsequent RunResult
+		PrintHeadFoot(run, settings)
+	case *service.Result_ExitResult:
+		PrintHeadFoot(run, settings)
+		// FIXME: somehow need to quiesce all queues, this is a hack
+		time.Sleep(4 * time.Second)
+	}
 }
 
 func ResultFromServerResponse(serverResponse *service.ServerResponse) *service.Result {
@@ -38,8 +54,8 @@ func FuncRespondServerResponse(num int) func(serverResponse *service.ServerRespo
 		ns := m[num]
 
 		result := ResultFromServerResponse(serverResponse)
-		ns.captureResult(result)
-		ns.recv <-*result
+		ns.CaptureResult(result)
+		ns.Recv <-*result
 	}
 }
 
@@ -53,81 +69,23 @@ func _nexus_list() []int {
 //
 
 
-func (ns *NexusStream) printHeadFoot() {
-	// fmt.Println("GOT", ns.run)
-	colorReset := "\033[0m"
-	colorBlue := "\033[34m"
-	colorYellow := "\033[33m"
+// func (ns *NexusStream) printHeader() {
+// 	ns.printHeadFoot()
+// }
 
-	settings := ns.settings
-	run := ns.run
-	appURL := strings.Replace(settings.BaseURL, "//api.", "//", 1)
-	url := fmt.Sprintf("%v/%v/%v/runs/%v", appURL, run.Entity, run.Project, run.RunId)
-	fmt.Printf("%vwandb%v: 🚀 View run %v%v%v at: %v%v%v\n", colorBlue, colorReset, colorYellow, run.DisplayName, colorReset, colorBlue, url, colorReset)
-}
-
-func (ns *NexusStream) printHeader() {
-	ns.printHeadFoot()
-}
-
-func (ns *NexusStream) printFooter() {
-	ns.printHeadFoot()
-
-	// FIXME: somehow need to quiesce all queues, this is a hack
-	time.Sleep(4 * time.Second)
-}
-
-func (ns *NexusStream) captureResult(result *service.Result) {
-	// fmt.Println("GOT CAPTURE", result)
-
-	switch x := result.ResultType.(type) {
-	case *service.Result_RunResult:
-		if ns.run == nil {
-			ns.run = x.RunResult.GetRun()
-			ns.printHeader()
-			// fmt.Println("GOT RUN from RESULT", ns.run)
-		}
-	case *service.Result_ExitResult:
-		ns.printFooter()
-	}
-}
-
-func (ns *NexusStream) sendRecord(r *service.Record) {
-	ns.send <- *r
-}
-
-func (ns *NexusStream) start(s *server.Stream) {
-	// read from send channel and call ProcessRecord
-	// in a goroutine
-	go func() {
-		for {
-			select {
-			case record := <-ns.send:
-				s.ProcessRecord(&record)
-			}
-		}
-	}()
-}
-
+// func (ns *NexusStream) printFooter() {
+// 	ns.printHeadFoot()
+// 
+// 	// FIXME: somehow need to quiesce all queues, this is a hack
+// 	time.Sleep(4 * time.Second)
+// }
 
 //export nexus_recv
 func nexus_recv(num int) int {
 	ns := m[num]
-	_ = <-ns.recv
+	_ = <-ns.Recv
 	// fmt.Println("RECV", &got)
 	return 1
-}
-
-var chars = "abcdefghijklmnopqrstuvwxyz1234567890"
-
-func shortID(length int) string {
-    ll := len(chars)
-    b := make([]byte, length)
-    rand.Read(b) // generates len(b) random bytes
-    for i := 0; i < length; i++ {
-        b[i] = chars[int(b[i])%ll]
-    }
-    return string(b)
 }
 
 //export nexus_start
@@ -144,7 +102,7 @@ func nexus_start() int {
 	}
 	run_id := os.Getenv("WANDB_RUN_ID")
 	if run_id == "" {
-		run_id = shortID(8)
+		run_id = server.ShortID(8)
 	}
 
 	settings := &server.Settings{
@@ -164,13 +122,14 @@ func nexus_start() int {
 	c := make(chan service.Record)
 	d := make(chan service.Result)
 	if m == nil {
-		m = make(map[int]*NexusStream)
+		m = make(map[int]*server.NexusStream)
 	}
-	ns := &NexusStream{c, d, nil, settings}
+	ns := &server.NexusStream{c, d, nil, settings, nil}
+	ns.SetResultCallback(ResultCallback)
 	m[num] = ns
-	ns.start(s)
+	ns.Start(s)
 
-	ns.sendRecord(&r)
+	ns.SendRecord(&r)
 	// s.ProcessRecord(&r)
 
 	// go processStuff()
@@ -180,7 +139,7 @@ func nexus_start() int {
 //export nexus_run_start
 func nexus_run_start(n int) {
 	ns := m[n]
-	run := m[n].run
+	run := m[n].Run
 	// fmt.Println("SEND RUN START", n, run)
 
 	if run == nil {
@@ -195,7 +154,7 @@ func nexus_run_start(n int) {
 	r := service.Record{
 		RecordType: &service.Record_Request{&req},
 	}
-	ns.sendRecord(&r)
+	ns.SendRecord(&r)
 }
 
 //export nexus_finish
@@ -205,7 +164,7 @@ func nexus_finish(n int) {
 	r := service.Record{
 		RecordType: &service.Record_Exit{&exitRecord},
 	}
-	ns.sendRecord(&r)
+	ns.SendRecord(&r)
 }
 
 //export nexus_log
@@ -215,7 +174,7 @@ func nexus_log(n int) {
 	r := service.Record{
 		RecordType: &service.Record_History{&historyRecord},
 	}
-	ns.sendRecord(&r)
+	ns.SendRecord(&r)
 }
 
 //export nexus_log_scaler
@@ -238,7 +197,7 @@ func nexus_log_scaler(n int, log_key *C.char, log_value C.float) {
 	r := service.Record{
 		RecordType: &service.Record_Request{&req},
 	}
-	ns.sendRecord(&r)
+	ns.SendRecord(&r)
 }
 
 func main() {}
