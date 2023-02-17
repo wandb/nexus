@@ -37,7 +37,12 @@ func FuncRespondServerResponse(num int) func(serverResponse *service.ServerRespo
 
 func wandb_init() js.Func {
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		return wrap("junk", "")
+		if len(args) == 0 {
+			return wrap("", "Not enough arguments")
+		}
+		apiKey := args[0].String()
+		doit(apiKey)
+		return wrap("junkdoit", "")
 	})
 }
 
@@ -58,14 +63,14 @@ func wrap(encoded string, err string) map[string]interface{} {
 	}
 }
 
-func doit() {
+func doit(apiKey string) {
 	base_url := "https://api.wandb.ai"
 	run_id := server.ShortID(8)
-	api_key := "invalid"
 	settings := &server.Settings{
 		BaseURL:  base_url,
-		ApiKey:   api_key,
+		ApiKey:   apiKey,
 		SyncFile: "something.wandb",
+		NoWrite: true,
 		Offline:  false}
 
 	runRecord := service.RunRecord{RunId:run_id}

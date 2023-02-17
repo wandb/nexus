@@ -16,6 +16,7 @@ type Settings struct {
 	ApiKey   string
 	Offline  bool
 	SyncFile string
+	NoWrite  bool
 }
 
 func (s *Settings) parseNetrc() {

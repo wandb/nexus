@@ -27,8 +27,11 @@ type Handler struct {
 }
 
 func NewHandler(respondResult func(result *service.Result), settings *Settings) *Handler {
+	var writer *Writer
 	wg := sync.WaitGroup{}
-	writer := NewWriter(&wg, settings)
+	if settings.NoWrite == false {
+		writer = NewWriter(&wg, settings)
+	}
 	sender := NewSender(&wg, respondResult, settings)
 	handler := Handler{
 		wg:            &wg,
@@ -52,7 +55,9 @@ func (handler *Handler) HandleRecord(rec *service.Record) {
 }
 
 func (h *Handler) shutdownStream() {
-	h.writer.Stop()
+	if h.writer != nil {
+		h.writer.Stop()
+	}
 	h.sender.Stop()
 	h.wg.Wait()
 }
@@ -190,7 +195,9 @@ func (h *Handler) storeRecord(msg *service.Record) {
 		// The field is not set.
 		panic("bad3rec")
 	default:
-		h.writer.WriteRecord(msg)
+		if h.writer != nil {
+			h.writer.WriteRecord(msg)
+		}
 	}
 }
 
