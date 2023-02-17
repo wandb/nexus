@@ -1,4 +1,4 @@
 __pycache__/
 libwbnexus.a
 libwbnexus.h
-main.wasm
+libwbjs.wasm
