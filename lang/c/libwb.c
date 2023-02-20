@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 #include "libwb.h"
-#include "../nexus/libwbnexus.h"
+#include "../../nexus/libwbnexus.h"
 
 
 int wandb_init(wandb_run *run) {
