@@ -1,3 +1,5 @@
+#!/usr/bin/env julia
+
 include("libwbnexus.jl")
 import .libwbnexus
 

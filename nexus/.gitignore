@@ -2,3 +2,4 @@ __pycache__/
 libwbnexus.a
 libwbnexus.h
 libwbjs.wasm
+libwbnexus.dylib
