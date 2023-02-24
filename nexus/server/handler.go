@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/wandb/wandb/nexus/service"
 	"sync"
-	"time"
+	// "time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -89,17 +89,19 @@ func (h *Handler) handleRun(rec *service.Record, run *service.RunRecord) {
 }
 
 func (h *Handler) handleRunExit(rec *service.Record, runExit *service.RunExitRecord) {
+	h.sender.SendRecord(rec)
+
 	// TODO: need to flush stuff before responding with exit
-	runExitResult := &service.RunExitResult{}
-	result := &service.Result{
-		ResultType: &service.Result_ExitResult{runExitResult},
-		Control:    rec.Control,
-		Uuid:       rec.Uuid,
-	}
-	h.respondResult(result)
+	// runExitResult := &service.RunExitResult{}
+	// result := &service.Result{
+	// 	ResultType: &service.Result_ExitResult{runExitResult},
+	// 	Control:    rec.Control,
+	// 	Uuid:       rec.Uuid,
+	// }
+	// h.respondResult(result)
 	// FIXME: hack to make sure that filestream has no data before continuing
-	time.Sleep(2 * time.Second)
-	h.shutdownStream()
+	// time.Sleep(2 * time.Second)
+	// h.shutdownStream()
 }
 
 func (h *Handler) handleGetSummary(rec *service.Record, msg *service.GetSummaryRequest, resp *service.Response) {

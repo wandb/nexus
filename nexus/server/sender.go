@@ -122,6 +122,8 @@ func (sender *Sender) networkSendRecord(msg *service.Record) {
 	case *service.Record_Run:
 		// fmt.Println("rungot:", x)
 		sender.sendRun(msg, x.Run)
+	case *service.Record_Exit:
+		sender.sendRunExit(msg, x.Exit)
 	case *service.Record_Files:
 		sender.sendFiles(msg, x.Files)
 	case *service.Record_History:
@@ -233,6 +235,21 @@ func (sender *Sender) doSendFile(msg *service.Record, fileItem *service.FilesIte
 		check(err)
 	}
 	// fmt.Printf("got: %s\n", result)
+}
+
+func (sender *Sender) sendRunExit(msg *service.Record, record *service.RunExitRecord) {
+	// TODO: need to flush stuff before responding with exit
+	runExitResult := &service.RunExitResult{}
+	result := &service.Result{
+		ResultType: &service.Result_ExitResult{runExitResult},
+		Control:    msg.Control,
+		Uuid:       msg.Uuid,
+	}
+	sender.respondResult(result)
+	// FIXME: hack to make sure that filestream has no data before continuing
+	// time.Sleep(2 * time.Second)
+	// h.shutdownStream()
+	sender.Stop()
 }
 
 func (sender *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
