@@ -15,19 +15,14 @@ int wandb_init(wandb_run *run) {
     return 0;
 }
 
-void wandb_history_clear(wandb_history *history) {
-}
+// void wandb_history_clear(wandb_history *history) {
+// }
 
-void wandb_history_add_float(wandb_history *history, char *key, float value) {
-}
+// void wandb_history_add_float(wandb_history *history, char *key, float value) {
+// }
 
-void wandb_history_step(wandb_history *history, int step) {
-}
-
-void wandb_log(wandb_run *run, wandb_history *hist) {
-    int num = run->num;
-    nexus_log(num);
-}
+// void wandb_history_step(wandb_history *history, int step) {
+// }
 
 void wandb_log_scaler(wandb_run *run, char *key, float value) {
     int num = run->num;
