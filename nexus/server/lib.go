@@ -99,15 +99,12 @@ func LibStartSettings(settings *Settings, run_id string) int {
 	// s.ProcessRecord(&r)
 
 	// go processStuff()
-	fmt.Println("INIT2")
 	return num
 }
 
 func LibRecv(num int) int {
-	fmt.Println("RECV1")
 	ns := m[num]
 	_ = <-ns.Recv
-	fmt.Println("RECV2")
 	return 1
 }
 
