@@ -18,29 +18,81 @@
     </script>
 </head>
     <body style="text-align-last: center">
-        <div>
-            <textarea id="input" cols="40" rows="10">
-            </textarea>
-        </div>
+        <form id="apiform" action="" >
+            <label for="apikey">API key:</label>
+            <input type="password" id="apikey" name="apikey" size="50" >
+            <input type="submit"
+                   onclick="wandbLogin(apikey.value)" />
+        </form>
+
         <div>
             <input type="submit"
-                   value="> Base64 Encode <"
-                   onclick="encodeJs(input.value)"/>
-        </div>
-        <div>
-            <textarea id="output" cols="40" rows="10">
-            </textarea>
+                   value="> Train <"
+                   onclick="train()"/>
         </div>
     </body>
 <script>
-        let encodeJs = function(input) {
-            let result = base64(input);
-            if (result.error !== '') {
-                alert(result.error);
-            } else {
-                output.value = result.encoded;
-            }
+    let apiform = document.getElementById("apiform");
+
+    apiform.addEventListener("submit", (e) => {
+        e.preventDefault();
+    });
+
+    let wandbLogin = function(input) {
+        console.log("login");
+        wandb_login(input);
+    }
+
+    function Run(run_id, run_num) {
+        this.id = run_id;
+        this._num = run_num;
+        this.finish = function() {
+            console.log("fin1");
+            let r = wandb_finish(this._num);
+            console.log("fin2");
+            return r;
         }
+    }
+
+    async function wandbInit() {
+        console.log("init");
+        let run_promise = wandb_init();
+        console.log("init2");
+        let run = run_promise;
+        console.log("init3", run);
+        let fin = new Promise(function(resolve, reject) {
+            run.then(function(result) {
+                console.log("got", result);
+                let run_obj = JSON.parse(result.encoded);
+                run = new Run(run_obj.id, run_obj._num);
+                resolve(run);
+            });
+        });
+
+        // run = new Run(run_obj.id, run_obj._num);
+        return fin;
+    }
+
+    let XXwandbInit = async function() {
+        console.log("init");
+        let run_data = wandb_init();
+        let run_obj = JSON.parse(run_data.encoded)
+        run = new Run(run_obj.id, run_obj._num);
+        // wandb_recv(run._num);
+        run.finish = function() {
+            console.log("fin1");
+            wandb_finish(this._num);
+            console.log("fin2");
+            // wandb_recv(this._num);
+            console.log("fin3");
+        };
+        return run;
+    }
+
+    async function train() {
+        run = await wandbInit();
+        console.log("RUN", run);
+        await run.finish();
+    }
 </script>
 </html>
-

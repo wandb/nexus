@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/base64"
 	"syscall/js"
+	"encoding/json"
 	"github.com/wandb/wandb/nexus/server"
+	"fmt"
 )
 
 var globApiKey string
@@ -12,7 +14,11 @@ func main() {
 	js.Global().Set("base64", encodeWrapper())
 	js.Global().Set("wandb_login", wandb_login())
 	js.Global().Set("wandb_init", wandb_init())
+	js.Global().Set("wandb_finish", wandb_finish())
+	js.Global().Set("wandb_recv", wandb_recv())
+	fmt.Println("start")
 	<-make(chan bool)
+	fmt.Println("stop")
 }
 
 func wandb_login() js.Func {
@@ -22,6 +28,46 @@ func wandb_login() js.Func {
 		}
 		apiKey := args[0].String()
 		globApiKey = apiKey
+		return wrap("junkdoit", "")
+	})
+}
+
+type Run struct {
+    RunId string `json:"id"`
+    RunNum int `json:"_num"`
+}
+
+func wandb_finish() js.Func {
+	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) == 0 {
+			return wrap("", "Not enough arguments")
+		}
+		num := args[0].Int()
+		server.LibFinish(num)
+
+		handler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			resolve := args[0]
+			go func(num int) {
+				server.LibRecv(num)
+				resp := wrap("finnn", "")
+				resolve.Invoke(resp)
+			}(num)
+			return nil;
+		})
+
+		promiseConstructor := js.Global().Get("Promise")
+		return promiseConstructor.New(handler)
+	})
+}
+
+func wandb_recv() js.Func {
+	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) == 0 {
+			return wrap("", "Not enough arguments")
+		}
+		num := args[0].Int()
+		_ = server.LibRecv(num)
+
 		return wrap("junkdoit", "")
 	})
 }
@@ -36,8 +82,28 @@ func wandb_init() js.Func {
 			SyncFile: "something.wandb",
 			NoWrite: true,
 			Offline:  false}
-		_ = server.LibStartSettings(settings, run_id)
-		return wrap("junkdoit", "")
+		num := server.LibStartSettings(settings, run_id)
+		run := Run{RunId: run_id, RunNum: num}
+
+		handler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			resolve := args[0]
+			go func(run Run) {
+				server.LibRecv(num)
+				server.LibRunStart(num)
+				server.LibRecv(num)
+
+				data, err := json.Marshal(run)
+				if err != nil {
+					panic(err)
+				}
+				resp := wrap(string(data), "")
+				resolve.Invoke(resp)
+			}(run)
+			return nil;
+		})
+
+		promiseConstructor := js.Global().Get("Promise")
+		return promiseConstructor.New(handler)
 	})
 }
 
