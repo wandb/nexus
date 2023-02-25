@@ -51,7 +51,10 @@
             let r = wandb_finish(this._num);
             console.log("fin2");
             return r;
-        }
+        };
+        this.log_scaler = function(k, v) {
+            wandb_log_scaler(this._num,k, v);
+        };
     }
 
     async function wandbInit() {
@@ -73,25 +76,13 @@
         return fin;
     }
 
-    let XXwandbInit = async function() {
-        console.log("init");
-        let run_data = wandb_init();
-        let run_obj = JSON.parse(run_data.encoded)
-        run = new Run(run_obj.id, run_obj._num);
-        // wandb_recv(run._num);
-        run.finish = function() {
-            console.log("fin1");
-            wandb_finish(this._num);
-            console.log("fin2");
-            // wandb_recv(this._num);
-            console.log("fin3");
-        };
-        return run;
-    }
-
     async function train() {
         run = await wandbInit();
         console.log("RUN", run);
+        for (let i = 0; i < 10; i++) {
+            console.log("log", i);
+            run.log_scaler("acc", i);
+        }
         await run.finish();
     }
 </script>

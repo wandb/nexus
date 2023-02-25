@@ -85,8 +85,8 @@ func LibStartSettings(settings *Settings, run_id string) int {
 	num := 42;
 	s := NewStream(FuncRespondServerResponse(num), settings)
 
-	c := make(chan service.Record)
-	d := make(chan service.Result)
+	c := make(chan service.Record, 1000)
+	d := make(chan service.Result, 1000)
 	if m == nil {
 		m = make(map[int]*NexusStream)
 	}

@@ -15,7 +15,7 @@ func main() {
 	js.Global().Set("wandb_login", wandb_login())
 	js.Global().Set("wandb_init", wandb_init())
 	js.Global().Set("wandb_finish", wandb_finish())
-	js.Global().Set("wandb_recv", wandb_recv())
+	js.Global().Set("wandb_log_scaler", wandb_log_scaler())
 	fmt.Println("start")
 	<-make(chan bool)
 	fmt.Println("stop")
@@ -57,6 +57,19 @@ func wandb_finish() js.Func {
 
 		promiseConstructor := js.Global().Get("Promise")
 		return promiseConstructor.New(handler)
+	})
+}
+
+func wandb_log_scaler() js.Func {
+	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) != 3 {
+			return wrap("", "wrong arguments")
+		}
+		num := args[0].Int()
+		k := args[1].String()
+		v := args[2].Float()
+		server.LibLogScaler(num, k, v)
+		return wrap("ok", "")
 	})
 }
 
