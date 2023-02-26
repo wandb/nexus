@@ -31,11 +31,7 @@
                    onclick="train()"/>
         </div>
         <br>
-        <div id="frame">
-            <!--
-                <iframe src="https://wandb.ai/jeffr/uncategorized/runs/ialef4nx" style="border:none;width:100%;height:654;"}></iframe>
-              -->
-        </div>
+        <div id="frame"></div>
     </body>
 
 <script>
@@ -91,15 +87,21 @@
         return fin;
     }
 
+    function delay(time) {
+        return new Promise(resolve => setTimeout(resolve, time));
+    }
+
     async function train() {
         run = await wandbInit();
         console.log("RUN", run);
         run.display();
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < 20; i++) {
             console.log("log", i);
             run.log_scaler("acc", i);
+            await delay(300);
         }
         await run.finish();
     }
+
 </script>
 </html>
