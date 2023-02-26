@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"github.com/wandb/wandb/nexus/server"
 	"fmt"
+	"strings"
 )
 
 var globApiKey string
@@ -16,9 +17,7 @@ func main() {
 	js.Global().Set("wandb_init", wandb_init())
 	js.Global().Set("wandb_finish", wandb_finish())
 	js.Global().Set("wandb_log_scaler", wandb_log_scaler())
-	fmt.Println("start")
 	<-make(chan bool)
-	fmt.Println("stop")
 }
 
 func wandb_login() js.Func {
@@ -35,6 +34,10 @@ func wandb_login() js.Func {
 type Run struct {
     RunId string `json:"id"`
     RunNum int `json:"_num"`
+	Entity string `json:"entity"`
+	Project string `json:"project"`
+	Name string `json:"name"`
+	URL string `json:"url"`
 }
 
 func wandb_finish() js.Func {
@@ -101,7 +104,13 @@ func wandb_init() js.Func {
 		handler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			resolve := args[0]
 			go func(run Run) {
-				server.LibRecv(num)
+				got := server.LibRecv(num)
+				run.Entity = got.GetRunResult().GetRun().GetEntity()
+				run.Project = got.GetRunResult().GetRun().GetProject()
+				run.Name = got.GetRunResult().GetRun().GetDisplayName()
+				// Handle wandb server
+				app_url := strings.Replace(base_url, "://api.", "://", 1)
+				run.URL = fmt.Sprintf("%s/%s/%s/runs/%s", app_url, run.Entity, run.Project, run.RunId)
 				server.LibRunStart(num)
 				server.LibRecv(num)
 

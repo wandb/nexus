@@ -30,7 +30,11 @@
                    value="> Train <"
                    onclick="train()"/>
         </div>
+        <br>
         <div id="frame">
+            <!--
+                <iframe src="https://wandb.ai/jeffr/uncategorized/runs/ialef4nx" style="border:none;width:100%;height:654;"}></iframe>
+              -->
         </div>
     </body>
 
@@ -46,31 +50,39 @@
         wandb_login(input);
     }
 
-    function Run(run_id, run_num) {
+    function Run(run_id, run_num, name, entity, project, url) {
         this.id = run_id;
+        this.name = name;
+        this.entity = entity;
+        this.project = project;
+        this.url = url;
         this._num = run_num;
         this.finish = function() {
-            console.log("fin1");
+            // console.log("fin1");
             let r = wandb_finish(this._num);
-            console.log("fin2");
+            // console.log("fin2");
             return r;
         };
         this.log_scaler = function(k, v) {
             wandb_log_scaler(this._num,k, v);
         };
+        this.display = function() {
+            var frame = document.getElementById("frame");
+            let html = "<iframe src=\"_URL_\" style=\"border:none;width:100%;height:654;\"></iframe>";
+            html = html.replace("_URL_", this.url);
+            console.log("frame", html);
+            frame.innerHTML = html;
+        };
     }
 
     async function wandbInit() {
-        console.log("init");
         let run_promise = wandb_init();
-        console.log("init2");
         let run = run_promise;
-        console.log("init3", run);
         let fin = new Promise(function(resolve, reject) {
             run.then(function(result) {
-                console.log("got", result);
+                // console.log("got", result);
                 let run_obj = JSON.parse(result.encoded);
-                run = new Run(run_obj.id, run_obj._num);
+                run = new Run(run_obj.id, run_obj._num, run_obj.name, run_obj.entity, run_obj.project, run_obj.url);
                 resolve(run);
             });
         });
@@ -82,6 +94,7 @@
     async function train() {
         run = await wandbInit();
         console.log("RUN", run);
+        run.display();
         for (let i = 0; i < 10; i++) {
             console.log("log", i);
             run.log_scaler("acc", i);

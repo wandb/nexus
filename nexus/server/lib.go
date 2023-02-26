@@ -102,10 +102,11 @@ func LibStartSettings(settings *Settings, run_id string) int {
 	return num
 }
 
-func LibRecv(num int) int {
+func LibRecv(num int) service.Result {
 	ns := m[num]
-	_ = <-ns.Recv
-	return 1
+	got := <-ns.Recv
+	// fmt.Println("GOT", &got)
+	return got
 }
 
 func LibRunStart(n int) {
