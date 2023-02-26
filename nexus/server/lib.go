@@ -131,7 +131,7 @@ func LibRunStart(n int) {
 
 func LibLogScaler(n int, log_key string, log_value float64) {
 	ns := m[n]
-	// fmt.Println("GOT", key, log_value)
+	// fmt.Println("GOT", n, log_key, log_value)
 	value_json := fmt.Sprintf("%v", log_value)
 	historyRequest := service.PartialHistoryRequest{
 		Item: []*service.HistoryItem{

@@ -14,4 +14,8 @@ function nexus_finish(i::Integer)
     j1 = ccall((:nexus_recv, "./libwbnexus"), Int32, (Int32,), i)
 end
 
+function nexus_log_scaler(i::Integer, k::String, v::Float32)
+    ccall((:nexus_log_scaler, "./libwbnexus"), Cvoid, (Int32, Cstring, Float32), i, k, v)
+end
+
 end

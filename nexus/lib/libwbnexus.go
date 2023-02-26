@@ -9,8 +9,8 @@ import (
 
 //export nexus_recv
 func nexus_recv(num int) int {
-	n := server.LibRecv(num)
-	return n
+	_ = server.LibRecv(num)
+	return 1
 }
 
 //export nexus_start
