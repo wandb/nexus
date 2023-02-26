@@ -41,6 +41,7 @@ func NewHandler(respondResult func(result *service.Result), settings *Settings) 
 		settings:      settings,
 		summary:       make(map[string]string),
 		handlerChan:   make(chan *service.Record)}
+	sender.SetHandler(&handler)
 
 	go handler.handlerGo()
 	return &handler
@@ -55,11 +56,15 @@ func (handler *Handler) HandleRecord(rec *service.Record) {
 }
 
 func (h *Handler) shutdownStream() {
+	log.Debug("HANDLER: shutdown")
 	if h.writer != nil {
 		h.writer.Stop()
 	}
-	h.sender.Stop()
+	// DONE ALREADY in defer path
+	// h.sender.Stop()
+	log.Debug("HANDLER: shutdown wait")
 	h.wg.Wait()
+	log.Debug("HANDLER: shutdown done")
 }
 
 func (h *Handler) captureRunInfo(run *service.RunRecord) {
@@ -115,6 +120,11 @@ func (h *Handler) handleGetSummary(rec *service.Record, msg *service.GetSummaryR
 	resp.ResponseType = &service.Response_GetSummaryResponse{GetSummaryResponse: &r}
 }
 
+func (h *Handler) handleDefer(rec *service.Record, msg *service.DeferRequest) {
+	h.sender.SendRecord(rec)
+	h.shutdownStream()
+}
+
 func (h *Handler) updateSummary(msg *service.HistoryRecord) {
 	items := msg.Item
 	for i := 0; i < len(items); i++ {
@@ -141,7 +151,11 @@ func (h *Handler) handleRequest(rec *service.Record, req *service.Request) {
 		h.handleRunStart(rec, x.RunStart)
 	case *service.Request_GetSummary:
 		h.handleGetSummary(rec, x.GetSummary, response)
+	case *service.Request_Defer:
+		h.handleDefer(rec, x.Defer)
 	default:
+		bad := fmt.Sprintf("REC UNKNOWN Request type %T", x)
+		panic(bad)
 	}
 
 	if noResult {

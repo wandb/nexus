@@ -30,14 +30,19 @@ type Sender struct {
 	settings      *Settings
 	fstream       *FileStream
 	run           *service.RunRecord
+	handler       *Handler
+	deferResult   *service.Result
+	wgFileStream  *sync.WaitGroup
 }
 
 func NewSender(wg *sync.WaitGroup, respondResult func(result *service.Result), settings *Settings) *Sender {
+	wgFileStream := sync.WaitGroup{}
 	sender := Sender{
 		senderChan:    make(chan *service.Record),
 		wg:            wg,
 		respondResult: respondResult,
 		settings:      settings,
+		wgFileStream:  &wgFileStream,
 	}
 
 	sender.wg.Add(1)
@@ -46,16 +51,25 @@ func NewSender(wg *sync.WaitGroup, respondResult func(result *service.Result), s
 }
 
 func (sender *Sender) Stop() {
+	log.Debug("SENDER: STOP")
 	if sender.fstream != nil {
 		sender.fstream.Stop()
+		log.Debug("SENDER: shutdown stream wait")
+		sender.wgFileStream.Wait()
+		log.Debug("SENDER: shutdown stream done")
 	}
 	close(sender.senderChan)
+	log.Debug("SENDER: STOP done")
 }
 
 func (sender *Sender) startRunWorkers() {
 	fsPath := fmt.Sprintf("%s/files/%s/%s/%s/file_stream",
 		sender.settings.BaseURL, sender.run.Entity, sender.run.Project, sender.run.RunId)
-	sender.fstream = NewFileStream(sender.wg, fsPath, sender.settings)
+	sender.fstream = NewFileStream(sender.wgFileStream, fsPath, sender.settings)
+}
+
+func (sender *Sender) SetHandler(h *Handler) {
+	sender.handler = h
 }
 
 func (sender *Sender) SendRecord(rec *service.Record) {
@@ -97,6 +111,15 @@ func (sender *Sender) senderInit() {
 func (sender *Sender) sendNetworkStatusRequest(msg *service.NetworkStatusRequest) {
 }
 
+func (sender *Sender) sendDefer(req *service.DeferRequest) {
+	log.Debug("SENDER: DEFER STOP")
+	sender.Stop()
+	log.Debug("SENDER: DEFER STOP done")
+	log.Debug("SENDER: DEFER RESP")
+	sender.respondResult(sender.deferResult)
+	log.Debug("SENDER: DEFER RESP DONE")
+}
+
 func (sender *Sender) sendRunStart(req *service.RunStartRequest) {
 	sender.startRunWorkers()
 }
@@ -113,6 +136,8 @@ func (sender *Sender) sendRequest(msg *service.Record, req *service.Request) {
 		sender.sendNetworkStatusRequest(x.NetworkStatus)
 	case *service.Request_RunStart:
 		sender.sendRunStart(x.RunStart)
+	case *service.Request_Defer:
+		sender.sendDefer(x.Defer)
 	default:
 	}
 }
@@ -237,6 +262,17 @@ func (sender *Sender) doSendFile(msg *service.Record, fileItem *service.FilesIte
 	// fmt.Printf("got: %s\n", result)
 }
 
+func (sender *Sender) doSendDefer() {
+	deferRequest := service.DeferRequest{}
+	req := service.Request{
+		RequestType: &service.Request_Defer{&deferRequest},
+	}
+	r := service.Record{
+		RecordType: &service.Record_Request{&req},
+	}
+	sender.handler.HandleRecord(&r)
+}
+
 func (sender *Sender) sendRunExit(msg *service.Record, record *service.RunExitRecord) {
 	// TODO: need to flush stuff before responding with exit
 	runExitResult := &service.RunExitResult{}
@@ -245,11 +281,11 @@ func (sender *Sender) sendRunExit(msg *service.Record, record *service.RunExitRe
 		Control:    msg.Control,
 		Uuid:       msg.Uuid,
 	}
-	sender.respondResult(result)
 	// FIXME: hack to make sure that filestream has no data before continuing
 	// time.Sleep(2 * time.Second)
 	// h.shutdownStream()
-	sender.Stop()
+	sender.deferResult = result
+	sender.doSendDefer()
 }
 
 func (sender *Sender) sendRun(msg *service.Record, record *service.RunRecord) {

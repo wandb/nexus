@@ -41,7 +41,9 @@ func NewFileStream(wg *sync.WaitGroup, fstreamPath string, settings *Settings) *
 
 func (fs *FileStream) Stop() {
 	// Must be called from handler
+	log.Debug("FSTREAM: STOP")
 	close(fs.fstreamChan)
+	log.Debug("FSTREAM: STOP DONE")
 }
 
 func (fs *FileStream) StreamRecord(rec *service.Record) {
