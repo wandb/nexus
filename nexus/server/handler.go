@@ -153,6 +153,13 @@ func (h *Handler) handleRequest(rec *service.Record, req *service.Request) {
 		h.handleGetSummary(rec, x.GetSummary, response)
 	case *service.Request_Defer:
 		h.handleDefer(rec, x.Defer)
+	case *service.Request_CheckVersion:
+	case *service.Request_StopStatus:
+	case *service.Request_NetworkStatus:
+	case *service.Request_PollExit:
+	case *service.Request_ServerInfo:
+	case *service.Request_SampledHistory:
+	case *service.Request_Shutdown:
 	default:
 		bad := fmt.Sprintf("REC UNKNOWN Request type %T", x)
 		panic(bad)
