@@ -94,6 +94,10 @@ func (h *Handler) handleRun(rec *service.Record, run *service.RunRecord) {
 }
 
 func (h *Handler) handleRunExit(rec *service.Record, runExit *service.RunExitRecord) {
+	control := rec.GetControl()
+	if control != nil {
+		control.AlwaysSend = true
+	}
 	h.sender.SendRecord(rec)
 
 	// TODO: need to flush stuff before responding with exit
@@ -160,6 +164,7 @@ func (h *Handler) handleRequest(rec *service.Record, req *service.Request) {
 	case *service.Request_ServerInfo:
 	case *service.Request_SampledHistory:
 	case *service.Request_Shutdown:
+	case *service.Request_Keepalive:
 	default:
 		bad := fmt.Sprintf("REC UNKNOWN Request type %T", x)
 		panic(bad)

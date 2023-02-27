@@ -73,7 +73,8 @@ func (sender *Sender) SetHandler(h *Handler) {
 }
 
 func (sender *Sender) SendRecord(rec *service.Record) {
-	if sender.settings.Offline {
+	control := rec.GetControl()
+	if sender.settings.Offline && control != nil && !control.AlwaysSend {
 		return
 	}
 	sender.senderChan <- rec
@@ -269,6 +270,7 @@ func (sender *Sender) doSendDefer() {
 	}
 	r := service.Record{
 		RecordType: &service.Record_Request{&req},
+		Control: &service.Control{AlwaysSend: true},
 	}
 	sender.handler.HandleRecord(&r)
 }
