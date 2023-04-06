@@ -59,7 +59,7 @@ func writePortfile(portfile string, port int) {
 	//            port_str = "\n".join(data)
 	//            written = f.write(port_str)
 
-	tmpfile := fmt.Sprintf("%s.tmp")
+	tmpfile := fmt.Sprintf("/tmp/junk.tmp")
 	f, err := os.Create(tmpfile)
 	check(err)
 	defer f.Close()
