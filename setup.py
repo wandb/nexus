@@ -15,8 +15,8 @@ from wheel.bdist_wheel import bdist_wheel
 PACKAGE: str = "wandb_nexus"
 ALL_PLATFORMS = (
     ("darwin", "arm64"),
-    ("darwin", "x86_64"),
-    ("linux", "x86_64"),
+    ("darwin", "amd64"),
+    ("linux", "amd64"),
     ("windows", "amd64"),
 )
 
@@ -29,7 +29,7 @@ class NexusBase:
     def _get_wheel_nexus_path(self, path=None, goos=None, goarch=None):
         path = path or self._get_package_path()
         goos = goos or platform.system().lower()
-        goarch = goarch or platform.machine().lower()
+        goarch = goarch or platform.machine().lower().replace("x86_64", "amd64")
         path = (path / f"bin-{goos}-{goarch}" / "wandb-nexus").resolve()
         return path
 
