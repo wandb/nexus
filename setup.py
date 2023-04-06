@@ -15,8 +15,8 @@ from wheel.bdist_wheel import bdist_wheel
 PACKAGE: str = "wandb_nexus"
 ALL_PLATFORMS = (
     ("darwin", "arm64"),
-    ("darwin", "amd64"),
-    ("linux", "amd64"),
+    ("darwin", "x86_64"),
+    ("linux", "x86_64"),
     ("windows", "amd64"),
 )
 
