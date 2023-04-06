@@ -41,6 +41,7 @@ class NexusBase:
             env["GOOS"] = goos
         if goarch:
             env["GOARCH"] = goarch
+        env["CGO_ENABLED"] = "0"
         os.makedirs(nexus_path.parent, exist_ok=True)
         ldflags = "-s -w"
         cmd = ("go", "build", f"-ldflags={ldflags}", "-o", str(nexus_path), "cmd/nexus_server/main.go")
