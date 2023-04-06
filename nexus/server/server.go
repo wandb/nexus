@@ -27,7 +27,7 @@ func InitLogging() {
 	}
 
 	logToConsole := false
-	logToConsole = true
+	// logToConsole = true
 	if logToConsole {
 		mw := io.MultiWriter(os.Stderr, logFile)
 		log.SetOutput(mw)
@@ -59,7 +59,7 @@ func writePortfile(portfile string, port int) {
 	//            port_str = "\n".join(data)
 	//            written = f.write(port_str)
 
-	tmpfile := fmt.Sprintf("/tmp/junk.tmp")
+	tmpfile := fmt.Sprintf("%s.tmp", portfile)
 	f, err := os.Create(tmpfile)
 	check(err)
 	defer f.Close()
