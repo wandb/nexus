@@ -2,8 +2,10 @@ package server
 
 import (
 	"fmt"
-	"github.com/wandb/wandb/nexus/pkg/service"
 	"sync"
+
+	"github.com/wandb/wandb/nexus/pkg/service"
+
 	// "time"
 
 	log "github.com/sirupsen/logrus"

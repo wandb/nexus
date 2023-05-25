@@ -2,8 +2,9 @@ package server
 
 import (
 	"fmt"
-	"github.com/wandb/wandb/nexus/pkg/service"
 	"strconv"
+
+	"github.com/wandb/wandb/nexus/pkg/service"
 	// log "github.com/sirupsen/logrus"
 )
 

@@ -4,9 +4,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/wandb/wandb/nexus/server"
 	"strings"
 	"syscall/js"
+
+	"github.com/wandb/wandb/nexus/server"
 )
 
 var globApiKey string

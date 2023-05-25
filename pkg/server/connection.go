@@ -7,8 +7,10 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
-	"google.golang.org/protobuf/proto"
 	"net"
+
+	"google.golang.org/protobuf/proto"
+
 	// "google.golang.org/protobuf/reflect/protoreflect"
 	log "github.com/sirupsen/logrus"
 	"github.com/wandb/wandb/nexus/pkg/service"

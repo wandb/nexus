@@ -3,10 +3,11 @@ package server
 import (
 	//"context"
 	"fmt"
+	"strings"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/wandb/wandb/nexus/pkg/auth"
 	"github.com/wandb/wandb/nexus/pkg/service"
-	"strings"
 )
 
 // import "wandb.ai/wandb/wbserver/wandb_internal":

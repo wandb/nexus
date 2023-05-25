@@ -10,8 +10,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/wandb/wandb/nexus/pkg/service"
 	"sync"
+
+	"github.com/wandb/wandb/nexus/pkg/service"
 
 	log "github.com/sirupsen/logrus"
 )

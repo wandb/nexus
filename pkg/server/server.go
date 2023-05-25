@@ -2,10 +2,11 @@ package server
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"net"
 	"os"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func InitLogging() {

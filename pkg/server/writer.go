@@ -3,12 +3,13 @@ package server
 import (
 	"bytes"
 	"encoding/binary"
+	"os"
+	"sync"
+
 	"github.com/golang/leveldb/record"
 	log "github.com/sirupsen/logrus"
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"google.golang.org/protobuf/proto"
-	"os"
-	"sync"
 )
 
 type Writer struct {

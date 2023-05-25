@@ -2,9 +2,10 @@ package server
 
 import (
 	"fmt"
-	"github.com/wandb/wandb/nexus/pkg/service"
 	"os"
 	"strings"
+
+	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
 var m map[int]*NexusStream = make(map[int]*NexusStream)
