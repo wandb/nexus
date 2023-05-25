@@ -1,10 +1,10 @@
 package server
 
 import (
-	"os"
 	"fmt"
-	"strings"
 	"github.com/wandb/wandb/nexus/pkg/service"
+	"os"
+	"strings"
 )
 
 var m map[int]*NexusStream = make(map[int]*NexusStream)
@@ -46,7 +46,7 @@ func FuncRespondServerResponse(num int) func(serverResponse *service.ServerRespo
 
 		result := ResultFromServerResponse(serverResponse)
 		ns.CaptureResult(result)
-		ns.Recv <-*result
+		ns.Recv <- *result
 	}
 }
 
@@ -77,12 +77,12 @@ func LibStart() int {
 }
 
 func LibStartSettings(settings *Settings, run_id string) int {
-	runRecord := service.RunRecord{RunId:run_id}
+	runRecord := service.RunRecord{RunId: run_id}
 	r := service.Record{
 		RecordType: &service.Record_Run{&runRecord},
 	}
 
-	num := 42;
+	num := 42
 	s := NewStream(FuncRespondServerResponse(num), settings)
 
 	c := make(chan service.Record, 1000)
@@ -136,7 +136,7 @@ func LibLogScaler(n int, log_key string, log_value float64) {
 	historyRequest := service.PartialHistoryRequest{
 		Item: []*service.HistoryItem{
 			{
-				Key: log_key,
+				Key:       log_key,
 				ValueJson: value_json,
 			},
 		},

@@ -15,10 +15,10 @@ type Handler struct {
 	currentStep int64
 	startTime   float64
 
-	wg      *sync.WaitGroup
-	writer  *Writer
-	sender  *Sender
-	run     service.RunRecord
+	wg     *sync.WaitGroup
+	writer *Writer
+	sender *Sender
+	run    service.RunRecord
 
 	summary map[string]string
 

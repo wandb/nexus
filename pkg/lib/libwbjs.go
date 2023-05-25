@@ -2,11 +2,11 @@ package main
 
 import (
 	"encoding/base64"
-	"syscall/js"
 	"encoding/json"
-	"github.com/wandb/wandb/nexus/server"
 	"fmt"
+	"github.com/wandb/wandb/nexus/server"
 	"strings"
+	"syscall/js"
 )
 
 var globApiKey string
@@ -32,12 +32,12 @@ func wandb_login() js.Func {
 }
 
 type Run struct {
-    RunId string `json:"id"`
-    RunNum int `json:"_num"`
-	Entity string `json:"entity"`
+	RunId   string `json:"id"`
+	RunNum  int    `json:"_num"`
+	Entity  string `json:"entity"`
 	Project string `json:"project"`
-	Name string `json:"name"`
-	URL string `json:"url"`
+	Name    string `json:"name"`
+	URL     string `json:"url"`
 }
 
 func wandb_finish() js.Func {
@@ -55,7 +55,7 @@ func wandb_finish() js.Func {
 				resp := wrap("finnn", "")
 				resolve.Invoke(resp)
 			}(num)
-			return nil;
+			return nil
 		})
 
 		promiseConstructor := js.Global().Get("Promise")
@@ -96,7 +96,7 @@ func wandb_init() js.Func {
 			BaseURL:  base_url,
 			ApiKey:   globApiKey,
 			SyncFile: "something.wandb",
-			NoWrite: true,
+			NoWrite:  true,
 			Offline:  false}
 		num := server.LibStartSettings(settings, run_id)
 		run := Run{RunId: run_id, RunNum: num}
@@ -121,7 +121,7 @@ func wandb_init() js.Func {
 				resp := wrap(string(data), "")
 				resolve.Invoke(resp)
 			}(run)
-			return nil;
+			return nil
 		})
 
 		promiseConstructor := js.Global().Get("Promise")
