@@ -1,6 +1,5 @@
-wandb_nexus.egg-info/
 __pycache__/
+wandb_nexus.egg-info/
 wandb_nexus/bin-*/
-.tox/
-mypy-results/
-nexus/schema.graphql
+# Lets not save the schema in the repo right now
+api/graphql/schema.graphql
