@@ -10,6 +10,7 @@ require (
 	github.com/golang/leveldb v0.0.0-20170107010102-259d9253d719 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/vektah/gqlparser/v2 v2.4.5 // indirect
+	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
 	golang.org/x/mod v0.10.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/tools v0.9.1 // indirect
