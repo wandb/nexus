@@ -2,7 +2,7 @@ package server
 
 import (
 	"crypto/rand"
-	"github.com/wandb/wandb/nexus/service"
+	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
 type NexusStream struct {

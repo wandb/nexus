@@ -2,7 +2,7 @@ package server
 
 import (
 	"fmt"
-	"github.com/wandb/wandb/nexus/service"
+	"github.com/wandb/wandb/nexus/pkg/service"
 	"sync"
 	// "time"
 

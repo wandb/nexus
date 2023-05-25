@@ -2,7 +2,7 @@ package server
 
 import (
 	// "context"
-	"github.com/wandb/wandb/nexus/service"
+	"github.com/wandb/wandb/nexus/pkg/service"
 	// "github.com/Khan/genqlient/graphql"
 	//    log "github.com/sirupsen/logrus"
 )

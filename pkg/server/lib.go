@@ -4,7 +4,7 @@ import (
 	"os"
 	"fmt"
 	"strings"
-	"github.com/wandb/wandb/nexus/service"
+	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
 var m map[int]*NexusStream = make(map[int]*NexusStream)

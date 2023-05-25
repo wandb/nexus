@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/wandb/wandb/nexus/service"
+	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
 type Stream struct {

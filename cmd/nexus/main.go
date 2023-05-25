@@ -4,7 +4,7 @@ import (
 	"flag"
 	// "fmt"
 	log "github.com/sirupsen/logrus"
-	"github.com/wandb/wandb/nexus/server"
+	"github.com/wandb/wandb/nexus/pkg/server"
 )
 
 func main() {

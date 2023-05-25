@@ -3,7 +3,7 @@
 schema: schema.graphql
 operations:
 - genqlient.graphql
-generated: server/generated.go
+generated: ../../pkg/server/generated.go
 package: server
 # optional: value
 optional: pointer

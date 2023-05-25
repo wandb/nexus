@@ -11,7 +11,7 @@ import (
 	"net"
 	// "google.golang.org/protobuf/reflect/protoreflect"
 	log "github.com/sirupsen/logrus"
-	"github.com/wandb/wandb/nexus/service"
+	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
 // import "wandb.ai/wandb/wbserver/wandb_internal":

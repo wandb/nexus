@@ -4,8 +4,8 @@ import (
 	//"context"
 	"fmt"
 	log "github.com/sirupsen/logrus"
-	"github.com/wandb/wandb/nexus/auth"
-	"github.com/wandb/wandb/nexus/service"
+	"github.com/wandb/wandb/nexus/pkg/auth"
+	"github.com/wandb/wandb/nexus/pkg/service"
 	"strings"
 )
 

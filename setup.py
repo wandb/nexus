@@ -35,7 +35,7 @@ class NexusBase:
 
     def _build_nexus(self, path=None, goos=None, goarch=None):
         nexus_path = self._get_wheel_nexus_path(path=path, goos=goos, goarch=goarch)
-        src_dir = Path(__file__).parent / "nexus"
+        src_dir = Path(__file__).parent
         env = {}
         if goos:
             env["GOOS"] = goos
@@ -44,7 +44,7 @@ class NexusBase:
         env["CGO_ENABLED"] = "0"
         os.makedirs(nexus_path.parent, exist_ok=True)
         ldflags = "-s -w"
-        cmd = ("go", "build", f"-ldflags={ldflags}", "-o", str(nexus_path), "cmd/nexus_server/main.go")
+        cmd = ("go", "build", f"-ldflags={ldflags}", "-o", str(nexus_path), "cmd/nexus/main.go")
         subprocess.check_call(cmd, cwd=src_dir, env=dict(os.environ, **env))
 
 
