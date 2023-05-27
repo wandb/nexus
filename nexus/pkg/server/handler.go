@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
+	"google.golang.org/protobuf/proto"
 
 	// "time"
 
@@ -20,7 +21,7 @@ type Handler struct {
 	wg     *sync.WaitGroup
 	writer *Writer
 	sender *Sender
-	run    service.RunRecord
+	run    *service.RunRecord
 
 	summary map[string]string
 
@@ -70,8 +71,13 @@ func (h *Handler) shutdownStream() {
 }
 
 func (h *Handler) captureRunInfo(run *service.RunRecord) {
+	var ok bool
 	h.startTime = float64(run.StartTime.AsTime().UnixMicro()) / 1e6
-	h.run = *run
+	h.run, ok = proto.Clone(run).(*service.RunRecord)
+	if !ok {
+		log.Fatal("error")
+	}
+
 }
 
 func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartRequest) {
