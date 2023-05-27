@@ -10,7 +10,7 @@ usage()
     echo "    check   - run hooks"
     echo "    install - install hooks"
     echo "  OPTIONS:"
-    echo "    --all-files        - check all files (not just changed files)"
+    echo "    --all     s        - check all files (not just changed files)"
     echo "    --hook HOOK_ID     - specify hook to run"
     echo "    --skip HOOK_IDS    - specify hooks to skip (comma separated)"
     echo "    --stage HOOK_STAGE - specify hook stage"
@@ -38,7 +38,7 @@ while (( "$#" )); do
       NOCOMMAND=false
       shift
       ;;
-    -a|--all-files)
+    -a|--all)
       CHECK_ALL=true
       shift
       ;;
