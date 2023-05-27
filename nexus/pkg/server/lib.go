@@ -80,7 +80,7 @@ func LibStart() int {
 func LibStartSettings(settings *Settings, run_id string) int {
 	runRecord := service.RunRecord{RunId: run_id}
 	r := service.Record{
-		RecordType: &service.Record_Run{&runRecord},
+		RecordType: &service.Record_Run{Run: &runRecord},
 	}
 
 	num := 42
@@ -122,10 +122,10 @@ func LibRunStart(n int) {
 	runStartRequest := service.RunStartRequest{}
 	runStartRequest.Run = run
 	req := service.Request{
-		RequestType: &service.Request_RunStart{&runStartRequest},
+		RequestType: &service.Request_RunStart{RunStart: &runStartRequest},
 	}
 	r := service.Record{
-		RecordType: &service.Record_Request{&req},
+		RecordType: &service.Record_Request{Request: &req},
 	}
 	ns.SendRecord(&r)
 }
@@ -143,10 +143,10 @@ func LibLogScaler(n int, log_key string, log_value float64) {
 		},
 	}
 	req := service.Request{
-		RequestType: &service.Request_PartialHistory{&historyRequest},
+		RequestType: &service.Request_PartialHistory{PartialHistory: &historyRequest},
 	}
 	r := service.Record{
-		RecordType: &service.Record_Request{&req},
+		RecordType: &service.Record_Request{Request: &req},
 	}
 	ns.SendRecord(&r)
 }
@@ -155,7 +155,7 @@ func LibFinish(n int) {
 	ns := m[n]
 	exitRecord := service.RunExitRecord{}
 	r := service.Record{
-		RecordType: &service.Record_Exit{&exitRecord},
+		RecordType: &service.Record_Exit{Exit: &exitRecord},
 	}
 	ns.SendRecord(&r)
 }
