@@ -241,5 +241,4 @@ func (handler *Handler) handlerGo() {
 			handler.handleRecord(record)
 		}
 	}
-	log.Debug("HANDLER OUT")
 }
