@@ -20,6 +20,7 @@ import (
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/wandb/wandb/nexus/pkg/service"
+	"google.golang.org/protobuf/proto"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -294,7 +295,10 @@ func (sender *Sender) sendRunExit(msg *service.Record, record *service.RunExitRe
 
 func (sender *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 
-	keepRun := *record
+	keepRun, ok := proto.Clone(record).(*service.RunRecord)
+	if !ok {
+		log.Fatal("error")
+	}
 
 	// fmt.Println("SEND", record)
 	ctx := context.Background()
@@ -332,7 +336,7 @@ func (sender *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 	keepRun.Project = projectName
 	keepRun.Entity = entityName
 
-	sender.run = &keepRun
+	sender.run = keepRun
 
 	// fmt.Println("RESP::", keepRun)
 
@@ -359,7 +363,7 @@ func (sender *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 		summaryMetrics *string,
 	*/
 
-	runResult := &service.RunUpdateResult{Run: &keepRun}
+	runResult := &service.RunUpdateResult{Run: keepRun}
 	result := &service.Result{
 		ResultType: &service.Result_RunResult{RunResult: runResult},
 		Control:    msg.Control,

@@ -47,7 +47,7 @@ func FuncRespondServerResponse(num int) func(serverResponse *service.ServerRespo
 
 		result := ResultFromServerResponse(serverResponse)
 		ns.CaptureResult(result)
-		ns.Recv <- *result
+		ns.Recv <- result
 	}
 }
 
@@ -86,8 +86,8 @@ func LibStartSettings(settings *Settings, run_id string) int {
 	num := 42
 	s := NewStream(FuncRespondServerResponse(num), settings)
 
-	c := make(chan service.Record, 1000)
-	d := make(chan service.Result, 1000)
+	c := make(chan *service.Record, 1000)
+	d := make(chan *service.Result, 1000)
 	if m == nil {
 		m = make(map[int]*NexusStream)
 	}
@@ -103,7 +103,7 @@ func LibStartSettings(settings *Settings, run_id string) int {
 	return num
 }
 
-func LibRecv(num int) service.Result {
+func LibRecv(num int) *service.Result {
 	ns := m[num]
 	got := <-ns.Recv
 	// fmt.Println("GOT", &got)

@@ -77,7 +77,6 @@ func (h *Handler) captureRunInfo(run *service.RunRecord) {
 	if !ok {
 		log.Fatal("error")
 	}
-
 }
 
 func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartRequest) {
