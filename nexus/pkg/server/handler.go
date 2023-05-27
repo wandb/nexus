@@ -177,7 +177,7 @@ func (h *Handler) handleRequest(rec *service.Record, req *service.Request) {
 	}
 
 	result := &service.Result{
-		ResultType: &service.Result_Response{response},
+		ResultType: &service.Result_Response{Response: response},
 		Control:    rec.Control,
 		Uuid:       rec.Uuid,
 	}
