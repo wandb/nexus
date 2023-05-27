@@ -12,29 +12,27 @@ repos:
     hooks:
       - id: go-fmt
         name: 'go fmt'
-        entry: nexus/scripts/pre-commit/run-go-fmt.sh
+        entry: nexus/scripts/pre-commit-hooks/run-go-fmt.sh
         files: '\.go$'
         language: 'script'
         description: "Runs `gofmt`, requires golang"
       - id: go-imports
         name: 'go imports'
-        entry: nexus/scripts/pre-commit/run-go-imports.sh
+        entry: nexus/scripts/pre-commit-hooks/run-go-imports.sh
         files: '\.go$'
         language: 'script'
         description: "Runs `goimports`, requires golang"
       - id: go-unit-tests
         name: 'go-unit-tests'
-        entry: nexus/scripts/pre-commit/run-go-unit-tests.sh
+        entry: nexus/scripts/pre-commit-hooks/run-go-unit-tests.sh
         files: '\.go$'
         language: 'script'
         description: "Runs `go test`"
         require_serial: true
       - id: go-vet
         name: 'go vet'
-        entry: nexus/scripts/pre-commit/run-go-vet.sh
+        entry: nexus/scripts/pre-commit-hooks/run-go-vet.sh
         files: '\.go$'
         language: 'script'
         description: "Runs `go vet`, requires golang"
-      # - id: no-go-testing
-      # - id: golangci-lint
-      # - id: go-unit-tests
+        require_serial: true
