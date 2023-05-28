@@ -36,6 +36,7 @@ while (( "$#" )); do
       # not recommended, see https://golangci-lint.run/usage/install/#local-installation
       # go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
       # go install -v github.com/go-critic/go-critic/cmd/gocritic@latest
+      # go install github.com/fzipp/gocyclo/cmd/gocyclo@latest
       NOCOMMAND=false
       shift
       ;;
