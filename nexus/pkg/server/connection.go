@@ -104,7 +104,7 @@ func respondServerResponse(ctx context.Context, nc *NexusConn, msg *service.Serv
 	checkError(err)
 }
 
-func (nc *NexusConn) reader(ctx context.Context) {
+func (nc *NexusConn) receive(ctx context.Context) {
 	scanner := bufio.NewScanner(nc.conn)
 	tokenizer := Tokenizer{}
 
@@ -122,7 +122,7 @@ func (nc *NexusConn) reader(ctx context.Context) {
 	nc.done <- true
 }
 
-func (nc *NexusConn) writer(ctx context.Context) {
+func (nc *NexusConn) transmit(ctx context.Context) {
 	for {
 		select {
 		case msg := <-nc.respondChan:
@@ -176,8 +176,8 @@ func handleConnection(ctx context.Context, serverState *NexusServer, conn net.Co
 	connection := NexusConn{conn: conn, server: serverState}
 
 	connection.init(ctx)
-	go connection.reader(ctx)
-	go connection.writer(ctx)
+	go connection.receive(ctx)
+	go connection.transmit(ctx)
 	go connection.process(ctx)
 	connection.wait(ctx)
 

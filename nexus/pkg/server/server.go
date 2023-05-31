@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -82,7 +83,7 @@ func tcpServer(portfile string) {
 			continue
 		}
 
-		go handleConnection(&serverState, conn)
+		go handleConnection(context.Background(), &serverState, conn)
 	}
 }
 
