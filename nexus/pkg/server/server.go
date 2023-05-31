@@ -31,24 +31,20 @@ func InitLogging() {
 func writePortfile(portfile string, port int) {
 	tmpfile := fmt.Sprintf("%s.tmp", portfile)
 	f, err := os.Create(tmpfile)
-	if err != nil {
-		log.Fatal(err)
-	}
+	checkError(err)
 	defer f.Close()
 
-	if _, err = f.WriteString(fmt.Sprintf("sock=%d\n", port)); err != nil {
-		log.Fatal(err)
-	}
-	if _, err = f.WriteString("EOF"); err != nil {
-		log.Fatal(err)
-	}
-	if err = f.Sync(); err != nil {
-		log.Fatal(err)
-	}
+	_, err = f.WriteString(fmt.Sprintf("sock=%d\n", port))
+	checkError(err)
 
-	if err = os.Rename(tmpfile, portfile); err != nil {
-		log.Fatal(err)
-	}
+	_, err = f.WriteString("EOF")
+	checkError(err)
+
+	err = f.Sync()
+	checkError(err)
+
+	err = os.Rename(tmpfile, portfile)
+	checkError(err)
 }
 
 type NexusServer struct {
