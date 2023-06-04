@@ -131,6 +131,11 @@ func (h *Handler) handleGetSummary(rec *service.Record, msg *service.GetSummaryR
 	resp.ResponseType = &service.Response_GetSummaryResponse{GetSummaryResponse: &r}
 }
 
+func (h *Handler) handleLogArtifact(rec *service.Record, msg *service.LogArtifactRequest, resp *service.Response) {
+	r := service.LogArtifactResponse{}
+	resp.ResponseType = &service.Response_LogArtifactResponse{LogArtifactResponse: &r}
+}
+
 func (h *Handler) handleDefer(rec *service.Record, msg *service.DeferRequest) {
 	h.sender.SendRecord(rec)
 	h.shutdownStream()
@@ -172,6 +177,8 @@ func (h *Handler) handleRequest(rec *service.Record, req *service.Request) {
 	case *service.Request_SampledHistory:
 	case *service.Request_Shutdown:
 	case *service.Request_Keepalive:
+	case *service.Request_LogArtifact:
+		h.handleLogArtifact(rec, x.LogArtifact, response)
 	default:
 		bad := fmt.Sprintf("REC UNKNOWN Request type %T", x)
 		panic(bad)
