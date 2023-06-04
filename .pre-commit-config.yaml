@@ -31,10 +31,21 @@ repos:
         files: '^nexus/'
   - repo: local
     hooks:
-      - id: go-generate
-        name: 'go-generate'
+      - id: go-generate-proto
+        name: 'go-generate-proto'
         entry: nexus/scripts/pre-commit-hooks/run-go-generate.sh
-        files: '\.(proto|graphql)$'
+        files: '\.proto$'
+        args:
+          - ./api/proto
+        pass_filenames: false
+        language: 'script'
+        description: "Runs `go generate`, requires golang"
+      - id: go-generate-graphql
+        name: 'go-generate-graphql'
+        entry: nexus/scripts/pre-commit-hooks/run-go-generate.sh
+        files: '\.graphql$'
+        args:
+          - ./api/graphql
         pass_filenames: false
         language: 'script'
         description: "Runs `go generate`, requires golang"
