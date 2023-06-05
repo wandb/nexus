@@ -86,8 +86,8 @@ workflows:
       # System tests with pytest on Linux, using real wandb server
       #
       - pytest:
-          requires:
-            - "system-tests"
+#          requires:
+#            - "system-tests"
           matrix:
             parameters:
               python_version_major: [3]
