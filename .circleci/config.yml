@@ -1,0 +1,95 @@
+version: 2.1
+
+commands:
+
+jobs:
+  pytest:
+    parameters:
+      python_version_major:
+        type: integer
+        default: 3
+      python_version_minor:
+        type: integer
+        default: 8
+      shard:
+        type: string
+        default: "core"
+      toxenv:
+        type: string
+      coverage_dir:
+        type: string
+        default: ""
+      notify_on_failure:
+        type: boolean
+        default: false
+      xdist:
+        type: integer
+        default: 6
+      tox_args:
+        type: string
+        default: ""
+    docker:
+      - image: "python:<<parameters.python_version_major>>.<<parameters.python_version_minor>>"
+      - image: us-central1-docker.pkg.dev/wandb-production/images/local-testcontainer:<< pipeline.parameters.wandb_server_tag >>
+        auth:
+          username: _json_key
+          password: $GCP_SERVICE_ACCOUNT_JSON_DECODED
+        environment:
+          CI: 1
+          WANDB_ENABLE_TEST_CONTAINER: true
+    resource_class: xlarge
+    working_directory: /mnt/ramdisk
+    environment:
+      SHARD: << parameters.shard >>
+      COVERAGE_DIR: << parameters.coverage_dir >>
+    steps:
+      - checkout
+      - run:
+          name: Install system deps
+          command: |
+            apt-get update && apt-get install -y libsndfile1 ffmpeg
+      - run:
+          name: Install python dependencies
+          command: |
+            pip install -U pip
+            while ! curl http://localhost:8080/healthz; do sleep 1; done
+          no_output_timeout: 5m
+      - run:
+          name: Run tests
+          no_output_timeout: 10m
+          command: |
+            mkdir -p test-results
+            # install go
+            wget https://go.dev/dl/go1.20.4.linux-amd64.tar.gz
+            tar -C /usr/local -xzf go1.20.4.linux-amd64.tar.gz
+            export PATH=$PATH:/usr/local/go/bin
+            go version
+            # install nexus
+            git clone https://github.com/wandb/wandb.git
+            cd nexus
+            pip install .
+            # checkout nexus working branch and install wandb-nexus
+            cd /mnt/ramdisk
+            cd wandb
+            git checkout hackweek-nexus
+            pip install ".[nexus]" -U
+            # run tests
+            pytest {env:CI_PYTEST_SPLIT_ARGS:} -n={env:CI_PYTEST_PARALLEL:{env:WB_UNIT_PARALLEL:10}} --durations=20 --reruns 3 --reruns-delay 1 --junitxml=test-results/junit.xml --cov-config=.coveragerc --cov --cov-report= --no-cov-on-fail --timeout 300 {posargs:tests/pytest_tests/system_tests/test_core/test_nexus}
+
+workflows:
+  main:
+    jobs:
+      #
+      # System tests with pytest on Linux, using real wandb server
+      #
+      - pytest:
+          requires:
+            - "system-tests"
+          matrix:
+            parameters:
+              python_version_major: [3]
+              python_version_minor: [7, 8, 9, 10]
+          name: "system-linux-py<<matrix.python_version_major>><<matrix.python_version_minor>>"
+          toxenv: "py<<matrix.python_version_major>><<matrix.python_version_minor>>,cover-linux-circle"
+          coverage_dir: "py<<matrix.python_version_major>><<matrix.python_version_minor>>"
+          tox_args: "tests/pytest_tests/system_tests/test_core"
