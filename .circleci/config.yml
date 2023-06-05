@@ -1,6 +1,9 @@
 version: 2.1
 
-commands:
+parameters:
+  wandb_server_tag:
+    type: string
+    default: "master"
 
 jobs:
   pytest:
@@ -74,7 +77,7 @@ jobs:
             git checkout hackweek-nexus
             pip install ".[nexus]" -U
             # run tests
-            pytest {env:CI_PYTEST_SPLIT_ARGS:} -n={env:CI_PYTEST_PARALLEL:{env:WB_UNIT_PARALLEL:10}} --durations=20 --reruns 3 --reruns-delay 1 --junitxml=test-results/junit.xml --cov-config=.coveragerc --cov --cov-report= --no-cov-on-fail --timeout 300 {posargs:tests/pytest_tests/system_tests/test_core/test_nexus}
+            pytest -n=1 --durations=20 --reruns 3 --reruns-delay 1 --junitxml=test-results/junit.xml --cov-config=.coveragerc --cov --cov-report= --no-cov-on-fail --timeout 300 tests/pytest_tests/system_tests/test_core/test_nexus
 
 workflows:
   main:
