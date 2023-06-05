@@ -91,6 +91,7 @@ func handleInformRecord(nc *NexusConn, msg *service.Record) {
 
 func handleInformTeardown(nc *NexusConn, msg *service.ServerInformTeardownRequest) {
 	log.Debug("PROCESS: TEARDOWN")
+	fmt.Println("teardown!!!")
 	nc.done <- true
 	// _, cancelCtx := context.WithCancel(nc.ctx)
 
