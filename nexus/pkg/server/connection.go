@@ -28,7 +28,6 @@ type NexusConn struct {
 	server      *NexusServer
 	done        chan bool
 	ctx         context.Context
-	mux         map[string]*Stream
 	processChan chan *service.ServerRequest
 	respondChan chan *service.ServerResponse
 }
@@ -38,7 +37,6 @@ func (nc *NexusConn) init(ctx context.Context) {
 	nc.respondChan = make(chan *service.ServerResponse)
 	nc.done = make(chan bool)
 	nc.ctx = ctx
-	nc.mux = make(map[string]*Stream)
 }
 
 func checkError(e error) {
