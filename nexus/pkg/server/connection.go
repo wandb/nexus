@@ -7,7 +7,7 @@ import (
 	"encoding/binary"
 	"net"
 
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"google.golang.org/protobuf/proto"
 )
@@ -43,7 +43,7 @@ func (nc *NexusConn) init(ctx context.Context) {
 
 func checkError(e error) {
 	if e != nil {
-		logrus.Error(e)
+		log.Error(e)
 	}
 }
 
@@ -61,11 +61,11 @@ func (x *Tokenizer) split(data []byte, atEOF bool) (advance int, token []byte, e
 		buf := bytes.NewReader(data)
 		err := binary.Read(buf, binary.LittleEndian, &x.header)
 		if err != nil {
-			logrus.Error(err)
+			log.Error(err)
 			return 0, nil, err
 		}
 		if x.header.Magic != uint8('W') {
-			logrus.Error("Invalid magic byte in header")
+			log.Error("Invalid magic byte in header")
 		}
 		x.headerValid = true
 		advance += x.headerLength
@@ -109,12 +109,12 @@ func (nc *NexusConn) receive(ctx context.Context) {
 		msg := &service.ServerRequest{}
 		err := proto.Unmarshal(scanner.Bytes(), msg)
 		if err != nil {
-			logrus.Error("Unmarshalling error: ", err)
+			log.Error("Unmarshalling error: ", err)
 			break
 		}
 		nc.processChan <- msg
 	}
-	logrus.Debugf("SOCKETREADER: DONE")
+	log.Debugf("SOCKETREADER: DONE")
 	nc.done <- true
 }
 
@@ -124,7 +124,7 @@ func (nc *NexusConn) transmit(ctx context.Context) {
 		case msg := <-nc.respondChan:
 			respondServerResponse(ctx, nc, msg)
 		case <-nc.done:
-			logrus.Debug("PROCESS: DONE")
+			log.Debug("PROCESS: DONE")
 			return
 		}
 	}
@@ -136,10 +136,10 @@ func (nc *NexusConn) process(ctx context.Context) {
 		case msg := <-nc.processChan:
 			nc.handleServerRequest(msg)
 		case <-nc.done:
-			logrus.Debug("PROCESS: DONE")
+			log.Debug("PROCESS: DONE")
 			return
 		case <-ctx.Done():
-			logrus.Debug("PROCESS: Context canceled")
+			log.Debug("PROCESS: Context canceled")
 			nc.done <- true
 			return
 		}
@@ -151,14 +151,14 @@ func (nc *NexusConn) RespondServerResponse(ctx context.Context, serverResponse *
 }
 
 func (nc *NexusConn) wait(ctx context.Context) {
-	logrus.Debug("WAIT1")
+	log.Debug("WAIT1")
 	for {
 		select {
 		case <-nc.done:
-			logrus.Debug("WAIT done")
+			log.Debug("WAIT done")
 			return
 		case <-ctx.Done():
-			logrus.Debug("WAIT ctx done")
+			log.Debug("WAIT ctx done")
 			return
 		}
 	}
@@ -175,5 +175,83 @@ func handleConnection(ctx context.Context, serverState *NexusServer, conn net.Co
 	go connection.process(ctx)
 	connection.wait(ctx)
 
-	logrus.Debug("WAIT3 done handle con")
+	log.Debug("WAIT3 done handle con")
+}
+
+func (nc *NexusConn) handleInformInit(msg *service.ServerInformInitRequest) {
+	log.Debug("PROCESS: INIT")
+
+	s := msg.XSettingsMap
+	settings := &Settings{
+		BaseURL:  s["base_url"].GetStringValue(),
+		ApiKey:   s["api_key"].GetStringValue(),
+		SyncFile: s["sync_file"].GetStringValue(),
+		Offline:  s["_offline"].GetBoolValue()}
+
+	settings.parseNetrc()
+
+	// TODO make this a mapping
+	log.Debug("STREAM init")
+	// streamId := "thing"
+	streamId := msg.XInfo.StreamId
+	streamManager.addStream(streamId, nc.RespondServerResponse, settings)
+
+	// read from mux and write to nc
+	// go nc.mux[streamId].responder(nc)
+}
+
+func (nc *NexusConn) handleInformStart(msg *service.ServerInformStartRequest) {
+	log.Debug("PROCESS: START")
+}
+
+func (nc *NexusConn) handleInformFinish(msg *service.ServerInformFinishRequest) {
+	log.Debug("PROCESS: FIN")
+}
+
+func (nc *NexusConn) handleInformRecord(msg *service.Record) {
+	streamId := msg.XInfo.StreamId
+	if stream, ok := streamManager.getStream(streamId); ok {
+		stream.ProcessRecord(msg)
+	} else {
+		log.Debug("PROCESS: RECORD: stream not found")
+	}
+
+}
+
+func (nc *NexusConn) handleInformTeardown(msg *service.ServerInformTeardownRequest) {
+	log.Debug("PROCESS: TEARDOWN")
+	nc.done <- true
+	// _, cancelCtx := context.WithCancel(nc.ctx)
+
+	log.Debug("PROCESS: TEARDOWN *****1")
+	// cancelCtx()
+	log.Debug("PROCESS: TEARDOWN *****2")
+	// TODO: remove this?
+	// os.Exit(1)
+
+	nc.server.shutdown = true
+	nc.server.listen.Close()
+}
+
+func (nc *NexusConn) handleServerRequest(msg *service.ServerRequest) {
+	switch x := msg.ServerRequestType.(type) {
+	case *service.ServerRequest_InformInit:
+		nc.handleInformInit(x.InformInit)
+	case *service.ServerRequest_InformStart:
+		nc.handleInformStart(x.InformStart)
+	case *service.ServerRequest_InformFinish:
+		nc.handleInformFinish(x.InformFinish)
+	case *service.ServerRequest_RecordPublish:
+		nc.handleInformRecord(x.RecordPublish)
+	case *service.ServerRequest_RecordCommunicate:
+		nc.handleInformRecord(x.RecordCommunicate)
+	case *service.ServerRequest_InformTeardown:
+		nc.handleInformTeardown(x.InformTeardown)
+	case nil:
+		// The field is not set.
+		log.Fatal("ServerRequestType is nil")
+	default:
+		// The field is not set.
+		log.Fatal("ServerRequestType is unknown, %T", x)
+	}
 }
