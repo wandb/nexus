@@ -24,21 +24,18 @@ type Tokenizer struct {
 }
 
 type NexusConn struct {
-	conn   net.Conn
-	server *NexusServer
-	done   chan bool
-	ctx    context.Context
-
+	conn        net.Conn
+	server      *NexusServer
+	done        chan bool
+	ctx         context.Context
 	mux         map[string]*Stream
 	processChan chan *service.ServerRequest
 	respondChan chan *service.ServerResponse
 }
 
 func (nc *NexusConn) init(ctx context.Context) {
-	process := make(chan *service.ServerRequest)
-	respond := make(chan *service.ServerResponse)
-	nc.processChan = process
-	nc.respondChan = respond
+	nc.processChan = make(chan *service.ServerRequest)
+	nc.respondChan = make(chan *service.ServerResponse)
 	nc.done = make(chan bool)
 	nc.ctx = ctx
 	nc.mux = make(map[string]*Stream)
@@ -50,12 +47,12 @@ func checkError(e error) {
 	}
 }
 
-func (x *Tokenizer) split(data []byte, atEOF bool) (retAdvance int, retToken []byte, retErr error) {
+func (x *Tokenizer) split(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if x.headerLength == 0 {
 		x.headerLength = binary.Size(x.header)
 	}
 
-	retAdvance = 0
+	advance = 0
 
 	if !x.headerValid {
 		if len(data) < x.headerLength {
@@ -71,16 +68,16 @@ func (x *Tokenizer) split(data []byte, atEOF bool) (retAdvance int, retToken []b
 			logrus.Error("Invalid magic byte in header")
 		}
 		x.headerValid = true
-		retAdvance += x.headerLength
-		data = data[retAdvance:]
+		advance += x.headerLength
+		data = data[advance:]
 	}
 
 	if len(data) < int(x.header.DataLength) {
 		return
 	}
 
-	retAdvance += int(x.header.DataLength)
-	retToken = data[:x.header.DataLength]
+	advance += int(x.header.DataLength)
+	token = data[:x.header.DataLength]
 	x.headerValid = false
 	return
 }
@@ -91,8 +88,7 @@ func respondServerResponse(ctx context.Context, nc *NexusConn, msg *service.Serv
 
 	writer := bufio.NewWriter(nc.conn)
 
-	header := Header{Magic: byte('W')}
-	header.DataLength = uint32(len(out))
+	header := Header{Magic: byte('W'), DataLength: uint32(len(out))}
 
 	err = binary.Write(writer, binary.LittleEndian, &header)
 	checkError(err)
@@ -113,7 +109,7 @@ func (nc *NexusConn) receive(ctx context.Context) {
 		msg := &service.ServerRequest{}
 		err := proto.Unmarshal(scanner.Bytes(), msg)
 		if err != nil {
-			logrus.Error("Unmarshaling error: ", err)
+			logrus.Error("Unmarshalling error: ", err)
 			break
 		}
 		nc.processChan <- msg
@@ -138,7 +134,7 @@ func (nc *NexusConn) process(ctx context.Context) {
 	for {
 		select {
 		case msg := <-nc.processChan:
-			handleServerRequest(nc, msg)
+			nc.handleServerRequest(msg)
 		case <-nc.done:
 			logrus.Debug("PROCESS: DONE")
 			return
@@ -169,9 +165,7 @@ func (nc *NexusConn) wait(ctx context.Context) {
 }
 
 func handleConnection(ctx context.Context, serverState *NexusServer, conn net.Conn) {
-	defer func() {
-		conn.Close()
-	}()
+	defer conn.Close()
 
 	connection := NexusConn{conn: conn, server: serverState}
 

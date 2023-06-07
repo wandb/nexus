@@ -90,15 +90,3 @@ func wbService(portFile string) {
 func WandbService(portFilename string) {
 	wbService(portFilename)
 }
-
-type Service interface {
-	Serve()
-}
-
-type TcpService struct {
-	portFile string
-}
-
-func (s *TcpService) Serve() {
-	tcpServer(s.portFile)
-}

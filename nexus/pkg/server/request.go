@@ -40,7 +40,7 @@ func (s *Settings) parseNetrc() {
 	}
 }
 
-func handleInformInit(nc *NexusConn, msg *service.ServerInformInitRequest) {
+func (nc *NexusConn) handleInformInit(msg *service.ServerInformInitRequest) {
 	log.Debug("PROCESS: INIT")
 
 	s := msg.XSettingsMap
@@ -62,11 +62,11 @@ func handleInformInit(nc *NexusConn, msg *service.ServerInformInitRequest) {
 	// go nc.mux[streamId].responder(nc)
 }
 
-func handleInformStart(nc *NexusConn, msg *service.ServerInformStartRequest) {
+func (nc *NexusConn) handleInformStart(msg *service.ServerInformStartRequest) {
 	log.Debug("PROCESS: START")
 }
 
-func handleInformFinish(nc *NexusConn, msg *service.ServerInformFinishRequest) {
+func (nc *NexusConn) handleInformFinish(msg *service.ServerInformFinishRequest) {
 	log.Debug("PROCESS: FIN")
 }
 
@@ -75,7 +75,7 @@ func getStream(nc *NexusConn, streamId string) *Stream {
 	return nc.mux[streamId]
 }
 
-func handleInformRecord(nc *NexusConn, msg *service.Record) {
+func (nc *NexusConn) handleInformRecord(msg *service.Record) {
 	streamId := msg.XInfo.StreamId
 	stream := getStream(nc, streamId)
 
@@ -89,7 +89,7 @@ func handleInformRecord(nc *NexusConn, msg *service.Record) {
 	// fmt.Printf("PROCESS: COMM/PUBLISH %d 2\n", num)
 }
 
-func handleInformTeardown(nc *NexusConn, msg *service.ServerInformTeardownRequest) {
+func (nc *NexusConn) handleInformTeardown(msg *service.ServerInformTeardownRequest) {
 	log.Debug("PROCESS: TEARDOWN")
 	nc.done <- true
 	// _, cancelCtx := context.WithCancel(nc.ctx)
@@ -104,20 +104,20 @@ func handleInformTeardown(nc *NexusConn, msg *service.ServerInformTeardownReques
 	nc.server.listen.Close()
 }
 
-func handleServerRequest(nc *NexusConn, msg *service.ServerRequest) {
+func (nc *NexusConn) handleServerRequest(msg *service.ServerRequest) {
 	switch x := msg.ServerRequestType.(type) {
 	case *service.ServerRequest_InformInit:
-		handleInformInit(nc, x.InformInit)
+		nc.handleInformInit(x.InformInit)
 	case *service.ServerRequest_InformStart:
-		handleInformStart(nc, x.InformStart)
+		nc.handleInformStart(x.InformStart)
 	case *service.ServerRequest_InformFinish:
-		handleInformFinish(nc, x.InformFinish)
+		nc.handleInformFinish(x.InformFinish)
 	case *service.ServerRequest_RecordPublish:
-		handleInformRecord(nc, x.RecordPublish)
+		nc.handleInformRecord(x.RecordPublish)
 	case *service.ServerRequest_RecordCommunicate:
-		handleInformRecord(nc, x.RecordCommunicate)
+		nc.handleInformRecord(x.RecordCommunicate)
 	case *service.ServerRequest_InformTeardown:
-		handleInformTeardown(nc, x.InformTeardown)
+		nc.handleInformTeardown(x.InformTeardown)
 	case nil:
 		// The field is not set.
 		panic("bad2")
