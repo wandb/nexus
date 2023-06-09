@@ -1,26 +1,26 @@
 package main
 
 import (
-	//"flag"
+	// "flag"
 	// "fmt"
 	//log "github.com/sirupsen/logrus"
 
-	//"github.com/wandb/wandb/nexus/pkg/server"
+	// "github.com/wandb/wandb/nexus/pkg/server"
 	"github.com/wandb/wandb/nexus/pkg/hub"
 )
 
 func main() {
-	//portFilename := flag.String("port-filename", "portfile.txt", "filename")
+	// portFilename := flag.String("port-filename", "portfile.txt", "filename")
 
-	//pid := flag.Int("pid", 0, "pid")
+	// pid := flag.Int("pid", 0, "pid")
 	//debug := flag.Bool("debug", false, "debug")
 	//serveSock := flag.Bool("serve-sock", false, "debug")
 	//serveGrpc := flag.Bool("serve-grpc", false, "debug")
 
 	// fmt.Println("Starting 0.0\n")
-	//flag.Parse()
+	// flag.Parse()
 
-	//server.InitLogging()
+	// server.InitLogging()
 	//
 	//// log.Println("got", *portFilename, *pid, *debug, *serveSock, *serveGrpc)
 	//log.WithFields(log.Fields{
