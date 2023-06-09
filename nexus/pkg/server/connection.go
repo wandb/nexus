@@ -250,6 +250,6 @@ func (nc *NexusConn) handleServerRequest(msg *service.ServerRequest) {
 		log.Fatal("ServerRequestType is nil")
 	default:
 		// The field is not set.
-		log.Fatal("ServerRequestType is unknown, %T", x)
+		log.Fatal("ServerRequestType is unknown, ", x)
 	}
 }
