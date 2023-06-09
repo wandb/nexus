@@ -15,7 +15,7 @@ def main():
         if SEND_BAD_JSON:
             # Create a bad JSON message
             message_data = {"type": 1}
-            message_str = json.dumps(message_data) + '\n'
+            message_str = json.dumps(message_data) + "\n"
 
             # Send JSON message to the server
             sock.sendall(message_str.encode())
@@ -23,7 +23,7 @@ def main():
         # Create a JSON message
         message_data = {"type": "init"}
         # message_data = {"command": "init", "run_id": "idklol"}
-        message_str = json.dumps(message_data) + '\n'
+        message_str = json.dumps(message_data) + "\n"
 
         # Send JSON message to the server
         sock.sendall(message_str.encode())

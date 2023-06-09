@@ -50,7 +50,7 @@ func (c *Connection) handleMessage(msg Message) {
 func (c *Connection) receive(wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	//_, cancel := context.WithCancel(c.ctx)
+	// _, cancel := context.WithCancel(c.ctx)
 
 	scanner := bufio.NewScanner(c.conn)
 

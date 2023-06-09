@@ -2,7 +2,6 @@ package hub
 
 import (
 	"context"
-	//"context"
 	"net"
 
 	log "github.com/sirupsen/logrus"
