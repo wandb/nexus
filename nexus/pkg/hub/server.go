@@ -3,8 +3,9 @@ package hub
 import (
 	"context"
 	//"context"
-	log "github.com/sirupsen/logrus"
 	"net"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Service interface {
