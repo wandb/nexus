@@ -2,8 +2,9 @@ package server
 
 import (
 	"context"
-	"github.com/wandb/wandb/nexus/pkg/service"
 	"sync"
+
+	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
 type StreamManager struct {
