@@ -8,7 +8,7 @@ import (
 
 func main() {
 	/*
-	Main entry point for the nexus service.
+		Main entry point for the nexus service.
 	*/
 	portFilename := flag.String("port-filename", "portfile.txt", "filename")
 
