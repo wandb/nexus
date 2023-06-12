@@ -132,7 +132,6 @@ func (nc *Connection) receive(wg *sync.WaitGroup) {
 			return
 		}
 	}
-	//close(nc.requestChan)
 	nc.cancel()
 	log.Debugf("SOCKETREADER: DONE")
 }
