@@ -3,10 +3,11 @@ package server
 import (
 	"context"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"os"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
 )
