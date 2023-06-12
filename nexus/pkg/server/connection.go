@@ -121,7 +121,7 @@ func (nc *Connection) receive(wg *sync.WaitGroup) {
 		if err != nil {
 			log.Error("Unmarshalling error: ", err)
 			return // ???
-			//continue
+			// continue
 		}
 
 		nc.requestChan <- msg
@@ -212,7 +212,7 @@ func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest)
 	streamId := msg.XInfo.StreamId
 	if stream, ok := streamManager.getStream(streamId); ok {
 		stream.MarkFinished()
-		//stream.Close()
+		// stream.Close()
 	} else {
 		log.Debug("PROCESS: RECORD: stream not found")
 	}

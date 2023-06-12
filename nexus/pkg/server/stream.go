@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+
 	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
@@ -54,7 +55,7 @@ func showFooter(result *service.Result, run *service.RunRecord, settings *Settin
 }
 
 func (ns *Stream) Close() {
-	//defer wg.Done()
+	// defer wg.Done()
 
 	if ns.IsFinished() {
 		return

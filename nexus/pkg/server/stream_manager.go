@@ -41,14 +41,14 @@ func (sm *StreamManager) Close() {
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
 
-	//wg := sync.WaitGroup{}
+	// wg := sync.WaitGroup{}
 	for _, stream := range sm.streams {
-		//wg.Add(1)
-		//go stream.Close(&wg) // test this
+		// wg.Add(1)
+		// go stream.Close(&wg) // test this
 		stream.Close()
 	}
 
-	//wg.Wait()
+	// wg.Wait()
 }
 
 var streamManager = NewStreamManager()
