@@ -64,6 +64,7 @@ func (c *Connection) receive(wg *sync.WaitGroup) {
 			// return
 		}
 
+		// does this have to be serial?
 		go c.handleMessage(msg)
 
 		if err := scanner.Err(); err != nil {
