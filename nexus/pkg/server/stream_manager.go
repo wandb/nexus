@@ -2,8 +2,9 @@ package server
 
 import (
 	"context"
-	"github.com/wandb/wandb/nexus/pkg/service"
 	"sync"
+
+	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
 type StreamManager struct {
@@ -34,6 +35,12 @@ func (sm *StreamManager) getStream(streamId string) (*Stream, bool) {
 	defer sm.mutex.RUnlock()
 	stream, ok := sm.streams[streamId]
 	return stream, ok
+}
+
+func (sm *StreamManager) getStreams() map[string]*Stream {
+	sm.mutex.RLock()
+	defer sm.mutex.RUnlock()
+	return sm.streams
 }
 
 var streamManager = NewStreamManager()
