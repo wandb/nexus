@@ -204,20 +204,55 @@ func (nc *NexusConn) handleInformStart(msg *service.ServerInformStartRequest) {
 
 func (nc *NexusConn) handleInformFinish(msg *service.ServerInformFinishRequest) {
 	log.Debug("PROCESS: FIN")
+	streamId := msg.XInfo.StreamId
+	if stream, ok := streamManager.getStream(streamId); ok {
+		stream.MarkFinished()
+	} else {
+		log.Debug("PROCESS: RECORD: stream not found")
+	}
 }
 
 func (nc *NexusConn) handleInformRecord(msg *service.Record) {
 	streamId := msg.XInfo.StreamId
 	if stream, ok := streamManager.getStream(streamId); ok {
+		ref := msg.ProtoReflect()
+		desc := ref.Descriptor()
+		num := ref.WhichOneof(desc.Oneofs().ByName("record_type")).Number()
+		// fmt.Printf("PROCESS: COMM/PUBLISH %d\n", num)
+		log.WithFields(log.Fields{"type": num}).Debug("PROCESS: COMM/PUBLISH")
+
 		stream.ProcessRecord(msg)
 	} else {
 		log.Debug("PROCESS: RECORD: stream not found")
 	}
+}
 
+func showFooter(result *service.Result, run *service.RunRecord, settings *Settings) {
+	PrintHeadFoot(run, settings)
+}
+
+func finishAll(nc *NexusConn) {
+	//for _, stream := range nc.mux {
+	//	if stream.IsFinished() {
+	//		continue
+	//	}
+	//	exitRecord := service.RunExitRecord{}
+	//	record := service.Record{
+	//		RecordType: &service.Record_Exit{Exit: &exitRecord},
+	//	}
+	//	handle := stream.Deliver(&record)
+	//	got := handle.wait()
+	//	settings := stream.GetSettings()
+	//	run := stream.GetRun()
+	//	showFooter(got, run, settings)
+	//}
 }
 
 func (nc *NexusConn) handleInformTeardown(msg *service.ServerInformTeardownRequest) {
 	log.Debug("PROCESS: TEARDOWN")
+
+	finishAll(nc)
+
 	nc.done <- true
 	// _, cancelCtx := context.WithCancel(nc.ctx)
 
