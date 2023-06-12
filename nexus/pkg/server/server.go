@@ -31,8 +31,28 @@ func writePortFile(portFile string, port int) {
 }
 
 type NexusServer struct {
-	shutdown bool
-	listen   net.Listener
+	teardownChan chan bool
+	listen       net.Listener
+}
+
+func (ns *NexusServer) handleConnection(conn net.Conn) {
+	defer func(conn net.Conn) {
+		log.Info("Closing connection with ", conn.RemoteAddr())
+		err := conn.Close()
+		if err != nil {
+			log.Error("Error closing connection:", err)
+			return
+		}
+	}(conn)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	connection := NewConnection(ctx, cancel, conn, ns.teardownChan)
+	connection.handle()
+}
+
+func (ns *NexusServer) teardown() {
+	streamManager.Close()
 }
 
 func tcpServer(portFile string) {
@@ -45,7 +65,7 @@ func tcpServer(portFile string) {
 		_ = listen.Close()
 	}(listen)
 
-	serverState := NexusServer{listen: listen}
+	server := NexusServer{listen: listen}
 
 	log.Println("Server is running on:", addr)
 	port := listen.Addr().(*net.TCPAddr).Port
@@ -54,17 +74,25 @@ func tcpServer(portFile string) {
 	writePortFile(portFile, port)
 
 	for {
-		conn, err := listen.Accept()
-		if err != nil {
-			if serverState.shutdown {
-				log.Println("shutting down...")
-				break
+		fmt.Println("Waiting for connection")
+		select {
+		case <-server.teardownChan:
+			// Handle teardown request
+			log.Println("Server teardown requested")
+			fmt.Println("Server teardown requested")
+			server.teardown()
+			return
+		default:
+			// contents of server.teardownChan
+			fmt.Println(server.teardownChan)
+			conn, err := listen.Accept()
+			if err != nil {
+				log.Println("Failed to accept conn.", err)
+				continue
 			}
-			log.Println("Failed to accept conn.", err)
-			continue
-		}
 
-		go handleConnection(context.Background(), &serverState, conn)
+			go server.handleConnection(conn)
+		}
 	}
 }
 

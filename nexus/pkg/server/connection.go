@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/binary"
 	"net"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/wandb/wandb/nexus/pkg/service"
@@ -23,20 +24,29 @@ type Tokenizer struct {
 	headerValid  bool
 }
 
-type NexusConn struct {
-	conn        net.Conn
-	server      *NexusServer
-	done        chan bool
-	ctx         context.Context
-	processChan chan *service.ServerRequest
-	respondChan chan *service.ServerResponse
+type Connection struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+	conn   net.Conn
+
+	serverTeardownChan chan bool
+	requestChan        chan *service.ServerRequest
+	respondChan        chan *service.ServerResponse
 }
 
-func (nc *NexusConn) init(ctx context.Context) {
-	nc.processChan = make(chan *service.ServerRequest)
-	nc.respondChan = make(chan *service.ServerResponse)
-	nc.done = make(chan bool)
-	nc.ctx = ctx
+func NewConnection(
+	ctx context.Context,
+	cancel context.CancelFunc,
+	conn net.Conn,
+	serverTeardownChan chan bool) *Connection {
+	return &Connection{
+		ctx:                ctx,
+		cancel:             cancel,
+		conn:               conn,
+		serverTeardownChan: serverTeardownChan,
+		requestChan:        make(chan *service.ServerRequest),
+		respondChan:        make(chan *service.ServerResponse),
+	}
 }
 
 func checkError(e error) {
@@ -80,7 +90,7 @@ func (x *Tokenizer) split(data []byte, atEOF bool) (advance int, token []byte, e
 	return
 }
 
-func respondServerResponse(ctx context.Context, nc *NexusConn, msg *service.ServerResponse) {
+func respondServerResponse(nc *Connection, msg *service.ServerResponse) {
 	out, err := proto.Marshal(msg)
 	checkError(err)
 
@@ -98,7 +108,9 @@ func respondServerResponse(ctx context.Context, nc *NexusConn, msg *service.Serv
 	checkError(err)
 }
 
-func (nc *NexusConn) receive(ctx context.Context) {
+func (nc *Connection) receive(wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	scanner := bufio.NewScanner(nc.conn)
 	tokenizer := Tokenizer{}
 
@@ -108,75 +120,68 @@ func (nc *NexusConn) receive(ctx context.Context) {
 		err := proto.Unmarshal(scanner.Bytes(), msg)
 		if err != nil {
 			log.Error("Unmarshalling error: ", err)
-			break
+			return // ???
+			//continue
 		}
-		nc.processChan <- msg
+
+		nc.requestChan <- msg
+
+		if err := scanner.Err(); err != nil {
+			log.Error("Error while scanning:", err)
+			nc.cancel()
+			return
+		}
 	}
+	close(nc.requestChan)
+	nc.cancel()
 	log.Debugf("SOCKETREADER: DONE")
-	nc.done <- true
 }
 
-func (nc *NexusConn) transmit(ctx context.Context) {
+func (nc *Connection) process(wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	// monitor request channel for messages to transmit
+	for {
+		select {
+		case msg := <-nc.requestChan:
+			nc.handleServerRequest(msg)
+		case <-nc.ctx.Done():
+			log.Debug("PROCESS: CONNECTION CONTEXT CANCELED")
+			return
+		}
+	}
+}
+
+func (nc *Connection) transmit(wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	for {
 		select {
 		case msg := <-nc.respondChan:
-			respondServerResponse(ctx, nc, msg)
-		case <-nc.done:
-			log.Debug("PROCESS: DONE")
+			respondServerResponse(nc, msg)
+		case <-nc.ctx.Done():
+			log.Debug("TRANSMIT: CONNECTION CONTEXT CANCELED")
 			return
 		}
 	}
 }
 
-func (nc *NexusConn) process(ctx context.Context) {
-	for {
-		select {
-		case msg := <-nc.processChan:
-			nc.handleServerRequest(msg)
-		case <-nc.done:
-			log.Debug("PROCESS: DONE")
-			return
-		case <-ctx.Done():
-			log.Debug("PROCESS: Context canceled")
-			nc.done <- true
-			return
-		}
-	}
-}
-
-func (nc *NexusConn) RespondServerResponse(ctx context.Context, serverResponse *service.ServerResponse) {
+func (nc *Connection) RespondServerResponse(ctx context.Context, serverResponse *service.ServerResponse) {
 	nc.respondChan <- serverResponse
 }
 
-func (nc *NexusConn) wait(ctx context.Context) {
-	log.Debug("WAIT1")
-	for {
-		select {
-		case <-nc.done:
-			log.Debug("WAIT done")
-			return
-		case <-ctx.Done():
-			log.Debug("WAIT ctx done")
-			return
-		}
-	}
+func (nc *Connection) handle() {
+	log.Info("Handling connection with ", nc.conn.RemoteAddr())
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go nc.receive(&wg)
+	go nc.process(&wg)
+	go nc.transmit(&wg)
+	wg.Wait()
+	log.Info("Connection with ", nc.conn.RemoteAddr(), " closed")
 }
 
-func handleConnection(ctx context.Context, serverState *NexusServer, conn net.Conn) {
-	defer conn.Close()
-
-	connection := NexusConn{conn: conn, server: serverState}
-
-	connection.init(ctx)
-	go connection.receive(ctx)
-	go connection.transmit(ctx)
-	go connection.process(ctx)
-	connection.wait(ctx)
-
-	log.Debug("WAIT3 done handle con")
-}
-
-func (nc *NexusConn) handleInformInit(msg *service.ServerInformInitRequest) {
+func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 	log.Debug("PROCESS: INIT")
 
 	s := msg.XSettingsMap
@@ -198,21 +203,22 @@ func (nc *NexusConn) handleInformInit(msg *service.ServerInformInitRequest) {
 	// go nc.mux[streamId].responder(nc)
 }
 
-func (nc *NexusConn) handleInformStart(msg *service.ServerInformStartRequest) {
+func (nc *Connection) handleInformStart(msg *service.ServerInformStartRequest) {
 	log.Debug("PROCESS: START")
 }
 
-func (nc *NexusConn) handleInformFinish(msg *service.ServerInformFinishRequest) {
+func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest) {
 	log.Debug("PROCESS: FIN")
 	streamId := msg.XInfo.StreamId
 	if stream, ok := streamManager.getStream(streamId); ok {
 		stream.MarkFinished()
+		//stream.Close()
 	} else {
 		log.Debug("PROCESS: RECORD: stream not found")
 	}
 }
 
-func (nc *NexusConn) handleInformRecord(msg *service.Record) {
+func (nc *Connection) handleInformRecord(msg *service.Record) {
 	streamId := msg.XInfo.StreamId
 	if stream, ok := streamManager.getStream(streamId); ok {
 		ref := msg.ProtoReflect()
@@ -227,46 +233,18 @@ func (nc *NexusConn) handleInformRecord(msg *service.Record) {
 	}
 }
 
-func showFooter(result *service.Result, run *service.RunRecord, settings *Settings) {
-	PrintHeadFoot(run, settings)
-}
-
-func finishAll(nc *NexusConn) {
-	for _, stream := range streamManager.getStreams() {
-		if stream.IsFinished() {
-			continue
-		}
-		exitRecord := service.RunExitRecord{}
-		record := service.Record{
-			RecordType: &service.Record_Exit{Exit: &exitRecord},
-		}
-		handle := stream.Deliver(&record)
-		got := handle.wait()
-		settings := stream.GetSettings()
-		run := stream.GetRun()
-		showFooter(got, run, settings)
-	}
-}
-
-func (nc *NexusConn) handleInformTeardown(msg *service.ServerInformTeardownRequest) {
+func (nc *Connection) handleInformTeardown(msg *service.ServerInformTeardownRequest) {
 	log.Debug("PROCESS: TEARDOWN")
 
-	finishAll(nc)
+	nc.cancel()
 
-	nc.done <- true
-	// _, cancelCtx := context.WithCancel(nc.ctx)
+	log.Debug("PROCESS: TEARDOWN: DONE")
 
-	log.Debug("PROCESS: TEARDOWN *****1")
-	// cancelCtx()
-	log.Debug("PROCESS: TEARDOWN *****2")
-	// TODO: remove this?
-	// os.Exit(1)
-
-	nc.server.shutdown = true
-	nc.server.listen.Close()
+	nc.serverTeardownChan <- true
+	close(nc.serverTeardownChan)
 }
 
-func (nc *NexusConn) handleServerRequest(msg *service.ServerRequest) {
+func (nc *Connection) handleServerRequest(msg *service.ServerRequest) {
 	switch x := msg.ServerRequestType.(type) {
 	case *service.ServerRequest_InformInit:
 		nc.handleInformInit(x.InformInit)
