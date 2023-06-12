@@ -36,4 +36,10 @@ func (sm *StreamManager) getStream(streamId string) (*Stream, bool) {
 	return stream, ok
 }
 
+func (sm *StreamManager) getStreams() map[string]*Stream {
+	sm.mutex.RLock()
+	defer sm.mutex.RUnlock()
+	return sm.streams
+}
+
 var streamManager = NewStreamManager()

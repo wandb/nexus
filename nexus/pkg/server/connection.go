@@ -232,20 +232,20 @@ func showFooter(result *service.Result, run *service.RunRecord, settings *Settin
 }
 
 func finishAll(nc *NexusConn) {
-	//for _, stream := range nc.mux {
-	//	if stream.IsFinished() {
-	//		continue
-	//	}
-	//	exitRecord := service.RunExitRecord{}
-	//	record := service.Record{
-	//		RecordType: &service.Record_Exit{Exit: &exitRecord},
-	//	}
-	//	handle := stream.Deliver(&record)
-	//	got := handle.wait()
-	//	settings := stream.GetSettings()
-	//	run := stream.GetRun()
-	//	showFooter(got, run, settings)
-	//}
+	for _, stream := range streamManager.getStreams() {
+		if stream.IsFinished() {
+			continue
+		}
+		exitRecord := service.RunExitRecord{}
+		record := service.Record{
+			RecordType: &service.Record_Exit{Exit: &exitRecord},
+		}
+		handle := stream.Deliver(&record)
+		got := handle.wait()
+		settings := stream.GetSettings()
+		run := stream.GetRun()
+		showFooter(got, run, settings)
+	}
 }
 
 func (nc *NexusConn) handleInformTeardown(msg *service.ServerInformTeardownRequest) {
