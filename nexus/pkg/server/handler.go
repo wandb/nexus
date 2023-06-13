@@ -63,6 +63,21 @@ func (h *Handler) Stop() {
 	close(h.handlerChan)
 }
 
+// storeRecord writes the record to the writer if it is set.
+func (h *Handler) storeRecord(msg *service.Record) {
+	switch msg.RecordType.(type) {
+	case *service.Record_Request:
+		// don't log this
+	case nil:
+		// The field is not set.
+		log.Fatal("storeRecord: record type is nil")
+	default:
+		if h.writer != nil {
+			h.writer.WriteRecord(msg)
+		}
+	}
+}
+
 func (h *Handler) handleRecord(msg *service.Record) {
 	switch x := msg.RecordType.(type) {
 	case *service.Record_Alert:
@@ -245,20 +260,6 @@ func (h *Handler) updateSummary(msg *service.HistoryRecord) {
 	items := msg.Item
 	for i := 0; i < len(items); i++ {
 		h.summary[items[i].Key] = items[i].ValueJson
-	}
-}
-
-func (h *Handler) storeRecord(msg *service.Record) {
-	switch msg.RecordType.(type) {
-	case *service.Record_Request:
-		// don't log this
-	case nil:
-		// The field is not set.
-		log.Fatal("storeRecord: record type is nil")
-	default:
-		if h.writer != nil {
-			h.writer.WriteRecord(msg)
-		}
 	}
 }
 

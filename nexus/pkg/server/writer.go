@@ -32,12 +32,12 @@ func NewWriter(settings *Settings) *Writer {
 	return &writer
 }
 
-func (writer *Writer) Stop() {
-	close(writer.writerChan)
+func (w *Writer) Stop() {
+	close(w.writerChan)
 }
 
-func (writer *Writer) WriteRecord(rec *service.Record) {
-	writer.writerChan <- rec
+func (w *Writer) WriteRecord(rec *service.Record) {
+	w.writerChan <- rec
 }
 
 func logHeader(f *os.File) {
