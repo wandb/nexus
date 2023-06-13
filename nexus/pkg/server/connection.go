@@ -156,7 +156,6 @@ func (nc *Connection) process(wg *sync.WaitGroup) {
 	for {
 		select {
 		case msg := <-nc.requestChan:
-			log.Debug("OOLALA: ", msg)
 			nc.handleServerRequest(msg)
 		case <-nc.ctx.Done():
 			log.Debug("PROCESS: Context canceled")
