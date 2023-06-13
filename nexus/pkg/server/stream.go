@@ -60,12 +60,10 @@ func (ns *Stream) Close(wg *sync.WaitGroup) {
 	if ns.IsFinished() {
 		return
 	}
-	exitRecord := service.RunExitRecord{}
 	record := service.Record{
-		RecordType: &service.Record_Exit{Exit: &exitRecord},
+		RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{}},
 	}
-	handle := ns.Deliver(&record)
-	_ = handle.wait()
+	_ = ns.Deliver(&record).wait()
 	settings := ns.GetSettings()
 	run := ns.GetRun()
 	PrintHeadFoot(run, settings)
