@@ -60,10 +60,15 @@ func logHeader(f *os.File) {
 func (w *Writer) writerGo() {
 	f, err := os.Create(w.settings.SyncFile)
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err)
 	}
 	defer w.wg.Done()
-	defer f.Close()
+	defer func(f *os.File) {
+		err := f.Close()
+		if err != nil {
+			log.Error(err)
+		}
+	}(f)
 
 	logHeader(f)
 
@@ -81,17 +86,17 @@ func (w *Writer) writerGo() {
 
 		rec, err := records.Next()
 		if err != nil {
-			log.Fatal(err)
+			log.Error(err)
 		}
 
 		out, err := proto.Marshal(msg)
 		if err != nil {
-			log.Fatal(err)
+			log.Error(err)
 		}
 
 		_, err = rec.Write(out)
 		if err != nil {
-			log.Fatal(err)
+			log.Error(err)
 		}
 	}
 	log.Debug("WRITER: CLOSE")
