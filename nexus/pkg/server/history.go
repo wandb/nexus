@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"strconv"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
@@ -22,7 +23,9 @@ func (h *Handler) handlePartialHistory(rec *service.Record, req *service.Partial
 	for i := 0; i < len(items); i++ {
 		if items[i].Key == "_timestamp" {
 			val, err := strconv.ParseFloat(items[i].ValueJson, 64)
-			checkError(err)
+			if err != nil {
+				log.Errorf("Error parsing _timestamp: %s", err)
+			}
 			runTime = val - h.startTime
 		}
 	}

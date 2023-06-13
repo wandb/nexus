@@ -15,13 +15,17 @@ type Stream struct {
 	finished  bool
 }
 
-func NewStream(respondServerResponse func(context.Context, *service.ServerResponse),
-	settings *Settings) *Stream {
+func NewStream(settings *Settings) *Stream {
 
 	mailbox := NewMailbox()
-	responder := NewResponder(respondServerResponse, mailbox)
+	responder := NewResponder(mailbox)
 	handler := NewHandler(responder.RespondResult, settings)
 	return &Stream{responder: responder, handler: handler, mailbox: mailbox, settings: settings}
+}
+
+func (ns *Stream) Start(respondServerResponse func(context.Context, *service.ServerResponse)) {
+	go ns.responder.Start(respondServerResponse)
+	go ns.handler.Start()
 }
 
 func (ns *Stream) Deliver(rec *service.Record) *MailboxHandle {

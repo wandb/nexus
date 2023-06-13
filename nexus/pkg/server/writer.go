@@ -49,15 +49,19 @@ func logHeader(f *os.File) {
 	buf := new(bytes.Buffer)
 	ident := [4]byte{byte(':'), byte('W'), byte('&'), byte('B')}
 	head := logHeader{ident: ident, magic: 0xBEE1, version: 0}
-	err := binary.Write(buf, binary.LittleEndian, &head)
-	checkError(err)
-	_, err = f.Write(buf.Bytes())
-	checkError(err)
+	if err := binary.Write(buf, binary.LittleEndian, &head); err != nil {
+		log.Error(err)
+	}
+	if _, err := f.Write(buf.Bytes()); err != nil {
+		log.Error(err)
+	}
 }
 
 func (w *Writer) writerGo() {
 	f, err := os.Create(w.settings.SyncFile)
-	checkError(err)
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer w.wg.Done()
 	defer f.Close()
 
@@ -76,16 +80,25 @@ func (w *Writer) writerGo() {
 		// handleLogWriter(w, msg)
 
 		rec, err := records.Next()
-		checkError(err)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		out, err := proto.Marshal(msg)
-		checkError(err)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		_, err = rec.Write(out)
-		checkError(err)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 	log.Debug("WRITER: CLOSE")
-	records.Close()
+
+	if err = records.Close(); err != nil {
+		return
+	}
 	log.Debug("WRITER: FIN")
 }
 

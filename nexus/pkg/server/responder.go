@@ -14,11 +14,13 @@ type Responder struct {
 	mailbox       *Mailbox
 }
 
-func NewResponder(respondServerResponse func(ctx context.Context, result *service.ServerResponse), mailbox *Mailbox) *Responder {
-	responder := Responder{mailbox: mailbox}
-	responder.responderChan = make(chan *service.Result)
-	go responder.responderGo(respondServerResponse)
+func NewResponder(mailbox *Mailbox) *Responder {
+	responder := Responder{mailbox: mailbox, responderChan: make(chan *service.Result)}
 	return &responder
+}
+
+func (resp *Responder) Start(respondServerResponse func(ctx context.Context, result *service.ServerResponse)) {
+	go resp.responderGo(respondServerResponse)
 }
 
 func (resp *Responder) RespondResult(rec *service.Result) {
@@ -30,17 +32,10 @@ func (resp *Responder) responderGo(respondServerResponse func(ctx context.Contex
 		if ok := resp.mailbox.Respond(result); ok {
 			continue
 		}
-		// fmt.Println("GOT", result)
-		// respondServerResponse(nc, &msg)
 		resp := &service.ServerResponse{
 			ServerResponseType: &service.ServerResponse_ResultCommunicate{ResultCommunicate: result},
 		}
 		// fixme: this is a hack to get the context
 		respondServerResponse(context.Background(), resp)
-		/*
-		   case <-ns.done:
-		       log.Debug("PROCESS: DONE")
-		       return
-		*/
 	}
 }

@@ -1,10 +1,7 @@
 package server
 
 import (
-	"context"
 	"sync"
-
-	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
 type StreamManager struct {
@@ -18,13 +15,12 @@ func NewStreamManager() *StreamManager {
 	}
 }
 
-func (sm *StreamManager) addStream(streamId string, respondServerResponse func(context.Context, *service.ServerResponse),
-	settings *Settings) *Stream {
+func (sm *StreamManager) addStream(streamId string, settings *Settings) *Stream {
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
 	stream, ok := sm.streams[streamId]
 	if !ok {
-		stream = NewStream(respondServerResponse, settings)
+		stream = NewStream(settings)
 		sm.streams[streamId] = stream
 	}
 	return stream

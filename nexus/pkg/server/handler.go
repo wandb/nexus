@@ -45,9 +45,11 @@ func NewHandler(respondResult func(result *service.Result), settings *Settings) 
 		summary:       make(map[string]string),
 		handlerChan:   make(chan *service.Record)}
 	sender.SetHandler(&handler)
-
-	go handler.handlerGo()
 	return &handler
+}
+
+func (h *Handler) Start() {
+	go h.handlerGo()
 }
 
 func (h *Handler) Stop() {
@@ -232,7 +234,7 @@ func (h *Handler) handleRecord(msg *service.Record) {
 func (h *Handler) storeRecord(msg *service.Record) {
 	switch msg.RecordType.(type) {
 	case *service.Record_Request:
-		// dont log this
+		// don't log this
 	case nil:
 		// The field is not set.
 		panic("bad3rec")

@@ -186,7 +186,9 @@ func sendData(fname, urlPath string) error {
 		panic("badness")
 	}
 	// fmt.Println("GOTERR", rsp, err)
-	checkError(err)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -221,7 +223,9 @@ func (sender *Sender) doSendFile(msg *service.Record, fileItem *service.FilesIte
 		runId,
 		nil, // description
 	)
-	checkError(err)
+	if err != nil {
+		log.Error("error getting upload urls", err)
+	}
 	// func RunUploadUrls(
 	//     ctx context.Context,
 	//     client graphql.Client,
@@ -257,7 +261,9 @@ func (sender *Sender) doSendFile(msg *service.Record, fileItem *service.FilesIte
 		result[i] = url
 		// fmt.Printf("url: %d %s %s %s\n", i, *url, name, updated)
 		err = sendData(fname, *url)
-		checkError(err)
+		if err != nil {
+			log.Error("error sending data", err)
+		}
 	}
 	// fmt.Printf("got: %s\n", result)
 }
@@ -326,7 +332,9 @@ func (sender *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 		tags,          // tags []string,
 		nil,           // summaryMetrics
 	)
-	checkError(err)
+	if err != nil {
+		log.Error("error upserting bucket", err)
+	}
 
 	displayName := *resp.UpsertBucket.Bucket.DisplayName
 	projectName := resp.UpsertBucket.Bucket.Project.Name

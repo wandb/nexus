@@ -106,7 +106,8 @@ func LibStartSettings(settings *Settings, run_id string) int {
 	}
 
 	num := 42
-	s := NewStream(FuncRespondServerResponse(num), settings)
+	s := NewStream(settings)
+	s.Start(FuncRespondServerResponse(num))
 
 	c := make(chan *service.Record, 1000)
 	d := make(chan *service.Result, 1000)

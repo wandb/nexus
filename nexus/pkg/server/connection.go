@@ -50,12 +50,6 @@ func NewConnection(
 	}
 }
 
-func checkError(e error) {
-	if e != nil {
-		log.Error(e)
-	}
-}
-
 func (x *Tokenizer) split(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if x.headerLength == 0 {
 		x.headerLength = binary.Size(x.header)
@@ -91,24 +85,6 @@ func (x *Tokenizer) split(data []byte, atEOF bool) (advance int, token []byte, e
 	return
 }
 
-func respondServerResponse(nc *Connection, msg *service.ServerResponse) {
-	out, err := proto.Marshal(msg)
-	checkError(err)
-
-	writer := bufio.NewWriter(nc.conn)
-
-	header := Header{Magic: byte('W'), DataLength: uint32(len(out))}
-
-	err = binary.Write(writer, binary.LittleEndian, &header)
-	checkError(err)
-
-	_, err = writer.Write(out)
-	checkError(err)
-
-	err = writer.Flush()
-	checkError(err)
-}
-
 func (nc *Connection) receive(wg *sync.WaitGroup) {
 	defer wg.Done()
 
@@ -133,21 +109,41 @@ func (nc *Connection) receive(wg *sync.WaitGroup) {
 	// wait for context to be canceled
 	<-nc.ctx.Done()
 
-	log.Debugf("SOCKETREADER: DONE")
+	log.Debug("receive: Context canceled")
 }
 
 func (nc *Connection) transmit(wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	for {
-		select {
-		case msg := <-nc.respondChan:
-			respondServerResponse(nc, msg)
-		case <-nc.ctx.Done():
-			log.Debug("TRANSMIT: Context canceled")
-			return
+	go func() {
+		for msg := range nc.respondChan {
+			out, err := proto.Marshal(msg)
+			if err != nil {
+				log.Error("Error marshalling msg:", err)
+				return
+			}
+
+			writer := bufio.NewWriter(nc.conn)
+			header := Header{Magic: byte('W'), DataLength: uint32(len(out))}
+			if err = binary.Write(writer, binary.LittleEndian, &header); err != nil {
+				log.Error("Error writing header:", err)
+				return
+			}
+			if _, err = writer.Write(out); err != nil {
+				log.Error("Error writing msg:", err)
+				return
+			}
+
+			if err = writer.Flush(); err != nil {
+				log.Error("Error flushing writer:", err)
+				return
+			}
 		}
-	}
+	}()
+
+	// wait for context to be canceled
+	<-nc.ctx.Done()
+	log.Debug("transmit: Context canceled")
 }
 
 func (nc *Connection) process(wg *sync.WaitGroup) {
@@ -190,7 +186,7 @@ func handleConnection(ctx context.Context, cancel context.CancelFunc, swg *sync.
 
 	wg.Wait()
 
-	log.Debug("WAIT3 done handle con")
+	log.Debug("handleConnection: DONE")
 }
 
 func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
@@ -199,20 +195,21 @@ func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 	settings := NewSettings(s)
 
 	streamId := msg.XInfo.StreamId
-	streamManager.addStream(streamId, nc.RespondServerResponse, settings)
+	stream := streamManager.addStream(streamId, settings)
+	stream.Start(nc.RespondServerResponse)
 }
 
 func (nc *Connection) handleInformStart(msg *service.ServerInformStartRequest) {
-	log.Debug("PROCESS: START")
+	log.Debug("handleInformStart: start")
 }
 
 func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest) {
-	log.Debug("PROCESS: FIN")
+	log.Debug("handleInformFinish: finish")
 	streamId := msg.XInfo.StreamId
 	if stream, ok := streamManager.getStream(streamId); ok {
 		stream.MarkFinished()
 	} else {
-		log.Debug("PROCESS: RECORD: stream not found")
+		log.Error("handleInformFinish: stream not found")
 	}
 }
 
@@ -222,23 +219,22 @@ func (nc *Connection) handleInformRecord(msg *service.Record) {
 		ref := msg.ProtoReflect()
 		desc := ref.Descriptor()
 		num := ref.WhichOneof(desc.Oneofs().ByName("record_type")).Number()
-		// fmt.Printf("PROCESS: COMM/PUBLISH %d\n", num)
 		log.WithFields(log.Fields{"type": num}).Debug("PROCESS: COMM/PUBLISH")
 
 		stream.HandleRecord(msg)
 	} else {
-		log.Debug("PROCESS: RECORD: stream not found")
+		log.Error("handleInformRecord: stream not found")
 	}
 }
 
 func (nc *Connection) handleInformTeardown(msg *service.ServerInformTeardownRequest) {
-	log.Debug("CONNECTION: TEARDOWN")
+	log.Debug("handleInformTeardown: teardown")
 	streamManager.Close()
-	log.Debug("CONNECTION: TEARDOWN: CLOSE")
+	log.Debug("handleInformTeardown: streamManager closed")
 	nc.cancel()
-	log.Debug("CONNECTION: TEARDOWN: CANCEL")
+	log.Debug("handleInformTeardown: context canceled")
 	nc.shutdownChan <- true
-	log.Debug("CONNECTION: TEARDOWN: DONE")
+	log.Debug("handleInformTeardown: shutdownChan signaled")
 }
 
 func (nc *Connection) handleServerRequest(msg *service.ServerRequest) {
@@ -256,10 +252,8 @@ func (nc *Connection) handleServerRequest(msg *service.ServerRequest) {
 	case *service.ServerRequest_InformTeardown:
 		nc.handleInformTeardown(x.InformTeardown)
 	case nil:
-		// The field is not set.
 		log.Fatal("ServerRequestType is nil")
 	default:
-		// The field is not set.
 		log.Fatalf("ServerRequestType is unknown, %T", x)
 	}
 }
