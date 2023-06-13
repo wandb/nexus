@@ -33,6 +33,12 @@ func (sm *StreamManager) getStream(streamId string) (*Stream, bool) {
 	return stream, ok
 }
 
+func (sm *StreamManager) removeStream(streamId string) {
+	sm.mutex.Lock()
+	defer sm.mutex.Unlock()
+	delete(sm.streams, streamId)
+}
+
 func (sm *StreamManager) Close() {
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
