@@ -68,17 +68,19 @@ jobs:
             export PATH=$PATH:/usr/local/go/bin
             go version
             # install nexus
-            git clone https://github.com/wandb/wandb.git
             cd nexus
             pip install .
-            # checkout nexus working branch and install wandb-nexus
+            # prepare wandb-sdk
             cd /mnt/ramdisk
+            git clone https://github.com/wandb/wandb.git
             cd wandb
-            git checkout hackweek-nexus
-            pip install ".[nexus]" -U
+            # install test requirements
             pip install -r requirements_test.txt
-            # run tests
-            pytest -n=1 --durations=20 --reruns 3 --reruns-delay 1 --junitxml=test-results/junit.xml --cov-config=.coveragerc --cov --cov-report= --no-cov-on-fail --timeout 300 tests/pytest_tests/system_tests/test_core/test_nexus
+            mkdir -p tests/pytest_tests/system_tests/test_nexus
+            # copy nexus-specific tests
+            cp -r /mnt/ramdisk/nexus/tests/pytest_tests/system_tests/test_nexus/* tests/pytest_tests/system_tests/test_nexus
+            # run nexus-specific tests
+            pytest -n=1 --durations=20 --reruns 3 --reruns-delay 1 --junitxml=test-results/junit.xml --cov-config=.coveragerc --cov --cov-report= --no-cov-on-fail --timeout 300 tests/pytest_tests/system_tests/test_nexus
 
 workflows:
   main:
