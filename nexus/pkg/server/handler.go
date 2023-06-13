@@ -60,18 +60,6 @@ func (h *Handler) HandleRecord(rec *service.Record) {
 	h.handlerChan <- rec
 }
 
-// func (h *Handler) shutdownStream() {
-// 	log.Debug("HANDLER: shutdown")
-// 	if h.writer != nil {
-// 		h.writer.Stop()
-// 	}
-// 	// DONE ALREADY in defer path
-// 	// h.sender.Stop()
-// 	log.Debug("HANDLER: shutdown wait")
-// 	h.wg.Wait()
-// 	log.Debug("HANDLER: shutdown done")
-// }
-
 func (h *Handler) captureRunInfo(run *service.RunRecord) {
 	var ok bool
 	h.startTime = float64(run.StartTime.AsTime().UnixMicro()) / 1e6
