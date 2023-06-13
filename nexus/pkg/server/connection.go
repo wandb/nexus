@@ -135,9 +135,9 @@ func (nc *Connection) transmit(wg *sync.WaitGroup) {
 		select {
 		case msg := <-nc.respondChan:
 			respondServerResponse(nc, msg)
-			//case <-nc.done:
-			//	log.Debug("PROCESS: DONE")
-			//	return
+		case <-nc.ctx.Done():
+			log.Debug("TRANSMIT: Context canceled")
+			return
 		}
 	}
 }
@@ -149,12 +149,8 @@ func (nc *Connection) process(wg *sync.WaitGroup) {
 		select {
 		case msg := <-nc.requestChan:
 			nc.handleServerRequest(msg)
-		//case <-nc.done:
-		//	log.Debug("PROCESS: DONE")
-		//	return
 		case <-nc.ctx.Done():
 			log.Debug("PROCESS: Context canceled")
-			//nc.done <- true
 			return
 		}
 	}
