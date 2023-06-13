@@ -3,8 +3,11 @@ package server
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
 )
@@ -14,12 +17,13 @@ var m map[int]*NexusStream = make(map[int]*NexusStream)
 func PrintHeadFoot(run *service.RunRecord, settings *Settings) {
 	// fmt.Println("GOT", ns.run)
 	colorReset := "\033[0m"
+	colorBrightBlue := "\033[1;34m"
 	colorBlue := "\033[34m"
 	colorYellow := "\033[33m"
 
 	appURL := strings.Replace(settings.BaseURL, "//api.", "//", 1)
 	url := fmt.Sprintf("%v/%v/%v/runs/%v", appURL, run.Entity, run.Project, run.RunId)
-	fmt.Printf("%vwandb%v: 🚀 View run %v%v%v at: %v%v%v\n", colorBlue, colorReset, colorYellow, run.DisplayName, colorReset, colorBlue, url, colorReset)
+	fmt.Printf("%vwandb%v: 🚀 View run %v%v%v at: %v%v%v\n", colorBrightBlue, colorReset, colorYellow, run.DisplayName, colorReset, colorBlue, url, colorReset)
 }
 
 func ResultCallback(run *service.RunRecord, settings *Settings, result *service.Result) {
@@ -49,6 +53,24 @@ func FuncRespondServerResponse(num int) func(ctx context.Context, serverResponse
 		ns.CaptureResult(result)
 		ns.Recv <- result
 	}
+}
+
+func InitLogging() {
+	logFile, err := os.OpenFile("/tmp/logs.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	logToConsole := false
+	if logToConsole {
+		mw := io.MultiWriter(os.Stderr, logFile)
+		log.SetOutput(mw)
+	} else {
+		log.SetOutput(logFile)
+	}
+
+	log.SetFormatter(&log.JSONFormatter{})
+	log.SetLevel(log.DebugLevel)
 }
 
 func LibStart() int {

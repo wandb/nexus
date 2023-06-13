@@ -6,8 +6,9 @@ import (
 	"context"
 	"encoding/binary"
 	"net"
+	"sync"
 
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"google.golang.org/protobuf/proto"
 )
@@ -23,39 +24,44 @@ type Tokenizer struct {
 	headerValid  bool
 }
 
-type NexusConn struct {
-	conn   net.Conn
-	server *NexusServer
-	done   chan bool
+type Connection struct {
 	ctx    context.Context
+	cancel context.CancelFunc
+	conn   net.Conn
 
-	mux         map[string]*Stream
-	processChan chan *service.ServerRequest
-	respondChan chan *service.ServerResponse
+	shutdownChan chan<- bool
+	requestChan  chan *service.ServerRequest
+	respondChan  chan *service.ServerResponse
 }
 
-func (nc *NexusConn) init(ctx context.Context) {
-	process := make(chan *service.ServerRequest)
-	respond := make(chan *service.ServerResponse)
-	nc.processChan = process
-	nc.respondChan = respond
-	nc.done = make(chan bool)
-	nc.ctx = ctx
-	nc.mux = make(map[string]*Stream)
+func NewConnection(
+	ctx context.Context,
+	cancel context.CancelFunc,
+	conn net.Conn,
+	shutdownChan chan<- bool,
+) *Connection {
+	return &Connection{
+		ctx:          ctx,
+		cancel:       cancel,
+		conn:         conn,
+		shutdownChan: shutdownChan,
+		requestChan:  make(chan *service.ServerRequest),
+		respondChan:  make(chan *service.ServerResponse),
+	}
 }
 
 func checkError(e error) {
 	if e != nil {
-		logrus.Error(e)
+		log.Error(e)
 	}
 }
 
-func (x *Tokenizer) split(data []byte, atEOF bool) (retAdvance int, retToken []byte, retErr error) {
+func (x *Tokenizer) split(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if x.headerLength == 0 {
 		x.headerLength = binary.Size(x.header)
 	}
 
-	retAdvance = 0
+	advance = 0
 
 	if !x.headerValid {
 		if len(data) < x.headerLength {
@@ -64,35 +70,34 @@ func (x *Tokenizer) split(data []byte, atEOF bool) (retAdvance int, retToken []b
 		buf := bytes.NewReader(data)
 		err := binary.Read(buf, binary.LittleEndian, &x.header)
 		if err != nil {
-			logrus.Error(err)
+			log.Error(err)
 			return 0, nil, err
 		}
 		if x.header.Magic != uint8('W') {
-			logrus.Error("Invalid magic byte in header")
+			log.Error("Invalid magic byte in header")
 		}
 		x.headerValid = true
-		retAdvance += x.headerLength
-		data = data[retAdvance:]
+		advance += x.headerLength
+		data = data[advance:]
 	}
 
 	if len(data) < int(x.header.DataLength) {
 		return
 	}
 
-	retAdvance += int(x.header.DataLength)
-	retToken = data[:x.header.DataLength]
+	advance += int(x.header.DataLength)
+	token = data[:x.header.DataLength]
 	x.headerValid = false
 	return
 }
 
-func respondServerResponse(ctx context.Context, nc *NexusConn, msg *service.ServerResponse) {
+func respondServerResponse(nc *Connection, msg *service.ServerResponse) {
 	out, err := proto.Marshal(msg)
 	checkError(err)
 
 	writer := bufio.NewWriter(nc.conn)
 
-	header := Header{Magic: byte('W')}
-	header.DataLength = uint32(len(out))
+	header := Header{Magic: byte('W'), DataLength: uint32(len(out))}
 
 	err = binary.Write(writer, binary.LittleEndian, &header)
 	checkError(err)
@@ -104,82 +109,166 @@ func respondServerResponse(ctx context.Context, nc *NexusConn, msg *service.Serv
 	checkError(err)
 }
 
-func (nc *NexusConn) receive(ctx context.Context) {
+func (nc *Connection) receive(wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	scanner := bufio.NewScanner(nc.conn)
 	tokenizer := Tokenizer{}
-
 	scanner.Split(tokenizer.split)
-	for scanner.Scan() {
-		msg := &service.ServerRequest{}
-		err := proto.Unmarshal(scanner.Bytes(), msg)
-		if err != nil {
-			logrus.Error("Unmarshaling error: ", err)
-			break
+
+	// Run Scanner in a separate goroutine to listen for incoming messages
+	go func() {
+		for scanner.Scan() {
+			msg := &service.ServerRequest{}
+			err := proto.Unmarshal(scanner.Bytes(), msg)
+			if err != nil {
+				log.Error("Unmarshalling error: ", err)
+				continue
+			}
+			nc.requestChan <- msg
 		}
-		nc.processChan <- msg
-	}
-	logrus.Debugf("SOCKETREADER: DONE")
-	nc.done <- true
+		nc.cancel()
+	}()
+
+	// wait for context to be canceled
+	<-nc.ctx.Done()
+
+	log.Debugf("SOCKETREADER: DONE")
 }
 
-func (nc *NexusConn) transmit(ctx context.Context) {
+func (nc *Connection) transmit(wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	for {
 		select {
 		case msg := <-nc.respondChan:
-			respondServerResponse(ctx, nc, msg)
-		case <-nc.done:
-			logrus.Debug("PROCESS: DONE")
+			respondServerResponse(nc, msg)
+		case <-nc.ctx.Done():
+			log.Debug("TRANSMIT: Context canceled")
 			return
 		}
 	}
 }
 
-func (nc *NexusConn) process(ctx context.Context) {
+func (nc *Connection) process(wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	for {
 		select {
-		case msg := <-nc.processChan:
-			handleServerRequest(nc, msg)
-		case <-nc.done:
-			logrus.Debug("PROCESS: DONE")
-			return
-		case <-ctx.Done():
-			logrus.Debug("PROCESS: Context canceled")
-			nc.done <- true
+		case msg := <-nc.requestChan:
+			nc.handleServerRequest(msg)
+		case <-nc.ctx.Done():
+			log.Debug("PROCESS: Context canceled")
 			return
 		}
 	}
 }
 
-func (nc *NexusConn) RespondServerResponse(ctx context.Context, serverResponse *service.ServerResponse) {
+func (nc *Connection) RespondServerResponse(ctx context.Context, serverResponse *service.ServerResponse) {
 	nc.respondChan <- serverResponse
 }
 
-func (nc *NexusConn) wait(ctx context.Context) {
-	logrus.Debug("WAIT1")
-	for {
-		select {
-		case <-nc.done:
-			logrus.Debug("WAIT done")
-			return
-		case <-ctx.Done():
-			logrus.Debug("WAIT ctx done")
-			return
+func handleConnection(ctx context.Context, cancel context.CancelFunc, swg *sync.WaitGroup, conn net.Conn, shutdownChan chan<- bool) {
+	connection := NewConnection(ctx, cancel, conn, shutdownChan)
+
+	defer func() {
+		swg.Done()
+		err := connection.conn.Close()
+		if err != nil {
+			log.Error(err)
 		}
+		close(connection.requestChan)
+		close(connection.respondChan)
+	}()
+
+	wg := sync.WaitGroup{}
+	wg.Add(3)
+
+	go connection.receive(&wg)
+	go connection.transmit(&wg)
+	go connection.process(&wg)
+
+	wg.Wait()
+
+	log.Debug("WAIT3 done handle con")
+}
+
+func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
+	log.Debug("PROCESS: INIT")
+
+	s := msg.XSettingsMap
+	settings := &Settings{
+		BaseURL:  s["base_url"].GetStringValue(),
+		ApiKey:   s["api_key"].GetStringValue(),
+		SyncFile: s["sync_file"].GetStringValue(),
+		Offline:  s["_offline"].GetBoolValue()}
+
+	settings.parseNetrc()
+
+	log.Debug("STREAM init")
+
+	streamId := msg.XInfo.StreamId
+	streamManager.addStream(streamId, nc.RespondServerResponse, settings)
+}
+
+func (nc *Connection) handleInformStart(msg *service.ServerInformStartRequest) {
+	log.Debug("PROCESS: START")
+}
+
+func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest) {
+	log.Debug("PROCESS: FIN")
+	streamId := msg.XInfo.StreamId
+	if stream, ok := streamManager.getStream(streamId); ok {
+		stream.MarkFinished()
+	} else {
+		log.Debug("PROCESS: RECORD: stream not found")
 	}
 }
 
-func handleConnection(ctx context.Context, serverState *NexusServer, conn net.Conn) {
-	defer func() {
-		conn.Close()
-	}()
+func (nc *Connection) handleInformRecord(msg *service.Record) {
+	streamId := msg.XInfo.StreamId
+	if stream, ok := streamManager.getStream(streamId); ok {
+		ref := msg.ProtoReflect()
+		desc := ref.Descriptor()
+		num := ref.WhichOneof(desc.Oneofs().ByName("record_type")).Number()
+		// fmt.Printf("PROCESS: COMM/PUBLISH %d\n", num)
+		log.WithFields(log.Fields{"type": num}).Debug("PROCESS: COMM/PUBLISH")
 
-	connection := NexusConn{conn: conn, server: serverState}
+		stream.ProcessRecord(msg)
+	} else {
+		log.Debug("PROCESS: RECORD: stream not found")
+	}
+}
 
-	connection.init(ctx)
-	go connection.receive(ctx)
-	go connection.transmit(ctx)
-	go connection.process(ctx)
-	connection.wait(ctx)
+func (nc *Connection) handleInformTeardown(msg *service.ServerInformTeardownRequest) {
+	log.Debug("CONNECTION: TEARDOWN")
+	streamManager.Close()
+	log.Debug("CONNECTION: TEARDOWN: CLOSE")
+	nc.cancel()
+	log.Debug("CONNECTION: TEARDOWN: CANCEL")
+	nc.shutdownChan <- true
+	log.Debug("CONNECTION: TEARDOWN: DONE")
+}
 
-	logrus.Debug("WAIT3 done handle con")
+func (nc *Connection) handleServerRequest(msg *service.ServerRequest) {
+	switch x := msg.ServerRequestType.(type) {
+	case *service.ServerRequest_InformInit:
+		nc.handleInformInit(x.InformInit)
+	case *service.ServerRequest_InformStart:
+		nc.handleInformStart(x.InformStart)
+	case *service.ServerRequest_InformFinish:
+		nc.handleInformFinish(x.InformFinish)
+	case *service.ServerRequest_RecordPublish:
+		nc.handleInformRecord(x.RecordPublish)
+	case *service.ServerRequest_RecordCommunicate:
+		nc.handleInformRecord(x.RecordCommunicate)
+	case *service.ServerRequest_InformTeardown:
+		nc.handleInformTeardown(x.InformTeardown)
+	case nil:
+		// The field is not set.
+		log.Fatal("ServerRequestType is nil")
+	default:
+		// The field is not set.
+		log.Fatalf("ServerRequestType is unknown, %T", x)
+	}
 }
