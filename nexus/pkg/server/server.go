@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -31,8 +32,9 @@ func writePortFile(portFile string, port int) {
 }
 
 type NexusServer struct {
-	shutdown bool
-	listen   net.Listener
+	shutdownChan chan bool
+	shutdown     bool
+	listen       net.Listener
 }
 
 func tcpServer(portFile string) {
@@ -41,11 +43,9 @@ func tcpServer(portFile string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer func(listen net.Listener) {
-		_ = listen.Close()
-	}(listen)
+	defer listen.Close()
 
-	server := NexusServer{listen: listen}
+	server := NexusServer{shutdownChan: make(chan bool), listen: listen}
 
 	log.Println("Server is running on:", addr)
 	port := listen.Addr().(*net.TCPAddr).Port
@@ -53,21 +53,35 @@ func tcpServer(portFile string) {
 
 	writePortFile(portFile, port)
 
-	for {
-		conn, err := listen.Accept()
-		if err != nil {
-			if server.shutdown {
-				log.Println("shutting down...")
-				break
+	wg := sync.WaitGroup{}
+
+	// Run a separate goroutine to handle incoming connections
+	go func() {
+		for {
+			conn, err := listen.Accept()
+			if err != nil {
+				if server.shutdown {
+					break // Break when shutdown has been requested
+				}
+				log.Println("Failed to accept conn.", err)
+				continue
 			}
-			log.Println("Failed to accept conn.", err)
-			continue
+
+			ctx, cancel := context.WithCancel(context.Background())
+
+			wg.Add(1)
+			go handleConnection(ctx, cancel, &wg, conn, server.shutdownChan)
 		}
+	}()
 
-		ctx, cancel := context.WithCancel(context.Background())
+	// Wait for a shutdown signal
+	<-server.shutdownChan
+	server.shutdown = true
+	log.Println("shutting down...")
 
-		go handleConnection(ctx, cancel, conn, &server)
-	}
+	log.Println("What goes on here in my mind...")
+	wg.Wait()
+	log.Println("I think that I am falling down...")
 }
 
 func WandbService(portFilename string) {

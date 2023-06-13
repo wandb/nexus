@@ -28,25 +28,25 @@ type Connection struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	conn   net.Conn
-	server *NexusServer
 
-	requestChan chan *service.ServerRequest
-	respondChan chan *service.ServerResponse
+	shutdownChan chan<- bool
+	requestChan  chan *service.ServerRequest
+	respondChan  chan *service.ServerResponse
 }
 
 func NewConnection(
 	ctx context.Context,
 	cancel context.CancelFunc,
 	conn net.Conn,
-	server *NexusServer,
+	shutdownChan chan<- bool,
 ) *Connection {
 	return &Connection{
-		ctx:         ctx,
-		cancel:      cancel,
-		conn:        conn,
-		server:      server,
-		requestChan: make(chan *service.ServerRequest),
-		respondChan: make(chan *service.ServerResponse),
+		ctx:          ctx,
+		cancel:       cancel,
+		conn:         conn,
+		shutdownChan: shutdownChan,
+		requestChan:  make(chan *service.ServerRequest),
+		respondChan:  make(chan *service.ServerResponse),
 	}
 }
 
@@ -114,17 +114,25 @@ func (nc *Connection) receive(wg *sync.WaitGroup) {
 
 	scanner := bufio.NewScanner(nc.conn)
 	tokenizer := Tokenizer{}
-
 	scanner.Split(tokenizer.split)
-	for scanner.Scan() {
-		msg := &service.ServerRequest{}
-		err := proto.Unmarshal(scanner.Bytes(), msg)
-		if err != nil {
-			log.Error("Unmarshalling error: ", err)
-			break
+
+	// Run Scanner in a separate goroutine to listen for incoming messages
+	go func() {
+		for scanner.Scan() {
+			msg := &service.ServerRequest{}
+			err := proto.Unmarshal(scanner.Bytes(), msg)
+			if err != nil {
+				log.Error("Unmarshalling error: ", err)
+				continue
+			}
+			nc.requestChan <- msg
 		}
-		nc.requestChan <- msg
-	}
+		nc.cancel()
+	}()
+
+	// wait for context to be canceled
+	<-nc.ctx.Done()
+
 	log.Debugf("SOCKETREADER: DONE")
 }
 
@@ -148,6 +156,7 @@ func (nc *Connection) process(wg *sync.WaitGroup) {
 	for {
 		select {
 		case msg := <-nc.requestChan:
+			log.Debug("OOLALA: ", msg)
 			nc.handleServerRequest(msg)
 		case <-nc.ctx.Done():
 			log.Debug("PROCESS: Context canceled")
@@ -160,15 +169,16 @@ func (nc *Connection) RespondServerResponse(ctx context.Context, serverResponse 
 	nc.respondChan <- serverResponse
 }
 
-func handleConnection(ctx context.Context, cancel context.CancelFunc, conn net.Conn, server *NexusServer) {
+func handleConnection(ctx context.Context, cancel context.CancelFunc, swg *sync.WaitGroup, conn net.Conn, shutdownChan chan<- bool) {
 	defer func(conn net.Conn) {
+		swg.Done()
 		err := conn.Close()
 		if err != nil {
 			log.Error(err)
 		}
 	}(conn)
 
-	connection := NewConnection(ctx, cancel, conn, server)
+	connection := NewConnection(ctx, cancel, conn, shutdownChan)
 
 	wg := sync.WaitGroup{}
 	wg.Add(3)
@@ -230,21 +240,13 @@ func (nc *Connection) handleInformRecord(msg *service.Record) {
 }
 
 func (nc *Connection) handleInformTeardown(msg *service.ServerInformTeardownRequest) {
-	log.Debug("PROCESS: TEARDOWN")
-
+	log.Debug("CONNECTION: TEARDOWN")
 	streamManager.Close()
-
-	//nc.done <- true
-	// _, cancelCtx := context.WithCancel(nc.ctx)
-
-	log.Debug("PROCESS: TEARDOWN *****1")
-	// cancelCtx()
-	log.Debug("PROCESS: TEARDOWN *****2")
-	// TODO: remove this?
-	// os.Exit(1)
-
-	nc.server.shutdown = true
-	nc.server.listen.Close()
+	log.Debug("CONNECTION: TEARDOWN: CLOSE")
+	nc.cancel()
+	log.Debug("CONNECTION: TEARDOWN: CANCEL")
+	nc.shutdownChan <- true
+	log.Debug("CONNECTION: TEARDOWN: DONE")
 }
 
 func (nc *Connection) handleServerRequest(msg *service.ServerRequest) {
