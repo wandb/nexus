@@ -1,10 +1,11 @@
 package server
 
 import (
+	"github.com/wandb/wandb/nexus/pkg/service"
+	"sync"
+
 	// "fmt"
 	"strings"
-
-	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
 type MailboxHandle struct {
@@ -13,6 +14,7 @@ type MailboxHandle struct {
 
 type Mailbox struct {
 	handles map[string]*MailboxHandle
+	mutex   sync.RWMutex
 }
 
 func NewMailbox() *Mailbox {
@@ -33,6 +35,9 @@ func (mbh *MailboxHandle) wait() *service.Result {
 }
 
 func (mb *Mailbox) Deliver(rec *service.Record) *MailboxHandle {
+	mb.mutex.Lock()
+	defer mb.mutex.Unlock()
+
 	uuid := "nexus:" + ShortID(12)
 	rec.Control = &service.Control{MailboxSlot: uuid}
 	// rec.GetControl().MailboxSlot = uuid
@@ -44,6 +49,10 @@ func (mb *Mailbox) Deliver(rec *service.Record) *MailboxHandle {
 
 func (mb *Mailbox) Respond(result *service.Result) bool {
 	// fmt.Println("mailbox result", result)
+	// use mutex to protect handles:
+	mb.mutex.RLock()
+	defer mb.mutex.RUnlock()
+
 	slot := result.GetControl().MailboxSlot
 	if !strings.HasPrefix(slot, "nexus:") {
 		return false

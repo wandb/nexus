@@ -152,7 +152,7 @@ func (nc *Connection) process(wg *sync.WaitGroup) {
 	for {
 		select {
 		case msg := <-nc.requestChan:
-			nc.handleServerRequest(msg)
+			nc.handleMessage(msg)
 		case <-nc.ctx.Done():
 			log.Debug("PROCESS: Context canceled")
 			return
@@ -203,16 +203,6 @@ func (nc *Connection) handleInformStart(msg *service.ServerInformStartRequest) {
 	log.Debug("handleInformStart: start")
 }
 
-func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest) {
-	log.Debug("handleInformFinish: finish")
-	streamId := msg.XInfo.StreamId
-	if stream, ok := streamManager.getStream(streamId); ok {
-		stream.MarkFinished()
-	} else {
-		log.Error("handleInformFinish: stream not found")
-	}
-}
-
 func (nc *Connection) handleInformRecord(msg *service.Record) {
 	streamId := msg.XInfo.StreamId
 	if stream, ok := streamManager.getStream(streamId); ok {
@@ -227,6 +217,16 @@ func (nc *Connection) handleInformRecord(msg *service.Record) {
 	}
 }
 
+func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest) {
+	log.Debug("handleInformFinish: finish")
+	streamId := msg.XInfo.StreamId
+	if stream, ok := streamManager.getStream(streamId); ok {
+		stream.MarkFinished()
+	} else {
+		log.Error("handleInformFinish: stream not found")
+	}
+}
+
 func (nc *Connection) handleInformTeardown(msg *service.ServerInformTeardownRequest) {
 	log.Debug("handleInformTeardown: teardown")
 	streamManager.Close()
@@ -237,18 +237,18 @@ func (nc *Connection) handleInformTeardown(msg *service.ServerInformTeardownRequ
 	log.Debug("handleInformTeardown: shutdownChan signaled")
 }
 
-func (nc *Connection) handleServerRequest(msg *service.ServerRequest) {
+func (nc *Connection) handleMessage(msg *service.ServerRequest) {
 	switch x := msg.ServerRequestType.(type) {
 	case *service.ServerRequest_InformInit:
 		nc.handleInformInit(x.InformInit)
 	case *service.ServerRequest_InformStart:
 		nc.handleInformStart(x.InformStart)
-	case *service.ServerRequest_InformFinish:
-		nc.handleInformFinish(x.InformFinish)
 	case *service.ServerRequest_RecordPublish:
 		nc.handleInformRecord(x.RecordPublish)
 	case *service.ServerRequest_RecordCommunicate:
 		nc.handleInformRecord(x.RecordCommunicate)
+	case *service.ServerRequest_InformFinish:
+		nc.handleInformFinish(x.InformFinish)
 	case *service.ServerRequest_InformTeardown:
 		nc.handleInformTeardown(x.InformTeardown)
 	case nil:

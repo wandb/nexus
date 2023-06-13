@@ -16,7 +16,6 @@ type Stream struct {
 }
 
 func NewStream(settings *Settings) *Stream {
-
 	mailbox := NewMailbox()
 	responder := NewResponder(mailbox)
 	handler := NewHandler(responder.RespondResult, settings)
