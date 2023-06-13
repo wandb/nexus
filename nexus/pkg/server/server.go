@@ -3,30 +3,11 @@ package server
 import (
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"os"
 
 	log "github.com/sirupsen/logrus"
 )
-
-func InitLogging() {
-	logFile, err := os.OpenFile("/tmp/logs.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	logToConsole := false
-	if logToConsole {
-		mw := io.MultiWriter(os.Stderr, logFile)
-		log.SetOutput(mw)
-	} else {
-		log.SetOutput(logFile)
-	}
-
-	log.SetFormatter(&log.JSONFormatter{})
-	log.SetLevel(log.DebugLevel)
-}
 
 func writePortFile(portFile string, port int) {
 	tempFile := fmt.Sprintf("%s.tmp", portFile)
@@ -87,10 +68,6 @@ func tcpServer(portFile string) {
 	}
 }
 
-func wbService(portFile string) {
-	tcpServer(portFile)
-}
-
 func WandbService(portFilename string) {
-	wbService(portFilename)
+	tcpServer(portFilename)
 }

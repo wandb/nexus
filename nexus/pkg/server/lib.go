@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"fmt"
+	log "github.com/sirupsen/logrus"
+	"io"
 	"os"
 	"strings"
 
@@ -49,6 +51,25 @@ func FuncRespondServerResponse(num int) func(ctx context.Context, serverResponse
 		ns.CaptureResult(result)
 		ns.Recv <- result
 	}
+}
+
+func InitLogging() {
+	logFile, err := os.OpenFile("/tmp/logs.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// logToConsole := false
+	logToConsole := true
+	if logToConsole {
+		mw := io.MultiWriter(os.Stderr, logFile)
+		log.SetOutput(mw)
+	} else {
+		log.SetOutput(logFile)
+	}
+
+	log.SetFormatter(&log.JSONFormatter{})
+	log.SetLevel(log.DebugLevel)
 }
 
 func LibStart() int {

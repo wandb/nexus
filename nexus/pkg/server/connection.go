@@ -227,31 +227,10 @@ func (nc *NexusConn) handleInformRecord(msg *service.Record) {
 	}
 }
 
-func showFooter(result *service.Result, run *service.RunRecord, settings *Settings) {
-	PrintHeadFoot(run, settings)
-}
-
-func finishAll(nc *NexusConn) {
-	for _, stream := range streamManager.getStreams() {
-		if stream.IsFinished() {
-			continue
-		}
-		exitRecord := service.RunExitRecord{}
-		record := service.Record{
-			RecordType: &service.Record_Exit{Exit: &exitRecord},
-		}
-		handle := stream.Deliver(&record)
-		got := handle.wait()
-		settings := stream.GetSettings()
-		run := stream.GetRun()
-		showFooter(got, run, settings)
-	}
-}
-
 func (nc *NexusConn) handleInformTeardown(msg *service.ServerInformTeardownRequest) {
 	log.Debug("PROCESS: TEARDOWN")
 
-	finishAll(nc)
+	streamManager.Close()
 
 	nc.done <- true
 	// _, cancelCtx := context.WithCancel(nc.ctx)
