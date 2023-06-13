@@ -170,15 +170,17 @@ func (nc *Connection) RespondServerResponse(ctx context.Context, serverResponse 
 }
 
 func handleConnection(ctx context.Context, cancel context.CancelFunc, swg *sync.WaitGroup, conn net.Conn, shutdownChan chan<- bool) {
-	defer func(conn net.Conn) {
+	connection := NewConnection(ctx, cancel, conn, shutdownChan)
+
+	defer func() {
 		swg.Done()
-		err := conn.Close()
+		err := connection.conn.Close()
 		if err != nil {
 			log.Error(err)
 		}
-	}(conn)
-
-	connection := NewConnection(ctx, cancel, conn, shutdownChan)
+		close(connection.requestChan)
+		close(connection.respondChan)
+	}()
 
 	wg := sync.WaitGroup{}
 	wg.Add(3)

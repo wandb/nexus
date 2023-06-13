@@ -43,9 +43,16 @@ func tcpServer(portFile string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer listen.Close()
 
 	server := NexusServer{shutdownChan: make(chan bool), listen: listen}
+
+	defer func() {
+		err := listen.Close()
+		if err != nil {
+			log.Error("Error closing listener:", err)
+		}
+		close(server.shutdownChan)
+	}()
 
 	log.Println("Server is running on:", addr)
 	port := listen.Addr().(*net.TCPAddr).Port
