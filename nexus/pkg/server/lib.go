@@ -60,8 +60,8 @@ func InitLogging() {
 		log.Fatal(err)
 	}
 
-	// logToConsole := false
-	logToConsole := true
+	logToConsole := false
+	//logToConsole := true
 	if logToConsole {
 		mw := io.MultiWriter(os.Stderr, logFile)
 		log.SetOutput(mw)

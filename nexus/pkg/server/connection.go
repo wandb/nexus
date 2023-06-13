@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/binary"
 	"net"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/wandb/wandb/nexus/pkg/service"
@@ -90,7 +91,7 @@ func (x *Tokenizer) split(data []byte, atEOF bool) (advance int, token []byte, e
 	return
 }
 
-func respondServerResponse(ctx context.Context, nc *Connection, msg *service.ServerResponse) {
+func respondServerResponse(nc *Connection, msg *service.ServerResponse) {
 	out, err := proto.Marshal(msg)
 	checkError(err)
 
@@ -108,7 +109,9 @@ func respondServerResponse(ctx context.Context, nc *Connection, msg *service.Ser
 	checkError(err)
 }
 
-func (nc *Connection) receive(ctx context.Context) {
+func (nc *Connection) receive(wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	scanner := bufio.NewScanner(nc.conn)
 	tokenizer := Tokenizer{}
 
@@ -125,11 +128,13 @@ func (nc *Connection) receive(ctx context.Context) {
 	log.Debugf("SOCKETREADER: DONE")
 }
 
-func (nc *Connection) transmit(ctx context.Context) {
+func (nc *Connection) transmit(wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	for {
 		select {
 		case msg := <-nc.respondChan:
-			respondServerResponse(ctx, nc, msg)
+			respondServerResponse(nc, msg)
 			//case <-nc.done:
 			//	log.Debug("PROCESS: DONE")
 			//	return
@@ -137,7 +142,9 @@ func (nc *Connection) transmit(ctx context.Context) {
 	}
 }
 
-func (nc *Connection) process(ctx context.Context) {
+func (nc *Connection) process(wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	for {
 		select {
 		case msg := <-nc.requestChan:
@@ -145,7 +152,7 @@ func (nc *Connection) process(ctx context.Context) {
 		//case <-nc.done:
 		//	log.Debug("PROCESS: DONE")
 		//	return
-		case <-ctx.Done():
+		case <-nc.ctx.Done():
 			log.Debug("PROCESS: Context canceled")
 			//nc.done <- true
 			return
@@ -157,29 +164,24 @@ func (nc *Connection) RespondServerResponse(ctx context.Context, serverResponse 
 	nc.respondChan <- serverResponse
 }
 
-func (nc *Connection) wait(ctx context.Context) {
-	log.Debug("WAIT1")
-	for {
-		select {
-		//case <-nc.done:
-		//	log.Debug("WAIT done")
-		//	return
-		case <-ctx.Done():
-			log.Debug("WAIT ctx done")
-			return
-		}
-	}
-}
-
 func handleConnection(ctx context.Context, cancel context.CancelFunc, conn net.Conn, server *NexusServer) {
-	defer conn.Close()
+	defer func(conn net.Conn) {
+		err := conn.Close()
+		if err != nil {
+			log.Error(err)
+		}
+	}(conn)
 
 	connection := NewConnection(ctx, cancel, conn, server)
 
-	go connection.receive(ctx)
-	go connection.transmit(ctx)
-	go connection.process(ctx)
-	connection.wait(ctx)
+	wg := sync.WaitGroup{}
+	wg.Add(3)
+
+	go connection.receive(&wg)
+	go connection.transmit(&wg)
+	go connection.process(&wg)
+
+	wg.Wait()
 
 	log.Debug("WAIT3 done handle con")
 }
