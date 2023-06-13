@@ -23,49 +23,49 @@ func NewStream(settings *Settings) *Stream {
 	return &Stream{responder: responder, handler: handler, mailbox: mailbox, settings: settings}
 }
 
-func (ns *Stream) Start(respondServerResponse func(context.Context, *service.ServerResponse)) {
-	go ns.responder.Start(respondServerResponse)
-	go ns.handler.Start()
+func (s *Stream) Start(respondServerResponse func(context.Context, *service.ServerResponse)) {
+	go s.responder.Start(respondServerResponse)
+	go s.handler.Start()
 }
 
-func (ns *Stream) Deliver(rec *service.Record) *MailboxHandle {
-	handle := ns.mailbox.Deliver(rec)
-	ns.HandleRecord(rec)
+func (s *Stream) Deliver(rec *service.Record) *MailboxHandle {
+	handle := s.mailbox.Deliver(rec)
+	s.HandleRecord(rec)
 	return handle
 }
 
-func (ns *Stream) HandleRecord(rec *service.Record) {
-	ns.handler.HandleRecord(rec)
+func (s *Stream) HandleRecord(rec *service.Record) {
+	s.handler.HandleRecord(rec)
 }
 
-func (ns *Stream) MarkFinished() {
-	ns.finished = true
+func (s *Stream) MarkFinished() {
+	s.finished = true
 }
 
-func (ns *Stream) IsFinished() bool {
-	return ns.finished
+func (s *Stream) IsFinished() bool {
+	return s.finished
 }
 
-func (ns *Stream) GetSettings() *Settings {
-	return ns.settings
+func (s *Stream) GetSettings() *Settings {
+	return s.settings
 }
 
-func (ns *Stream) GetRun() *service.RunRecord {
-	return ns.handler.GetRun()
+func (s *Stream) GetRun() *service.RunRecord {
+	return s.handler.GetRun()
 }
 
-func (ns *Stream) Close(wg *sync.WaitGroup) {
+func (s *Stream) Close(wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	if ns.IsFinished() {
+	if s.IsFinished() {
 		return
 	}
 	record := service.Record{
 		RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{}},
 	}
-	_ = ns.Deliver(&record).wait()
-	settings := ns.GetSettings()
-	run := ns.GetRun()
+	_ = s.Deliver(&record).wait()
+	settings := s.GetSettings()
+	run := s.GetRun()
 	PrintHeadFoot(run, settings)
-	ns.MarkFinished()
+	s.MarkFinished()
 }

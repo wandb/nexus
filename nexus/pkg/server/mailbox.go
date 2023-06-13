@@ -16,8 +16,7 @@ type Mailbox struct {
 }
 
 func NewMailbox() *Mailbox {
-	mailbox := &Mailbox{}
-	mailbox.handles = make(map[string]*MailboxHandle)
+	mailbox := &Mailbox{handles: make(map[string]*MailboxHandle)}
 	return mailbox
 }
 
