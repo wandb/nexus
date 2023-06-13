@@ -24,8 +24,8 @@ func NewStream(settings *Settings) *Stream {
 }
 
 func (s *Stream) Start(respondServerResponse func(context.Context, *service.ServerResponse)) {
-	go s.responder.Start(respondServerResponse)
-	go s.handler.Start()
+	s.responder.Start(respondServerResponse)
+	s.handler.Start()
 }
 
 func (s *Stream) Deliver(rec *service.Record) *MailboxHandle {
