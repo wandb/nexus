@@ -74,13 +74,14 @@ jobs:
             cd /mnt/ramdisk
             git clone https://github.com/wandb/wandb.git
             cd wandb
-            # install test requirements
+            # install requirements
+            pip install .
             pip install -r requirements_test.txt
             mkdir -p tests/pytest_tests/system_tests/test_nexus
             # copy nexus-specific tests
-            cp -r /mnt/ramdisk/nexus/tests/pytest_tests/system_tests/test_nexus/* tests/pytest_tests/system_tests/test_nexus
+            cp -r /mnt/ramdisk/tests/pytest_tests/system_tests/test_nexus/* tests/pytest_tests/system_tests/test_nexus
             # run nexus-specific tests
-            pytest -n=1 --durations=20 --reruns 3 --reruns-delay 1 --junitxml=test-results/junit.xml --cov-config=.coveragerc --cov --cov-report= --no-cov-on-fail --timeout 300 tests/pytest_tests/system_tests/test_nexus
+            pytest -n=0 --durations=20 --reruns 3 --reruns-delay 1 --junitxml=test-results/junit.xml --cov-config=.coveragerc --cov --cov-report= --no-cov-on-fail --timeout 300 tests/pytest_tests/system_tests/test_nexus
 
 workflows:
   main:
