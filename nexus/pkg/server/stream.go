@@ -26,11 +26,11 @@ func NewStream(respondServerResponse func(context.Context, *service.ServerRespon
 
 func (ns *Stream) Deliver(rec *service.Record) *MailboxHandle {
 	handle := ns.mailbox.Deliver(rec)
-	ns.ProcessRecord(rec)
+	ns.HandleRecord(rec)
 	return handle
 }
 
-func (ns *Stream) ProcessRecord(rec *service.Record) {
+func (ns *Stream) HandleRecord(rec *service.Record) {
 	ns.handler.HandleRecord(rec)
 }
 
@@ -50,11 +50,6 @@ func (ns *Stream) GetRun() *service.RunRecord {
 	return ns.handler.GetRun()
 }
 
-func showFooter(result *service.Result, run *service.RunRecord, settings *Settings) {
-	// todo: move this elsewhere more appropriate
-	PrintHeadFoot(run, settings)
-}
-
 func (ns *Stream) Close(wg *sync.WaitGroup) {
 	defer wg.Done()
 
@@ -66,9 +61,9 @@ func (ns *Stream) Close(wg *sync.WaitGroup) {
 		RecordType: &service.Record_Exit{Exit: &exitRecord},
 	}
 	handle := ns.Deliver(&record)
-	got := handle.wait()
+	_ = handle.wait()
 	settings := ns.GetSettings()
 	run := ns.GetRun()
-	showFooter(got, run, settings)
+	PrintHeadFoot(run, settings)
 	ns.MarkFinished()
 }

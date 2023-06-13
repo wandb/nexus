@@ -27,7 +27,7 @@ func (resp *Responder) RespondResult(rec *service.Result) {
 
 func (resp *Responder) responderGo(respondServerResponse func(ctx context.Context, result *service.ServerResponse)) {
 	for result := range resp.responderChan {
-		if resp.mailbox.Respond(result) {
+		if ok := resp.mailbox.Respond(result); ok {
 			continue
 		}
 		// fmt.Println("GOT", result)

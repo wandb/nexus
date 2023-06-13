@@ -194,18 +194,9 @@ func handleConnection(ctx context.Context, cancel context.CancelFunc, swg *sync.
 }
 
 func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
-	log.Debug("PROCESS: INIT")
-
+	log.Debug("connection: handleInformInit: init")
 	s := msg.XSettingsMap
-	settings := &Settings{
-		BaseURL:  s["base_url"].GetStringValue(),
-		ApiKey:   s["api_key"].GetStringValue(),
-		SyncFile: s["sync_file"].GetStringValue(),
-		Offline:  s["_offline"].GetBoolValue()}
-
-	settings.parseNetrc()
-
-	log.Debug("STREAM init")
+	settings := NewSettings(s)
 
 	streamId := msg.XInfo.StreamId
 	streamManager.addStream(streamId, nc.RespondServerResponse, settings)
@@ -234,7 +225,7 @@ func (nc *Connection) handleInformRecord(msg *service.Record) {
 		// fmt.Printf("PROCESS: COMM/PUBLISH %d\n", num)
 		log.WithFields(log.Fields{"type": num}).Debug("PROCESS: COMM/PUBLISH")
 
-		stream.ProcessRecord(msg)
+		stream.HandleRecord(msg)
 	} else {
 		log.Debug("PROCESS: RECORD: stream not found")
 	}

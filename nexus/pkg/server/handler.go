@@ -50,12 +50,12 @@ func NewHandler(respondResult func(result *service.Result), settings *Settings) 
 	return &handler
 }
 
-func (handler *Handler) Stop() {
-	close(handler.handlerChan)
+func (h *Handler) Stop() {
+	close(h.handlerChan)
 }
 
-func (handler *Handler) HandleRecord(rec *service.Record) {
-	handler.handlerChan <- rec
+func (h *Handler) HandleRecord(rec *service.Record) {
+	h.handlerChan <- rec
 }
 
 // func (h *Handler) shutdownStream() {
@@ -196,21 +196,21 @@ func (h *Handler) handleRequest(rec *service.Record, req *service.Request) {
 	h.respondResult(result)
 }
 
-func (handler *Handler) handleRecord(msg *service.Record) {
+func (h *Handler) handleRecord(msg *service.Record) {
 	// fmt.Println("HANDLEREC", msg)
 	switch x := msg.RecordType.(type) {
 	case *service.Record_Header:
 		// fmt.Println("headgot:", x)
 	case *service.Record_Request:
 		log.WithFields(log.Fields{"req": x}).Debug("reqgot")
-		handler.handleRequest(msg, x.Request)
+		h.handleRequest(msg, x.Request)
 	case *service.Record_Summary:
 		// fmt.Println("sumgot:", x)
 	case *service.Record_Run:
 		// fmt.Println("rungot:", x)
-		handler.handleRun(msg, x.Run)
+		h.handleRun(msg, x.Run)
 	case *service.Record_Files:
-		handler.sender.SendRecord(msg)
+		h.sender.SendRecord(msg)
 	case *service.Record_History:
 		// fmt.Println("histgot:", x)
 	case *service.Record_Telemetry:
@@ -219,7 +219,7 @@ func (handler *Handler) handleRecord(msg *service.Record) {
 		// fmt.Println("outgot:", x)
 	case *service.Record_Exit:
 		// fmt.Println("exitgot:", x)
-		handler.handleRunExit(msg, x.Exit)
+		h.handleRunExit(msg, x.Exit)
 	case nil:
 		// The field is not set.
 		panic("bad2rec")
@@ -243,15 +243,15 @@ func (h *Handler) storeRecord(msg *service.Record) {
 	}
 }
 
-func (handler *Handler) handlerGo() {
+func (h *Handler) handlerGo() {
 	log.Debug("HANDLER")
-	for record := range handler.handlerChan {
+	for record := range h.handlerChan {
 		log.WithFields(log.Fields{"rec": record}).Debug("HANDLER")
-		handler.storeRecord(record)
-		handler.handleRecord(record)
+		h.storeRecord(record)
+		h.handleRecord(record)
 	}
 }
 
-func (handler *Handler) GetRun() *service.RunRecord {
-	return handler.run
+func (h *Handler) GetRun() *service.RunRecord {
+	return h.run
 }
