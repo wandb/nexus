@@ -65,20 +65,31 @@ func (h *Handler) Stop() {
 
 func (h *Handler) handleRecord(msg *service.Record) {
 	switch x := msg.RecordType.(type) {
+	case *service.Record_Alert:
+	case *service.Record_Artifact:
+	case *service.Record_Config:
+	case *service.Record_Exit:
+		h.handleRunExit(msg, x.Exit)
+	case *service.Record_Files:
+		h.sender.SendRecord(msg)
+	case *service.Record_Final:
+	case *service.Record_Footer:
 	case *service.Record_Header:
+	case *service.Record_History:
+	case *service.Record_LinkArtifact:
+	case *service.Record_Metric:
+	case *service.Record_Output:
+	case *service.Record_OutputRaw:
+	case *service.Record_Preempting:
 	case *service.Record_Request:
 		log.WithFields(log.Fields{"req": x}).Debug("reqgot")
 		h.handleRequest(msg, x.Request)
-	case *service.Record_Summary:
 	case *service.Record_Run:
 		h.handleRun(msg, x.Run)
-	case *service.Record_Files:
-		h.sender.SendRecord(msg)
-	case *service.Record_History:
+	case *service.Record_Stats:
+	case *service.Record_Summary:
+	case *service.Record_Tbrecord:
 	case *service.Record_Telemetry:
-	case *service.Record_OutputRaw:
-	case *service.Record_Exit:
-		h.handleRunExit(msg, x.Exit)
 	case nil:
 		log.Fatal("handleRecord: record type is nil")
 	default:
@@ -94,25 +105,25 @@ func (h *Handler) handleRequest(rec *service.Record, req *service.Request) {
 
 	response := &service.Response{}
 	switch x := req.RequestType.(type) {
+	case *service.Request_CheckVersion:
+	case *service.Request_Defer:
+		h.handleDefer(rec, x.Defer)
+	case *service.Request_GetSummary:
+		h.handleGetSummary(rec, x.GetSummary, response)
+	case *service.Request_Keepalive:
+	case *service.Request_NetworkStatus:
 	case *service.Request_PartialHistory:
 		log.WithFields(log.Fields{"req": x}).Debug("PROCESS: got partial")
 		h.handlePartialHistory(rec, x.PartialHistory)
 		return
+	case *service.Request_PollExit:
 	case *service.Request_RunStart:
 		log.WithFields(log.Fields{"req": x}).Debug("PROCESS: got start")
 		h.handleRunStart(rec, x.RunStart)
-	case *service.Request_GetSummary:
-		h.handleGetSummary(rec, x.GetSummary, response)
-	case *service.Request_Defer:
-		h.handleDefer(rec, x.Defer)
-	case *service.Request_CheckVersion:
-	case *service.Request_StopStatus:
-	case *service.Request_NetworkStatus:
-	case *service.Request_PollExit:
-	case *service.Request_ServerInfo:
 	case *service.Request_SampledHistory:
+	case *service.Request_ServerInfo:
 	case *service.Request_Shutdown:
-	case *service.Request_Keepalive:
+	case *service.Request_StopStatus:
 	default:
 		log.Fatalf("handleRequest: unknown request type %T", x)
 	}

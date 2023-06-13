@@ -10,18 +10,18 @@ import (
 )
 
 type Responder struct {
-	responderChan chan *service.Result
-	mailbox       *Mailbox
+	resultChan chan *service.Result
+	mailbox    *Mailbox
 }
 
 func NewResponder(mailbox *Mailbox) *Responder {
-	responder := Responder{mailbox: mailbox, responderChan: make(chan *service.Result)}
+	responder := Responder{mailbox: mailbox, resultChan: make(chan *service.Result)}
 	return &responder
 }
 
 func (resp *Responder) Start(respondServerResponse func(ctx context.Context, result *service.ServerResponse)) {
 	go func() {
-		for result := range resp.responderChan {
+		for result := range resp.resultChan {
 			if ok := resp.mailbox.Respond(result); ok {
 				continue
 			}
@@ -35,5 +35,5 @@ func (resp *Responder) Start(respondServerResponse func(ctx context.Context, res
 }
 
 func (resp *Responder) RespondResult(rec *service.Result) {
-	resp.responderChan <- rec
+	resp.resultChan <- rec
 }
