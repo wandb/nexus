@@ -45,7 +45,7 @@ func tcpServer(portFile string) {
 		_ = listen.Close()
 	}(listen)
 
-	serverState := NexusServer{listen: listen}
+	server := NexusServer{listen: listen}
 
 	log.Println("Server is running on:", addr)
 	port := listen.Addr().(*net.TCPAddr).Port
@@ -56,7 +56,7 @@ func tcpServer(portFile string) {
 	for {
 		conn, err := listen.Accept()
 		if err != nil {
-			if serverState.shutdown {
+			if server.shutdown {
 				log.Println("shutting down...")
 				break
 			}
@@ -64,7 +64,9 @@ func tcpServer(portFile string) {
 			continue
 		}
 
-		go handleConnection(context.Background(), &serverState, conn)
+		ctx, cancel := context.WithCancel(context.Background())
+
+		go handleConnection(ctx, cancel, conn, &server)
 	}
 }
 

@@ -23,20 +23,30 @@ type Tokenizer struct {
 	headerValid  bool
 }
 
-type NexusConn struct {
-	conn        net.Conn
-	server      *NexusServer
-	done        chan bool
-	ctx         context.Context
-	processChan chan *service.ServerRequest
+type Connection struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+	conn   net.Conn
+	server *NexusServer
+
+	requestChan chan *service.ServerRequest
 	respondChan chan *service.ServerResponse
 }
 
-func (nc *NexusConn) init(ctx context.Context) {
-	nc.processChan = make(chan *service.ServerRequest)
-	nc.respondChan = make(chan *service.ServerResponse)
-	nc.done = make(chan bool)
-	nc.ctx = ctx
+func NewConnection(
+	ctx context.Context,
+	cancel context.CancelFunc,
+	conn net.Conn,
+	server *NexusServer,
+) *Connection {
+	return &Connection{
+		ctx:         ctx,
+		cancel:      cancel,
+		conn:        conn,
+		server:      server,
+		requestChan: make(chan *service.ServerRequest),
+		respondChan: make(chan *service.ServerResponse),
+	}
 }
 
 func checkError(e error) {
@@ -80,7 +90,7 @@ func (x *Tokenizer) split(data []byte, atEOF bool) (advance int, token []byte, e
 	return
 }
 
-func respondServerResponse(ctx context.Context, nc *NexusConn, msg *service.ServerResponse) {
+func respondServerResponse(ctx context.Context, nc *Connection, msg *service.ServerResponse) {
 	out, err := proto.Marshal(msg)
 	checkError(err)
 
@@ -98,7 +108,7 @@ func respondServerResponse(ctx context.Context, nc *NexusConn, msg *service.Serv
 	checkError(err)
 }
 
-func (nc *NexusConn) receive(ctx context.Context) {
+func (nc *Connection) receive(ctx context.Context) {
 	scanner := bufio.NewScanner(nc.conn)
 	tokenizer := Tokenizer{}
 
@@ -110,51 +120,50 @@ func (nc *NexusConn) receive(ctx context.Context) {
 			log.Error("Unmarshalling error: ", err)
 			break
 		}
-		nc.processChan <- msg
+		nc.requestChan <- msg
 	}
 	log.Debugf("SOCKETREADER: DONE")
-	nc.done <- true
 }
 
-func (nc *NexusConn) transmit(ctx context.Context) {
+func (nc *Connection) transmit(ctx context.Context) {
 	for {
 		select {
 		case msg := <-nc.respondChan:
 			respondServerResponse(ctx, nc, msg)
-		case <-nc.done:
-			log.Debug("PROCESS: DONE")
-			return
+			//case <-nc.done:
+			//	log.Debug("PROCESS: DONE")
+			//	return
 		}
 	}
 }
 
-func (nc *NexusConn) process(ctx context.Context) {
+func (nc *Connection) process(ctx context.Context) {
 	for {
 		select {
-		case msg := <-nc.processChan:
+		case msg := <-nc.requestChan:
 			nc.handleServerRequest(msg)
-		case <-nc.done:
-			log.Debug("PROCESS: DONE")
-			return
+		//case <-nc.done:
+		//	log.Debug("PROCESS: DONE")
+		//	return
 		case <-ctx.Done():
 			log.Debug("PROCESS: Context canceled")
-			nc.done <- true
+			//nc.done <- true
 			return
 		}
 	}
 }
 
-func (nc *NexusConn) RespondServerResponse(ctx context.Context, serverResponse *service.ServerResponse) {
+func (nc *Connection) RespondServerResponse(ctx context.Context, serverResponse *service.ServerResponse) {
 	nc.respondChan <- serverResponse
 }
 
-func (nc *NexusConn) wait(ctx context.Context) {
+func (nc *Connection) wait(ctx context.Context) {
 	log.Debug("WAIT1")
 	for {
 		select {
-		case <-nc.done:
-			log.Debug("WAIT done")
-			return
+		//case <-nc.done:
+		//	log.Debug("WAIT done")
+		//	return
 		case <-ctx.Done():
 			log.Debug("WAIT ctx done")
 			return
@@ -162,12 +171,11 @@ func (nc *NexusConn) wait(ctx context.Context) {
 	}
 }
 
-func handleConnection(ctx context.Context, serverState *NexusServer, conn net.Conn) {
+func handleConnection(ctx context.Context, cancel context.CancelFunc, conn net.Conn, server *NexusServer) {
 	defer conn.Close()
 
-	connection := NexusConn{conn: conn, server: serverState}
+	connection := NewConnection(ctx, cancel, conn, server)
 
-	connection.init(ctx)
 	go connection.receive(ctx)
 	go connection.transmit(ctx)
 	go connection.process(ctx)
@@ -176,7 +184,7 @@ func handleConnection(ctx context.Context, serverState *NexusServer, conn net.Co
 	log.Debug("WAIT3 done handle con")
 }
 
-func (nc *NexusConn) handleInformInit(msg *service.ServerInformInitRequest) {
+func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 	log.Debug("PROCESS: INIT")
 
 	s := msg.XSettingsMap
@@ -188,21 +196,17 @@ func (nc *NexusConn) handleInformInit(msg *service.ServerInformInitRequest) {
 
 	settings.parseNetrc()
 
-	// TODO make this a mapping
 	log.Debug("STREAM init")
-	// streamId := "thing"
+
 	streamId := msg.XInfo.StreamId
 	streamManager.addStream(streamId, nc.RespondServerResponse, settings)
-
-	// read from mux and write to nc
-	// go nc.mux[streamId].responder(nc)
 }
 
-func (nc *NexusConn) handleInformStart(msg *service.ServerInformStartRequest) {
+func (nc *Connection) handleInformStart(msg *service.ServerInformStartRequest) {
 	log.Debug("PROCESS: START")
 }
 
-func (nc *NexusConn) handleInformFinish(msg *service.ServerInformFinishRequest) {
+func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest) {
 	log.Debug("PROCESS: FIN")
 	streamId := msg.XInfo.StreamId
 	if stream, ok := streamManager.getStream(streamId); ok {
@@ -212,7 +216,7 @@ func (nc *NexusConn) handleInformFinish(msg *service.ServerInformFinishRequest) 
 	}
 }
 
-func (nc *NexusConn) handleInformRecord(msg *service.Record) {
+func (nc *Connection) handleInformRecord(msg *service.Record) {
 	streamId := msg.XInfo.StreamId
 	if stream, ok := streamManager.getStream(streamId); ok {
 		ref := msg.ProtoReflect()
@@ -227,12 +231,12 @@ func (nc *NexusConn) handleInformRecord(msg *service.Record) {
 	}
 }
 
-func (nc *NexusConn) handleInformTeardown(msg *service.ServerInformTeardownRequest) {
+func (nc *Connection) handleInformTeardown(msg *service.ServerInformTeardownRequest) {
 	log.Debug("PROCESS: TEARDOWN")
 
 	streamManager.Close()
 
-	nc.done <- true
+	//nc.done <- true
 	// _, cancelCtx := context.WithCancel(nc.ctx)
 
 	log.Debug("PROCESS: TEARDOWN *****1")
@@ -245,7 +249,7 @@ func (nc *NexusConn) handleInformTeardown(msg *service.ServerInformTeardownReque
 	nc.server.listen.Close()
 }
 
-func (nc *NexusConn) handleServerRequest(msg *service.ServerRequest) {
+func (nc *Connection) handleServerRequest(msg *service.ServerRequest) {
 	switch x := msg.ServerRequestType.(type) {
 	case *service.ServerRequest_InformInit:
 		nc.handleInformInit(x.InformInit)
