@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"net"
 	"sync"
 
@@ -28,10 +29,15 @@ type Connection struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	conn   net.Conn
+	id     string
 
 	shutdownChan chan<- bool
 	requestChan  chan *service.ServerRequest
 	respondChan  chan *service.ServerResponse
+}
+
+func (nc *Connection) Respond(resp *service.ServerResponse) {
+	fmt.Println("responding")
 }
 
 func NewConnection(
@@ -44,6 +50,7 @@ func NewConnection(
 		ctx:          ctx,
 		cancel:       cancel,
 		conn:         conn,
+		id:           conn.RemoteAddr().String(), // check if this is properly unique
 		shutdownChan: shutdownChan,
 		requestChan:  make(chan *service.ServerRequest),
 		respondChan:  make(chan *service.ServerResponse),
@@ -196,7 +203,8 @@ func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 
 	streamId := msg.XInfo.StreamId
 	stream := streamManager.addStream(streamId, settings)
-	stream.Start(nc.RespondServerResponse)
+	stream.AddResponder(nc.id, nc)
+	// stream.Start()
 }
 
 func (nc *Connection) handleInformStart(msg *service.ServerInformStartRequest) {

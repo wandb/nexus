@@ -1,11 +1,11 @@
 package server
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
 
-	// "fmt"
 	"strings"
 )
 
@@ -44,6 +44,7 @@ func (mb *Mailbox) Deliver(rec *service.Record) *MailboxHandle {
 	// rec.GetControl().MailboxSlot = uuid
 	// fmt.Println("mailbox record", rec)
 	handle := NewMailboxHandle()
+	fmt.Println("deliver uuid", uuid)
 	mb.handles[uuid] = handle
 	return handle
 }
