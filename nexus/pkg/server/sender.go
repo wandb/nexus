@@ -282,6 +282,8 @@ func (sender *Sender) doSendDefer(deferRequest *service.DeferRequest) {
 func (sender *Sender) sendRunExit(msg *service.Record, record *service.RunExitRecord) {
 	// send exit via filestream
 	sender.fstream.StreamRecord(msg)
+	log.Debug("sendRunExit")
+	sender.handler.closeChan <- true
 
 	// TODO: need to flush stuff before responding with exit
 	runExitResult := &service.RunExitResult{}

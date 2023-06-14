@@ -10,21 +10,20 @@ import (
 )
 
 type Responder struct {
-	resultChan chan *service.Result
-	mailbox    *Mailbox
+	responseChan chan *service.Result
 }
 
-func NewResponder(mailbox *Mailbox) *Responder {
-	responder := Responder{mailbox: mailbox, resultChan: make(chan *service.Result)}
+func NewResponder(responseChan chan *service.Result) *Responder {
+	responder := Responder{responseChan: responseChan}
 	return &responder
 }
 
 func (resp *Responder) Start(respondServerResponse func(ctx context.Context, result *service.ServerResponse)) {
 	go func() {
-		for result := range resp.resultChan {
-			if ok := resp.mailbox.Respond(result); ok {
-				continue
-			}
+		for result := range resp.responseChan {
+			//if ok := resp.mailbox.Respond(result); ok {
+			//	continue
+			//}
 			resp := &service.ServerResponse{
 				ServerResponseType: &service.ServerResponse_ResultCommunicate{ResultCommunicate: result},
 			}
@@ -35,5 +34,5 @@ func (resp *Responder) Start(respondServerResponse func(ctx context.Context, res
 }
 
 func (resp *Responder) RespondResult(rec *service.Result) {
-	resp.resultChan <- rec
+	resp.responseChan <- rec
 }

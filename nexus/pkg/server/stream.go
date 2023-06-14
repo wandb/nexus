@@ -8,29 +8,31 @@ import (
 )
 
 type Stream struct {
-	handler   *Handler
-	responder *Responder
-	mailbox   *Mailbox
-	settings  *Settings
-	finished  bool
+	handler      *Handler
+	responder    *Responder
+	settings     *Settings
+	finished     bool
+	responseChan chan *service.Result
+	closeChan    chan bool
 }
 
 func NewStream(settings *Settings) *Stream {
-	mailbox := NewMailbox()
-	responder := NewResponder(mailbox)
-	handler := NewHandler(responder.RespondResult, settings)
-	return &Stream{responder: responder, handler: handler, mailbox: mailbox, settings: settings}
+	responseChan := make(chan *service.Result)
+	closeChan := make(chan bool)
+	responder := NewResponder(responseChan)
+	handler := NewHandler(responseChan, closeChan, responder.RespondResult, settings)
+	return &Stream{
+		responder:    responder,
+		handler:      handler,
+		settings:     settings,
+		responseChan: responseChan,
+		closeChan:    closeChan,
+	}
 }
 
 func (s *Stream) Start(respondServerResponse func(context.Context, *service.ServerResponse)) {
 	s.responder.Start(respondServerResponse)
 	s.handler.Start()
-}
-
-func (s *Stream) Deliver(rec *service.Record) *MailboxHandle {
-	handle := s.mailbox.Deliver(rec)
-	s.HandleRecord(rec)
-	return handle
 }
 
 func (s *Stream) HandleRecord(rec *service.Record) {
@@ -62,7 +64,10 @@ func (s *Stream) Close(wg *sync.WaitGroup) {
 	record := service.Record{
 		RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{}},
 	}
-	_ = s.Deliver(&record).wait()
+	s.HandleRecord(&record)
+	// wait for the handler to finish
+	<-s.closeChan
+	// print the footer
 	settings := s.GetSettings()
 	run := s.GetRun()
 	PrintHeadFoot(run, settings)

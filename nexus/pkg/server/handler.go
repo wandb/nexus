@@ -14,6 +14,8 @@ import (
 
 type Handler struct {
 	handlerChan chan *service.Record
+	respondChan chan *service.Result
+	closeChan   chan bool
 
 	currentStep int64
 	startTime   float64
@@ -29,7 +31,12 @@ type Handler struct {
 	respondResult func(result *service.Result)
 }
 
-func NewHandler(respondResult func(result *service.Result), settings *Settings) *Handler {
+func NewHandler(
+	responseChan chan *service.Result,
+	closeChan chan bool,
+	respondResult func(result *service.Result),
+	settings *Settings,
+) *Handler {
 	var writer *Writer
 	wg := sync.WaitGroup{}
 	if !settings.NoWrite {
@@ -43,7 +50,10 @@ func NewHandler(respondResult func(result *service.Result), settings *Settings) 
 		respondResult: respondResult,
 		settings:      settings,
 		summary:       make(map[string]string),
-		handlerChan:   make(chan *service.Record)}
+		handlerChan:   make(chan *service.Record),
+		respondChan:   responseChan,
+		closeChan:     closeChan,
+	}
 	sender.SetHandler(&handler)
 	return &handler
 }
