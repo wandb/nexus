@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"fmt"
 	"net"
 	"sync"
 
@@ -34,10 +33,6 @@ type Connection struct {
 	shutdownChan chan<- bool
 	requestChan  chan *service.ServerRequest
 	respondChan  chan *service.ServerResponse
-}
-
-func (nc *Connection) Respond(resp *service.ServerResponse) {
-	fmt.Println("responding")
 }
 
 func NewConnection(
@@ -167,8 +162,8 @@ func (nc *Connection) process(wg *sync.WaitGroup) {
 	}
 }
 
-func (nc *Connection) RespondServerResponse(ctx context.Context, serverResponse *service.ServerResponse) {
-	nc.respondChan <- serverResponse
+func (nc *Connection) Respond(resp *service.ServerResponse) {
+	nc.respondChan <- resp
 }
 
 func handleConnection(ctx context.Context, cancel context.CancelFunc, swg *sync.WaitGroup, conn net.Conn, shutdownChan chan<- bool) {
@@ -188,8 +183,8 @@ func handleConnection(ctx context.Context, cancel context.CancelFunc, swg *sync.
 	wg.Add(3)
 
 	go connection.receive(&wg)
-	go connection.transmit(&wg)
 	go connection.process(&wg)
+	go connection.transmit(&wg)
 
 	wg.Wait()
 
@@ -204,7 +199,7 @@ func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 	streamId := msg.XInfo.StreamId
 	stream := streamManager.addStream(streamId, settings)
 	stream.AddResponder(nc.id, nc)
-	// stream.Start()
+	stream.Start()
 }
 
 func (nc *Connection) handleInformStart(msg *service.ServerInformStartRequest) {
@@ -218,7 +213,6 @@ func (nc *Connection) handleInformRecord(msg *service.Record) {
 		desc := ref.Descriptor()
 		num := ref.WhichOneof(desc.Oneofs().ByName("record_type")).Number()
 		log.WithFields(log.Fields{"type": num}).Debug("PROCESS: COMM/PUBLISH")
-
 		stream.HandleRecord(msg)
 	} else {
 		log.Error("handleInformRecord: stream not found")

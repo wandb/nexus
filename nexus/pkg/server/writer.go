@@ -28,8 +28,11 @@ func NewWriter(settings *Settings) *Writer {
 	}
 
 	wg.Add(1)
-	go writer.writerGo()
 	return &writer
+}
+
+func (w *Writer) Start() {
+	go w.writerGo()
 }
 
 func (w *Writer) Stop() {

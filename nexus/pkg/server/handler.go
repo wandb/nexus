@@ -13,38 +13,29 @@ import (
 )
 
 type Handler struct {
-	handlerChan chan *service.Record
+	handlerChan    chan *service.Record
+	dispatcherChan chan *service.Result
 
 	currentStep int64
 	startTime   float64
 
-	wg     *sync.WaitGroup
-	writer *Writer
-	sender *Sender
-	run    *service.RunRecord
+	wg  *sync.WaitGroup
+	run *service.RunRecord
 
 	summary map[string]string
 
-	settings      *Settings
-	respondResult func(result *service.Result)
+	settings *Settings
 }
 
-func NewHandler(respondResult func(result *service.Result), settings *Settings) *Handler {
-	var writer *Writer
+func NewHandler(settings *Settings, dispatcherChan chan *service.Result) *Handler {
 	wg := sync.WaitGroup{}
-	if !settings.NoWrite {
-		writer = NewWriter(settings)
-	}
-	sender := NewSender(&wg, respondResult, settings)
+
 	handler := Handler{
-		wg:            &wg,
-		writer:        writer,
-		sender:        sender,
-		respondResult: respondResult,
-		settings:      settings,
-		summary:       make(map[string]string),
-		handlerChan:   make(chan *service.Record)}
-	sender.SetHandler(&handler)
+		wg:             &wg,
+		settings:       settings,
+		summary:        make(map[string]string),
+		handlerChan:    make(chan *service.Record),
+		dispatcherChan: dispatcherChan}
 	return &handler
 }
 
@@ -53,7 +44,7 @@ func (h *Handler) Start() {
 		log.Debug("handler started")
 		for record := range h.handlerChan {
 			log.WithFields(log.Fields{"rec": record}).Debug("HANDLER")
-			h.storeRecord(record)
+			//h.storeRecord(record)
 			h.handleRecord(record)
 		}
 	}()
@@ -72,9 +63,9 @@ func (h *Handler) storeRecord(msg *service.Record) {
 		// The field is not set.
 		log.Fatal("storeRecord: record type is nil")
 	default:
-		if h.writer != nil {
-			h.writer.WriteRecord(msg)
-		}
+		//if h.writer != nil {
+		//	h.writer.WriteRecord(msg)
+		//}
 	}
 }
 
@@ -86,7 +77,7 @@ func (h *Handler) handleRecord(msg *service.Record) {
 	case *service.Record_Exit:
 		h.handleRunExit(msg, x.Exit)
 	case *service.Record_Files:
-		h.sender.SendRecord(msg)
+		//h.sender.SendRecord(msg)
 	case *service.Record_Final:
 	case *service.Record_Footer:
 	case *service.Record_Header:
@@ -148,7 +139,7 @@ func (h *Handler) handleRequest(rec *service.Record, req *service.Request) {
 		Control:    rec.Control,
 		Uuid:       rec.Uuid,
 	}
-	h.respondResult(result)
+	h.dispatcherChan <- result
 }
 
 func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartRequest) {
@@ -159,23 +150,14 @@ func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartReque
 	if !ok {
 		log.Fatal("handleRunStart: failed to clone run")
 	}
-	h.sender.SendRecord(rec)
+	//h.sender.SendRecord(rec)
 }
 
 func (h *Handler) handleRun(rec *service.Record, run *service.RunRecord) {
 	// runResult := &service.RunUpdateResult{Run: run}
 
 	// let sender take care of it
-	h.sender.SendRecord(rec)
-
-	/*
-	   result := &service.Result{
-	       ResultType: &service.Result_RunResult{runResult},
-	       Control: rec.Control,
-	       Uuid: rec.Uuid,
-	   }
-	   stream.respond <-*result
-	*/
+	//h.sender.SendRecord(rec)
 }
 
 func (h *Handler) handleRunExit(rec *service.Record, runExit *service.RunExitRecord) {
@@ -183,19 +165,7 @@ func (h *Handler) handleRunExit(rec *service.Record, runExit *service.RunExitRec
 	if control != nil {
 		control.AlwaysSend = true
 	}
-	h.sender.SendRecord(rec)
-
-	// TODO: need to flush stuff before responding with exit
-	// runExitResult := &service.RunExitResult{}
-	// result := &service.Result{
-	// 	ResultType: &service.Result_ExitResult{runExitResult},
-	// 	Control:    rec.Control,
-	// 	Uuid:       rec.Uuid,
-	// }
-	// h.respondResult(result)
-	// FIXME: hack to make sure that filestream has no data before continuing
-	// time.Sleep(2 * time.Second)
-	// h.shutdownStream()
+	//h.sender.SendRecord(rec)
 }
 
 func (h *Handler) handleGetSummary(_ *service.Record, _ *service.GetSummaryRequest, response *service.Response) {
@@ -211,13 +181,12 @@ func (h *Handler) handleGetSummary(_ *service.Record, _ *service.GetSummaryReque
 func (h *Handler) handleDefer(rec *service.Record, req *service.DeferRequest) {
 	switch req.State {
 	case service.DeferRequest_END:
-		if h.writer != nil {
-			h.writer.Flush()
-		}
+		//if h.writer != nil {
+		//	h.writer.Flush()
+		//}
 	default:
 	}
-	h.sender.SendRecord(rec)
-	// h.shutdownStream()
+	//h.sender.SendRecord(rec)
 }
 
 func (h *Handler) handlePartialHistory(_ *service.Record, req *service.PartialHistoryRequest) {
@@ -251,9 +220,9 @@ func (h *Handler) handlePartialHistory(_ *service.Record, req *service.PartialHi
 	h.storeRecord(&r)
 	h.updateSummary(&record)
 
-	if h.sender != nil {
-		h.sender.SendRecord(&r)
-	}
+	//if h.sender != nil {
+	//	h.sender.SendRecord(&r)
+	//}
 }
 
 func (h *Handler) updateSummary(msg *service.HistoryRecord) {
