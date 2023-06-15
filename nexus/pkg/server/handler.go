@@ -181,9 +181,9 @@ func (h *Handler) handleGetSummary(_ *service.Record, _ *service.GetSummaryReque
 func (h *Handler) handleDefer(rec *service.Record, req *service.DeferRequest) {
 	switch req.State {
 	case service.DeferRequest_END:
-		//if h.writer != nil {
-		//	h.writer.Flush()
-		//}
+		// if h.writer != nil {
+		// 	h.writer.Flush()
+		// }
 	default:
 	}
 	h.sendRecord(rec)
