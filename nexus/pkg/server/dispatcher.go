@@ -29,8 +29,9 @@ func (d *Dispatcher) Deliver(result *service.Result) {
 
 func (d *Dispatcher) start() {
 	for result := range d.inChan {
-		// extract responder id from result
-		responderId := result.Uuid
+		// todo: extract responder id from result
+		responderId := result.Control.ConnectionId
+		log.Debug("dispatching result to responder ", responderId)
 		response := &service.ServerResponse{
 			ServerResponseType: &service.ServerResponse_ResultCommunicate{ResultCommunicate: result},
 		}

@@ -144,7 +144,6 @@ func (s *Sender) sendRequest(_ *service.Record, req *service.Request) {
 func (s *Sender) networkSendRecord(msg *service.Record) {
 	switch x := msg.RecordType.(type) {
 	case *service.Record_Run:
-		// fmt.Println("rungot:", x)
 		s.sendRun(msg, x.Run)
 	case *service.Record_Exit:
 		s.sendRunExit(msg, x.Exit)
@@ -377,5 +376,6 @@ func (s *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 		Control:    msg.Control,
 		Uuid:       msg.Uuid,
 	}
+	log.Debug("sending run result ", result)
 	s.dispatcherChan.Deliver(result)
 }

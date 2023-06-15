@@ -21,7 +21,13 @@ func NewStream(settings *Settings) *Stream {
 	writer := NewWriter(settings, sender)
 	handler := NewHandler(settings, writer, dispatcher)
 
-	return &Stream{dispatcher: dispatcher, handler: handler, sender: sender, settings: settings, writer: writer}
+	return &Stream{
+		dispatcher: dispatcher,
+		handler:    handler,
+		sender:     sender,
+		writer:     writer,
+		settings:   settings,
+	}
 }
 
 func (s *Stream) AddResponder(responderId string, responder Responder) {

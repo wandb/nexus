@@ -213,6 +213,15 @@ func (nc *Connection) handleInformRecord(msg *service.Record) {
 		desc := ref.Descriptor()
 		num := ref.WhichOneof(desc.Oneofs().ByName("record_type")).Number()
 		log.WithFields(log.Fields{"type": num}).Debug("PROCESS: COMM/PUBLISH")
+		// add connection id to control message
+		// so that the stream can send back a response
+		// to the correct connection
+		if msg.Control != nil {
+			msg.Control.ConnectionId = nc.id
+		} else {
+			msg.Control = &service.Control{ConnectionId: nc.id}
+		}
+		log.Println("handleInformRecord: ", msg)
 		stream.HandleRecord(msg)
 	} else {
 		log.Error("handleInformRecord: stream not found")
