@@ -2,9 +2,10 @@ package server
 
 import (
 	"context"
+	"sync"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/wandb/wandb/nexus/pkg/service"
-	"sync"
 )
 
 type Writer struct {
