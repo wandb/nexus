@@ -8,7 +8,7 @@ import (
 type Writer struct {
 	settings *Settings
 	inChan   chan *service.Record
-	//senderChan chan *service.Record
+	// senderChan chan *service.Record
 	outChan recordChannel
 	store   *Store
 }
