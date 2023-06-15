@@ -27,7 +27,7 @@ type Sender struct {
 	graphqlClient graphql.Client
 	fstream       *FileStream
 	run           *service.RunRecord
-	//handler        *Handler
+	// handler        *Handler
 	deferResult    *service.Result
 	dispatcherChan dispatchChannel
 }
@@ -63,9 +63,9 @@ func (s *Sender) startRunWorkers() {
 	s.fstream = NewFileStream(fsPath, s.settings)
 }
 
-//func (s *Sender) SetHandler(h *Handler) {
+// func (s *Sender) SetHandler(h *Handler) {
 //	s.handler = h
-//}
+// }
 
 type authedTransport struct {
 	key     string
@@ -276,7 +276,7 @@ func (s *Sender) doSendDefer(deferRequest *service.DeferRequest) {
 	}
 	fmt.Printf("this is %s", &r)
 	// todo: fix this logic
-	//s.handler.Handle(&r)
+	// s.handler.Handle(&r)
 }
 
 func (s *Sender) sendRunExit(msg *service.Record, _ *service.RunExitRecord) {
