@@ -11,13 +11,12 @@ type Dispatcher struct {
 }
 
 func NewDispatcher() *Dispatcher {
-	dispatcher := &Dispatcher{inChan: make(chan *service.Result)}
+	dispatcher := &Dispatcher{inChan: make(chan *service.Result), responders: make(map[string]Responder)}
 	return dispatcher
 }
 
 func (d *Dispatcher) AddResponder(responderId string, responder Responder) {
-	responder, ok := d.responders[responderId]
-	if !ok {
+	if _, ok := d.responders[responderId]; !ok {
 		d.responders[responderId] = responder
 	} else {
 		log.Errorf("Responder %s already exists", responderId)
