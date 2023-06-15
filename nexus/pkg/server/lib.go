@@ -120,7 +120,7 @@ func LibStartSettings(settings *Settings, run_id string) int {
 	ns.Start(s)
 
 	ns.SendRecord(&r)
-	// s.HandleRecord(&r)
+	// s.Handle(&r)
 
 	// go processStuff()
 	return num

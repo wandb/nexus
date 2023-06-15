@@ -1,10 +1,6 @@
 package server
 
 import (
-	// "flag"
-	// "io"
-	// "google.golang.org/protobuf/reflect/protoreflect"
-	"sync"
 	"time"
 
 	"bytes"
@@ -26,41 +22,30 @@ import (
 )
 
 type Sender struct {
-	senderChan     chan *service.Record
-	wg             *sync.WaitGroup
-	graphqlClient  graphql.Client
-	settings       *Settings
-	fstream        *FileStream
-	run            *service.RunRecord
-	handler        *Handler
+	settings      *Settings
+	inChan        chan *service.Record
+	graphqlClient graphql.Client
+	fstream       *FileStream
+	run           *service.RunRecord
+	//handler        *Handler
 	deferResult    *service.Result
 	dispatcherChan chan *service.Result
 }
 
-func NewSender(wg *sync.WaitGroup, settings *Settings, dispatcherChan chan *service.Result) *Sender {
+func NewSender(settings *Settings, dispatcherChan chan *service.Result) *Sender {
 	sender := Sender{
-		senderChan:     make(chan *service.Record),
-		wg:             wg,
-		dispatcherChan: dispatcherChan,
 		settings:       settings,
+		inChan:         make(chan *service.Record),
+		dispatcherChan: dispatcherChan,
 	}
-
-	sender.wg.Add(1)
 	return &sender
 }
 
 func (s *Sender) Start() {
 	go func() {
-		defer s.wg.Done()
-
 		log.Debug("SENDER: OPEN")
 		s.senderInit()
-		for {
-			msg, ok := <-s.senderChan
-			if !ok {
-				log.Debug("SENDER: NOMORE")
-				break
-			}
+		for msg := range s.inChan {
 			log.Debug("SENDER *******")
 			log.WithFields(log.Fields{"record": msg}).Debug("SENDER: got msg")
 			s.networkSendRecord(msg)
@@ -76,17 +61,9 @@ func (s *Sender) startRunWorkers() {
 	s.fstream = NewFileStream(fsPath, s.settings)
 }
 
-func (s *Sender) SetHandler(h *Handler) {
-	s.handler = h
-}
-
-func (s *Sender) SendRecord(rec *service.Record) {
-	control := rec.GetControl()
-	if s.settings.Offline && control != nil && !control.AlwaysSend {
-		return
-	}
-	s.senderChan <- rec
-}
+//func (s *Sender) SetHandler(h *Handler) {
+//	s.handler = h
+//}
 
 type authedTransport struct {
 	key     string
@@ -224,7 +201,7 @@ func (s *Sender) doSendFile(msg *service.Record, fileItem *service.FilesItem) {
 	path := fileItem.GetPath()
 
 	if s.run == nil {
-		panic("upsert run not called before send file")
+		panic("upsert run not called before send db")
 	}
 
 	ctx := context.Background()
@@ -296,7 +273,9 @@ func (s *Sender) doSendDefer(deferRequest *service.DeferRequest) {
 		RecordType: &service.Record_Request{Request: &req},
 		Control:    &service.Control{AlwaysSend: true},
 	}
-	s.handler.HandleRecord(&r)
+	fmt.Printf("this is %s", &r)
+	// todo: fix this logic
+	//s.handler.Handle(&r)
 }
 
 func (s *Sender) sendRunExit(msg *service.Record, record *service.RunExitRecord) {

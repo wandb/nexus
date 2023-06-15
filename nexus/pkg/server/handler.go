@@ -2,100 +2,95 @@ package server
 
 import (
 	"fmt"
+	"github.com/wandb/wandb/nexus/pkg/service"
 	"google.golang.org/protobuf/proto"
 	"strconv"
-	"sync"
-
-	"github.com/wandb/wandb/nexus/pkg/service"
 	// "time"
 
 	log "github.com/sirupsen/logrus"
 )
 
 type Handler struct {
-	handlerChan    chan *service.Record
+	settings       *Settings
+	inChan         chan *service.Record
 	dispatcherChan chan *service.Result
+	writerChan     chan *service.Record
 
 	currentStep int64
 	startTime   float64
-
-	wg  *sync.WaitGroup
-	run *service.RunRecord
-
-	summary map[string]string
-
-	settings *Settings
+	run         *service.RunRecord
+	summary     map[string]string
 }
 
-func NewHandler(settings *Settings, dispatcherChan chan *service.Result) *Handler {
-	wg := sync.WaitGroup{}
+func NewHandler(settings *Settings, dispatcherChan chan *service.Result, writerChan chan *service.Record) *Handler {
 
 	handler := Handler{
-		wg:             &wg,
 		settings:       settings,
 		summary:        make(map[string]string),
-		handlerChan:    make(chan *service.Record),
-		dispatcherChan: dispatcherChan}
+		inChan:         make(chan *service.Record),
+		dispatcherChan: dispatcherChan,
+		writerChan:     writerChan,
+	}
 	return &handler
 }
 
 func (h *Handler) Start() {
 	go func() {
 		log.Debug("handler started")
-		for record := range h.handlerChan {
-			log.WithFields(log.Fields{"rec": record}).Debug("HANDLER")
-			//h.storeRecord(record)
-			h.handleRecord(record)
+		for msg := range h.inChan {
+			log.WithFields(log.Fields{"rec": msg}).Debug("HANDLER")
+			h.handleRecord(msg)
 		}
 	}()
 }
 
 func (h *Handler) Stop() {
-	close(h.handlerChan)
-}
-
-// storeRecord writes the record to the writer if it is set.
-func (h *Handler) storeRecord(msg *service.Record) {
-	switch msg.RecordType.(type) {
-	case *service.Record_Request:
-		// don't log this
-	case nil:
-		// The field is not set.
-		log.Fatal("storeRecord: record type is nil")
-	default:
-		//if h.writer != nil {
-		//	h.writer.WriteRecord(msg)
-		//}
-	}
+	close(h.inChan)
 }
 
 func (h *Handler) handleRecord(msg *service.Record) {
 	switch x := msg.RecordType.(type) {
 	case *service.Record_Alert:
+		// TODO: handle alert
 	case *service.Record_Artifact:
+		// TODO: handle artifact
 	case *service.Record_Config:
+		// TODO: handle config
 	case *service.Record_Exit:
 		h.handleRunExit(msg, x.Exit)
 	case *service.Record_Files:
-		//h.sender.SendRecord(msg)
+		h.handleFiles(msg, x.Files)
 	case *service.Record_Final:
+		// TODO: handle final
 	case *service.Record_Footer:
+		// TODO: handle footer
 	case *service.Record_Header:
+		// TODO: handle header
 	case *service.Record_History:
+		// TODO: handle history
 	case *service.Record_LinkArtifact:
+		// TODO: handle linkartifact
 	case *service.Record_Metric:
+		// TODO: handle metric
 	case *service.Record_Output:
+		// TODO: handle output
 	case *service.Record_OutputRaw:
+		// TODO: handle outputraw
 	case *service.Record_Preempting:
+		// TODO: handle preempting
 	case *service.Record_Request:
 		log.WithFields(log.Fields{"req": x}).Debug("reqgot")
 		h.handleRequest(msg, x.Request)
 	case *service.Record_Run:
 		h.handleRun(msg, x.Run)
 	case *service.Record_Stats:
+		// TODO: handle stats
 	case *service.Record_Summary:
+		// TODO: handle summary
 	case *service.Record_Tbrecord:
+		// TODO: handle tbrecord
 	case *service.Record_Telemetry:
+		// TODO: handle telemetry
 	case nil:
 		log.Fatal("handleRecord: record type is nil")
 	default:
@@ -112,6 +107,7 @@ func (h *Handler) handleRequest(rec *service.Record, req *service.Request) {
 	response := &service.Response{}
 	switch x := req.RequestType.(type) {
 	case *service.Request_CheckVersion:
+		// TODO: handle checkversion
 	case *service.Request_Defer:
 		h.handleDefer(rec, x.Defer)
 	case *service.Request_GetSummary:
@@ -142,6 +138,14 @@ func (h *Handler) handleRequest(rec *service.Record, req *service.Request) {
 	h.dispatcherChan <- result
 }
 
+func (h *Handler) sendRecord(rec *service.Record) {
+	control := rec.GetControl()
+	if control != nil {
+		control.AlwaysSend = true
+	}
+	h.writerChan <- rec
+}
+
 func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartRequest) {
 	var ok bool
 	run := req.Run
@@ -150,22 +154,19 @@ func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartReque
 	if !ok {
 		log.Fatal("handleRunStart: failed to clone run")
 	}
-	//h.sender.SendRecord(rec)
+	h.sendRecord(rec)
 }
 
 func (h *Handler) handleRun(rec *service.Record, run *service.RunRecord) {
-	// runResult := &service.RunUpdateResult{Run: run}
-
-	// let sender take care of it
-	//h.sender.SendRecord(rec)
+	h.sendRecord(rec)
 }
 
 func (h *Handler) handleRunExit(rec *service.Record, runExit *service.RunExitRecord) {
-	control := rec.GetControl()
-	if control != nil {
-		control.AlwaysSend = true
-	}
-	//h.sender.SendRecord(rec)
+	h.sendRecord(rec)
+}
+
+func (h *Handler) handleFiles(rec *service.Record, files *service.FilesRecord) {
+	h.sendRecord(rec)
 }
 
 func (h *Handler) handleGetSummary(_ *service.Record, _ *service.GetSummaryRequest, response *service.Response) {
@@ -186,7 +187,7 @@ func (h *Handler) handleDefer(rec *service.Record, req *service.DeferRequest) {
 		//}
 	default:
 	}
-	//h.sender.SendRecord(rec)
+	h.sendRecord(rec)
 }
 
 func (h *Handler) handlePartialHistory(_ *service.Record, req *service.PartialHistoryRequest) {
@@ -208,7 +209,7 @@ func (h *Handler) handlePartialHistory(_ *service.Record, req *service.PartialHi
 		}
 	}
 	items = append(items,
-		&service.HistoryItem{Key: "_runtime", ValueJson: fmt.Sprintf("%f", runTime)},
+		&service.HistoryItem{Key: "_runtime", ValueJson: fmt.Sprintf("%db", runTime)},
 		&service.HistoryItem{Key: "_step", ValueJson: fmt.Sprintf("%d", stepNum)},
 	)
 
@@ -217,12 +218,11 @@ func (h *Handler) handlePartialHistory(_ *service.Record, req *service.PartialHi
 	r := service.Record{
 		RecordType: &service.Record_History{History: &record},
 	}
-	h.storeRecord(&r)
 	h.updateSummary(&record)
 
-	//if h.sender != nil {
-	//	h.sender.SendRecord(&r)
-	//}
+	// TODO: remove this once we have handleHistory
+	h.sendRecord(&r)
+
 }
 
 func (h *Handler) updateSummary(msg *service.HistoryRecord) {
@@ -236,6 +236,6 @@ func (h *Handler) GetRun() *service.RunRecord {
 	return h.run
 }
 
-func (h *Handler) HandleRecord(rec *service.Record) {
-	h.handlerChan <- rec
+func (h *Handler) Handle(rec *service.Record) {
+	h.inChan <- rec
 }

@@ -22,7 +22,7 @@ type FileStream struct {
 	fstreamChan chan *service.Record
 	fstreamPath string
 
-	// FIXME this should be per file
+	// FIXME this should be per db
 	offset int
 
 	settings   *Settings

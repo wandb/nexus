@@ -17,12 +17,10 @@ type Stream struct {
 
 func NewStream(settings *Settings) *Stream {
 	dispatcher := NewDispatcher()
-	handler := NewHandler(settings, dispatcher.resultChan)
-	sender := NewSender(handler.wg, settings, dispatcher.resultChan)
-	var writer *Writer
-	if settings.NoWrite {
-		writer = NewWriter(settings)
-	}
+	sender := NewSender(settings, dispatcher.resultChan)
+	writer := NewWriter(settings, sender.inChan)
+	handler := NewHandler(settings, dispatcher.resultChan, writer.inChan)
+
 	return &Stream{dispatcher: dispatcher, handler: handler, sender: sender, settings: settings, writer: writer}
 }
 
@@ -42,12 +40,12 @@ func (s *Stream) Start() {
 //func (s *Stream) Deliver(rec *service.Record) {
 //	//handle := s.mailbox.Deliver(rec)
 //	//fmt.Println("deliver rec", rec)
-//	//s.HandleRecord(rec)
+//	//s.Handle(rec)
 //	//return handle
 //}
 
 func (s *Stream) HandleRecord(rec *service.Record) {
-	s.handler.HandleRecord(rec)
+	s.handler.Handle(rec)
 }
 
 func (s *Stream) MarkFinished() {
