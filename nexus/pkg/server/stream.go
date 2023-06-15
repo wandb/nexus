@@ -1,12 +1,14 @@
 package server
 
 import (
+	"context"
 	"sync"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
 type Stream struct {
+	ctx		   context.Context
 	handler    *Handler
 	dispatcher *Dispatcher
 	writer     *Writer
@@ -16,12 +18,14 @@ type Stream struct {
 }
 
 func NewStream(settings *Settings) *Stream {
-	dispatcher := NewDispatcher()
+	ctx := context.Background()
+	dispatcher := NewDispatcher(ctx)
 	sender := NewSender(settings, dispatcher)
 	writer := NewWriter(settings, sender)
 	handler := NewHandler(settings, writer, dispatcher)
 
 	return &Stream{
+		ctx:        ctx,
 		dispatcher: dispatcher,
 		handler:    handler,
 		sender:     sender,
@@ -40,13 +44,6 @@ func (s *Stream) Start() {
 	go s.sender.start()
 	go s.dispatcher.start()
 }
-
-// func (s *Stream) Deliver(rec *service.Record) {
-// 	//handle := s.mailbox.Deliver(rec)
-// 	//fmt.Println("deliver rec", rec)
-// 	//s.Handle(rec)
-// 	//return handle
-// }
 
 func (s *Stream) HandleRecord(rec *service.Record) {
 	s.handler.Handle(rec)
