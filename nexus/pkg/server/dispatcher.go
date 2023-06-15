@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/wandb/wandb/nexus/pkg/service"
@@ -34,8 +35,15 @@ func (d *Dispatcher) Deliver(result *service.Result) {
 	d.inChan <- result
 }
 
-func (d *Dispatcher) start() {
-	defer d.close()
+func (d *Dispatcher) start(wg *sync.WaitGroup) {
+	loopWg := &sync.WaitGroup{}
+	loopWg.Add(1)
+
+	defer func() {
+		d.close()
+		loopWg.Wait()
+		wg.Done()
+	}()
 
 	go func() {
 		for result := range d.inChan {
@@ -47,6 +55,7 @@ func (d *Dispatcher) start() {
 			}
 			d.responders[responderId].Respond(response)
 		}
+		loopWg.Done()
 	}()
 
 	<-d.ctx.Done()

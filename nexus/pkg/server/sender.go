@@ -1,6 +1,7 @@
 package server
 
 import (
+	"sync"
 	"time"
 
 	"bytes"
@@ -22,6 +23,7 @@ import (
 )
 
 type Sender struct {
+	ctx           context.Context
 	settings      *Settings
 	inChan        chan *service.Record
 	graphqlClient graphql.Client
@@ -32,8 +34,9 @@ type Sender struct {
 	dispatcherChan dispatchChannel
 }
 
-func NewSender(settings *Settings, dispatcherChan dispatchChannel) *Sender {
+func NewSender(ctx context.Context, settings *Settings, dispatcherChan dispatchChannel) *Sender {
 	sender := &Sender{
+		ctx:            ctx,
 		settings:       settings,
 		inChan:         make(chan *service.Record),
 		dispatcherChan: dispatcherChan,
@@ -41,16 +44,35 @@ func NewSender(settings *Settings, dispatcherChan dispatchChannel) *Sender {
 	return sender
 }
 
-func (s *Sender) start() {
-	log.Debug("SENDER: OPEN")
-	s.senderInit()
-	for msg := range s.inChan {
-		log.Debug("SENDER *******")
-		log.WithFields(log.Fields{"record": msg}).Debug("SENDER: got msg")
-		s.networkSendRecord(msg)
-		// handleLogWriter(s, msg)
-	}
-	log.Debug("SENDER: FIN")
+func (s *Sender) start(wg *sync.WaitGroup) {
+	loopWg := &sync.WaitGroup{}
+	loopWg.Add(1)
+
+	defer func() {
+		s.close()
+		loopWg.Wait()
+		wg.Done()
+	}()
+
+	go func() {
+		log.Debug("SENDER: OPEN")
+		s.senderInit()
+		for msg := range s.inChan {
+			log.Debug("SENDER *******")
+			log.WithFields(log.Fields{"record": msg}).Debug("SENDER: got msg")
+			s.networkSendRecord(msg)
+			// handleLogWriter(s, msg)
+		}
+		loopWg.Done()
+		log.Debug("SENDER: FIN")
+	}()
+
+	<-s.ctx.Done()
+}
+
+func (s *Sender) close() {
+	log.Debug("SENDER: CLOSE")
+	close(s.inChan)
 }
 
 func (s *Sender) Deliver(msg *service.Record) {
@@ -62,10 +84,6 @@ func (s *Sender) startRunWorkers() {
 		s.settings.BaseURL, s.run.Entity, s.run.Project, s.run.RunId)
 	s.fstream = NewFileStream(fsPath, s.settings)
 }
-
-// func (s *Sender) SetHandler(h *Handler) {
-//	s.handler = h
-// }
 
 type authedTransport struct {
 	key     string

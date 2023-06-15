@@ -1,8 +1,10 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"strconv"
+	"sync"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"google.golang.org/protobuf/proto"
@@ -13,6 +15,7 @@ import (
 )
 
 type Handler struct {
+	ctx      context.Context
 	settings *Settings
 	inChan   chan *service.Record
 	outChan  recordChannel
@@ -25,9 +28,10 @@ type Handler struct {
 	summary     map[string]string
 }
 
-func NewHandler(settings *Settings, outChan recordChannel, dispatcherChan dispatchChannel) *Handler {
+func NewHandler(ctx context.Context, settings *Settings, outChan recordChannel, dispatcherChan dispatchChannel) *Handler {
 
 	handler := Handler{
+		ctx:            ctx,
 		settings:       settings,
 		summary:        make(map[string]string),
 		inChan:         make(chan *service.Record),
@@ -37,15 +41,29 @@ func NewHandler(settings *Settings, outChan recordChannel, dispatcherChan dispat
 	return &handler
 }
 
-func (h *Handler) start() {
-	log.Debug("handler started")
-	for msg := range h.inChan {
-		log.WithFields(log.Fields{"rec": msg}).Debug("HANDLER")
-		h.handleRecord(msg)
-	}
+func (h *Handler) start(wg *sync.WaitGroup) {
+	loopWg := &sync.WaitGroup{}
+	loopWg.Add(1)
+
+	defer func() {
+		h.close()
+		loopWg.Wait()
+		wg.Done()
+	}()
+
+	go func() {
+		log.Debug("handler started")
+		for msg := range h.inChan {
+			log.WithFields(log.Fields{"rec": msg}).Debug("HANDLER")
+			h.handleRecord(msg)
+		}
+		loopWg.Done()
+	}()
+
+	<-h.ctx.Done()
 }
 
-func (h *Handler) Stop() {
+func (h *Handler) close() {
 	close(h.inChan)
 }
 
