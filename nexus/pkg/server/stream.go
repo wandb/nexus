@@ -41,12 +41,12 @@ func (s *Stream) Start() {
 	go s.dispatcher.start()
 }
 
-//func (s *Stream) Deliver(rec *service.Record) {
-//	//handle := s.mailbox.Deliver(rec)
-//	//fmt.Println("deliver rec", rec)
-//	//s.Handle(rec)
-//	//return handle
-//}
+// func (s *Stream) Deliver(rec *service.Record) {
+// 	//handle := s.mailbox.Deliver(rec)
+// 	//fmt.Println("deliver rec", rec)
+// 	//s.Handle(rec)
+// 	//return handle
+// }
 
 func (s *Stream) HandleRecord(rec *service.Record) {
 	s.handler.Handle(rec)
@@ -74,10 +74,10 @@ func (s *Stream) Close(wg *sync.WaitGroup) {
 	if s.IsFinished() {
 		return
 	}
-	//record := service.Record{
-	//	RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{}},
-	//}
-	//_ = s.Deliver(&record).wait()
+	// record := service.Record{
+	// 	RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{}},
+	// }
+	// _ = s.Deliver(&record).wait()
 	settings := s.GetSettings()
 	run := s.GetRun()
 	PrintHeadFoot(run, settings)
