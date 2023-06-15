@@ -8,7 +8,7 @@ import (
 )
 
 type Stream struct {
-	ctx		   context.Context
+	ctx        context.Context
 	handler    *Handler
 	dispatcher *Dispatcher
 	writer     *Writer
