@@ -50,6 +50,11 @@ func (h *Handler) Stop() {
 }
 
 func (h *Handler) handleRecord(msg *service.Record) {
+	// handlers := map[service.Record_RecordType]func(*service.Record){
+	// 	service.Record_RUN: func(rec *service.Record) {
+	// 		h.handleRun(rec, rec.GetRun())
+	// 	},
+	// }
 	switch x := msg.RecordType.(type) {
 	case *service.Record_Alert:
 		// TODO: handle alert
