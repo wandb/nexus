@@ -6,28 +6,31 @@ import (
 )
 
 type Writer struct {
-	settings   *Settings
-	inChan     chan *service.Record
-	senderChan chan *service.Record
-	store      *Store
+	settings *Settings
+	inChan   chan *service.Record
+	//senderChan chan *service.Record
+	outChan recordChannel
+	store   *Store
 }
 
-func NewWriter(settings *Settings, senderChan chan *service.Record) *Writer {
-	writer := Writer{
-		settings:   settings,
-		inChan:     make(chan *service.Record),
-		senderChan: senderChan,
-		store:      NewStore(settings.SyncFile),
+func NewWriter(settings *Settings, outChan recordChannel) *Writer {
+	writer := &Writer{
+		settings: settings,
+		inChan:   make(chan *service.Record),
+		outChan:  outChan,
+		store:    NewStore(settings.SyncFile),
 	}
-	return &writer
+	return writer
 }
 
-func (w *Writer) Start() {
-	go func() {
-		for msg := range w.inChan {
-			w.writeRecord(msg)
-		}
-	}()
+func (w *Writer) start() {
+	for msg := range w.inChan {
+		w.writeRecord(msg)
+	}
+}
+
+func (w *Writer) Deliver(msg *service.Record) {
+	w.inChan <- msg
 }
 
 func (w *Writer) Stop() {
@@ -55,7 +58,7 @@ func (w *Writer) sendRecord(rec *service.Record) {
 	if w.settings.Offline && control != nil && !control.AlwaysSend {
 		return
 	}
-	w.senderChan <- rec
+	w.outChan.Deliver(rec)
 }
 
 func (w *Writer) Flush() {

@@ -6,13 +6,13 @@ import (
 )
 
 type Dispatcher struct {
-	resultChan chan *service.Result
+	inChan     chan *service.Result
 	responders map[string]Responder
 }
 
 func NewDispatcher() *Dispatcher {
-	dispatcher := Dispatcher{resultChan: make(chan *service.Result)}
-	return &dispatcher
+	dispatcher := &Dispatcher{inChan: make(chan *service.Result)}
+	return dispatcher
 }
 
 func (d *Dispatcher) AddResponder(responderId string, responder Responder) {
@@ -24,15 +24,17 @@ func (d *Dispatcher) AddResponder(responderId string, responder Responder) {
 	}
 }
 
-func (d *Dispatcher) Start() {
-	go func() {
-		for result := range d.resultChan {
-			// extract responder id from result
-			responderId := result.Uuid
-			response := &service.ServerResponse{
-				ServerResponseType: &service.ServerResponse_ResultCommunicate{ResultCommunicate: result},
-			}
-			d.responders[responderId].Respond(response)
+func (d *Dispatcher) Deliver(result *service.Result) {
+	d.inChan <- result
+}
+
+func (d *Dispatcher) start() {
+	for result := range d.inChan {
+		// extract responder id from result
+		responderId := result.Uuid
+		response := &service.ServerResponse{
+			ServerResponseType: &service.ServerResponse_ResultCommunicate{ResultCommunicate: result},
 		}
-	}()
+		d.responders[responderId].Respond(response)
+	}
 }

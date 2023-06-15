@@ -29,30 +29,32 @@ type Sender struct {
 	run           *service.RunRecord
 	//handler        *Handler
 	deferResult    *service.Result
-	dispatcherChan chan *service.Result
+	dispatcherChan dispatchChannel
 }
 
-func NewSender(settings *Settings, dispatcherChan chan *service.Result) *Sender {
-	sender := Sender{
+func NewSender(settings *Settings, dispatcherChan dispatchChannel) *Sender {
+	sender := &Sender{
 		settings:       settings,
 		inChan:         make(chan *service.Record),
 		dispatcherChan: dispatcherChan,
 	}
-	return &sender
+	return sender
 }
 
-func (s *Sender) Start() {
-	go func() {
-		log.Debug("SENDER: OPEN")
-		s.senderInit()
-		for msg := range s.inChan {
-			log.Debug("SENDER *******")
-			log.WithFields(log.Fields{"record": msg}).Debug("SENDER: got msg")
-			s.networkSendRecord(msg)
-			// handleLogWriter(s, msg)
-		}
-		log.Debug("SENDER: FIN")
-	}()
+func (s *Sender) start() {
+	log.Debug("SENDER: OPEN")
+	s.senderInit()
+	for msg := range s.inChan {
+		log.Debug("SENDER *******")
+		log.WithFields(log.Fields{"record": msg}).Debug("SENDER: got msg")
+		s.networkSendRecord(msg)
+		// handleLogWriter(s, msg)
+	}
+	log.Debug("SENDER: FIN")
+}
+
+func (s *Sender) Deliver(msg *service.Record) {
+	s.inChan <- msg
 }
 
 func (s *Sender) startRunWorkers() {
@@ -94,7 +96,7 @@ func (s *Sender) senderInit() {
 	s.graphqlClient = graphql.NewClient(url, &httpClient)
 }
 
-func (s *Sender) sendNetworkStatusRequest(msg *service.NetworkStatusRequest) {
+func (s *Sender) sendNetworkStatusRequest(_ *service.NetworkStatusRequest) {
 }
 
 func (s *Sender) sendDefer(req *service.DeferRequest) {
@@ -110,24 +112,24 @@ func (s *Sender) sendDefer(req *service.DeferRequest) {
 	default:
 	}
 	if done {
-		s.dispatcherChan <- s.deferResult
+		s.dispatcherChan.Deliver(s.deferResult)
 	} else {
 		req.State += 1
 		s.doSendDefer(req)
 	}
 }
 
-func (s *Sender) sendRunStart(req *service.RunStartRequest) {
+func (s *Sender) sendRunStart(_ *service.RunStartRequest) {
 	s.startRunWorkers()
 }
 
-func (s *Sender) sendHistory(msg *service.Record, history *service.HistoryRecord) {
+func (s *Sender) sendHistory(msg *service.Record, _ *service.HistoryRecord) {
 	if s.fstream != nil {
 		s.fstream.StreamRecord(msg)
 	}
 }
 
-func (s *Sender) sendRequest(msg *service.Record, req *service.Request) {
+func (s *Sender) sendRequest(_ *service.Record, req *service.Request) {
 	switch x := req.RequestType.(type) {
 	case *service.Request_NetworkStatus:
 		s.sendNetworkStatusRequest(x.NetworkStatus)
@@ -196,7 +198,7 @@ func (s *Sender) sendFiles(msg *service.Record, filesRecord *service.FilesRecord
 	}
 }
 
-func (s *Sender) doSendFile(msg *service.Record, fileItem *service.FilesItem) {
+func (s *Sender) doSendFile(_ *service.Record, fileItem *service.FilesItem) {
 	// fmt.Println("GOTFILE", filesRecord)
 	path := fileItem.GetPath()
 
@@ -278,7 +280,7 @@ func (s *Sender) doSendDefer(deferRequest *service.DeferRequest) {
 	//s.handler.Handle(&r)
 }
 
-func (s *Sender) sendRunExit(msg *service.Record, record *service.RunExitRecord) {
+func (s *Sender) sendRunExit(msg *service.Record, _ *service.RunExitRecord) {
 	// send exit via filestream
 	s.fstream.StreamRecord(msg)
 
@@ -308,7 +310,7 @@ func (s *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 	ctx := context.Background()
 	// resp, err := Viewer(ctx, s.graphqlClient)
 	// fmt.Println(resp, err)
-	tags := []string{}
+	var tags []string
 	resp, err := UpsertBucket(
 		ctx, s.graphqlClient,
 		nil,           // id
@@ -375,5 +377,5 @@ func (s *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 		Control:    msg.Control,
 		Uuid:       msg.Uuid,
 	}
-	s.dispatcherChan <- result
+	s.dispatcherChan.Deliver(result)
 }

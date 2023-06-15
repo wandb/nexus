@@ -17,9 +17,9 @@ type Stream struct {
 
 func NewStream(settings *Settings) *Stream {
 	dispatcher := NewDispatcher()
-	sender := NewSender(settings, dispatcher.resultChan)
-	writer := NewWriter(settings, sender.inChan)
-	handler := NewHandler(settings, dispatcher.resultChan, writer.inChan)
+	sender := NewSender(settings, dispatcher)
+	writer := NewWriter(settings, sender)
+	handler := NewHandler(settings, writer, dispatcher)
 
 	return &Stream{dispatcher: dispatcher, handler: handler, sender: sender, settings: settings, writer: writer}
 }
@@ -29,12 +29,10 @@ func (s *Stream) AddResponder(responderId string, responder Responder) {
 }
 
 func (s *Stream) Start() {
-	s.dispatcher.Start()
-	s.handler.Start()
-	s.sender.Start()
-	if s.writer != nil {
-		s.writer.Start()
-	}
+	go s.handler.start()
+	go s.writer.start()
+	go s.sender.start()
+	go s.dispatcher.start()
 }
 
 //func (s *Stream) Deliver(rec *service.Record) {

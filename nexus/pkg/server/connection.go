@@ -52,7 +52,7 @@ func NewConnection(
 	}
 }
 
-func (x *Tokenizer) split(data []byte, atEOF bool) (advance int, token []byte, err error) {
+func (x *Tokenizer) split(data []byte, _ bool) (advance int, token []byte, err error) {
 	if x.headerLength == 0 {
 		x.headerLength = binary.Size(x.header)
 	}
@@ -202,7 +202,7 @@ func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 	stream.Start()
 }
 
-func (nc *Connection) handleInformStart(msg *service.ServerInformStartRequest) {
+func (nc *Connection) handleInformStart(_ *service.ServerInformStartRequest) {
 	log.Debug("handleInformStart: start")
 }
 
@@ -229,7 +229,7 @@ func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest)
 	}
 }
 
-func (nc *Connection) handleInformTeardown(msg *service.ServerInformTeardownRequest) {
+func (nc *Connection) handleInformTeardown(_ *service.ServerInformTeardownRequest) {
 	log.Debug("handleInformTeardown: teardown")
 	streamManager.Close()
 	log.Debug("handleInformTeardown: streamManager closed")

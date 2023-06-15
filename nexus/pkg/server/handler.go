@@ -11,10 +11,11 @@ import (
 )
 
 type Handler struct {
-	settings       *Settings
-	inChan         chan *service.Record
-	dispatcherChan chan *service.Result
-	writerChan     chan *service.Record
+	settings *Settings
+	inChan   chan *service.Record
+	outChan  recordChannel
+
+	dispatcherChan dispatchChannel
 
 	currentStep int64
 	startTime   float64
@@ -22,26 +23,24 @@ type Handler struct {
 	summary     map[string]string
 }
 
-func NewHandler(settings *Settings, dispatcherChan chan *service.Result, writerChan chan *service.Record) *Handler {
+func NewHandler(settings *Settings, outChan recordChannel, dispatcherChan dispatchChannel) *Handler {
 
 	handler := Handler{
 		settings:       settings,
 		summary:        make(map[string]string),
 		inChan:         make(chan *service.Record),
 		dispatcherChan: dispatcherChan,
-		writerChan:     writerChan,
+		outChan:        outChan,
 	}
 	return &handler
 }
 
-func (h *Handler) Start() {
-	go func() {
-		log.Debug("handler started")
-		for msg := range h.inChan {
-			log.WithFields(log.Fields{"rec": msg}).Debug("HANDLER")
-			h.handleRecord(msg)
-		}
-	}()
+func (h *Handler) start() {
+	log.Debug("handler started")
+	for msg := range h.inChan {
+		log.WithFields(log.Fields{"rec": msg}).Debug("HANDLER")
+		h.handleRecord(msg)
+	}
 }
 
 func (h *Handler) Stop() {
@@ -135,7 +134,7 @@ func (h *Handler) handleRequest(rec *service.Record, req *service.Request) {
 		Control:    rec.Control,
 		Uuid:       rec.Uuid,
 	}
-	h.dispatcherChan <- result
+	h.dispatcherChan.Deliver(result)
 }
 
 func (h *Handler) sendRecord(rec *service.Record) {
@@ -143,7 +142,7 @@ func (h *Handler) sendRecord(rec *service.Record) {
 	if control != nil {
 		control.AlwaysSend = true
 	}
-	h.writerChan <- rec
+	h.outChan.Deliver(rec)
 }
 
 func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartRequest) {
@@ -157,15 +156,15 @@ func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartReque
 	h.sendRecord(rec)
 }
 
-func (h *Handler) handleRun(rec *service.Record, run *service.RunRecord) {
+func (h *Handler) handleRun(rec *service.Record, _ *service.RunRecord) {
 	h.sendRecord(rec)
 }
 
-func (h *Handler) handleRunExit(rec *service.Record, runExit *service.RunExitRecord) {
+func (h *Handler) handleRunExit(rec *service.Record, _ *service.RunExitRecord) {
 	h.sendRecord(rec)
 }
 
-func (h *Handler) handleFiles(rec *service.Record, files *service.FilesRecord) {
+func (h *Handler) handleFiles(rec *service.Record, _ *service.FilesRecord) {
 	h.sendRecord(rec)
 }
 
@@ -209,7 +208,7 @@ func (h *Handler) handlePartialHistory(_ *service.Record, req *service.PartialHi
 		}
 	}
 	items = append(items,
-		&service.HistoryItem{Key: "_runtime", ValueJson: fmt.Sprintf("%db", runTime)},
+		&service.HistoryItem{Key: "_runtime", ValueJson: fmt.Sprintf("%fb", runTime)},
 		&service.HistoryItem{Key: "_step", ValueJson: fmt.Sprintf("%d", stepNum)},
 	)
 
