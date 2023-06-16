@@ -7,6 +7,10 @@ import (
 	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
+// Task is used to coordinate the lifecycle of the Stream's components.
+// Stream's components derive their cancelable contexts from a common parent
+// context. When we close the Stream, we cancel the corresponding component contexts
+// in a specific order to signal to the components that they should stop.
 type Task struct {
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -22,6 +26,12 @@ func NewTask(parentCtx context.Context) *Task {
 	}
 }
 
+// Stream is a collection of components that work together to handle incoming
+// data for a W&B run, store it locally, and send it to a W&B server.
+// Stream.handler receives incoming data from the client and dispatches it to
+// Stream.writer, which writes it to a local file. Stream.writer then sends the
+// data to Stream.sender, which sends it to the W&B server. Stream.dispatcher
+// handles dispatching responses to the appropriate client responders.
 type Stream struct {
 	handler    *Handler
 	dispatcher *Dispatcher
