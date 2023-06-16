@@ -7,122 +7,43 @@ import (
 	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
-/*
-
-package main
-
-import (
-	"context"
-	"fmt"
-	"sync"
-	"time"
-)
-
 type Task struct {
-	Ctx    context.Context
-	Cancel context.CancelFunc
-	Wg     *sync.WaitGroup
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     *sync.WaitGroup
 }
 
 func NewTask(parentCtx context.Context) *Task {
 	ctx, cancel := context.WithCancel(parentCtx)
 	return &Task{
-		Ctx:    ctx,
-		Cancel: cancel,
-		Wg:     &sync.WaitGroup{},
+		ctx:    ctx,
+		cancel: cancel,
+		wg:     &sync.WaitGroup{},
 	}
 }
 
-// Example task functions
-func dispatcher(task *Task) {
-	fmt.Println("Dispatcher started")
-	<-task.Ctx.Done()
-	fmt.Println("Dispatcher shutdown")
-}
-
-func sender(task *Task) {
-	fmt.Println("Sender started")
-	<-task.Ctx.Done()
-	fmt.Println("Sender shutdown")
-}
-
-func writer(task *Task) {
-	fmt.Println("Writer started")
-	<-task.Ctx.Done()
-	fmt.Println("Writer shutdown")
-}
-
-func handler(task *Task) {
-	fmt.Println("Handler started")
-	<-task.Ctx.Done()
-	fmt.Println("Handler shutdown")
-}
-
-// runTasks starts the tasks and waits for them to complete
-func runTasks(dispatcherTask, senderTask, writerTask, handlerTask *Task) {
-	// Start the tasks
-	go dispatcher(dispatcherTask)
-	go sender(senderTask)
-	go writer(writerTask)
-	go handler(handlerTask)
-
-	time.Sleep(3 * time.Second) // Simulate some work
-
-	// Shutdown tasks in desired order
-	handlerTask.Cancel()
-	writerTask.Cancel()
-	senderTask.Cancel()
-	dispatcherTask.Cancel()
-
-	// Wait for tasks to complete
-	handlerTask.Wg.Wait()
-	writerTask.Wg.Wait()
-	senderTask.Wg.Wait()
-	dispatcherTask.Wg.Wait()
-}
-
-func main() {
-	parentCtx := context.Background()
-
-	dispatcherTask := NewTask(parentCtx)
-	senderTask := NewTask(parentCtx)
-	writerTask := NewTask(parentCtx)
-	handlerTask := NewTask(parentCtx)
-
-	runTasks(dispatcherTask, senderTask, writerTask, handlerTask)
-}
-
-*/
-
 type Stream struct {
-	ctx        context.Context
-	cancel     context.CancelFunc
 	handler    *Handler
 	dispatcher *Dispatcher
 	writer     *Writer
 	sender     *Sender
 	settings   *Settings
-	wg         *sync.WaitGroup
 	finished   bool
 }
 
 func NewStream(settings *Settings) *Stream {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx := context.Background()
 	dispatcher := NewDispatcher(ctx)
 	sender := NewSender(ctx, settings, dispatcher)
 	writer := NewWriter(ctx, settings, sender)
 	handler := NewHandler(ctx, settings, writer, dispatcher)
-	wg := &sync.WaitGroup{}
 
 	return &Stream{
-		ctx:        ctx,
-		cancel:     cancel,
 		dispatcher: dispatcher,
 		handler:    handler,
 		sender:     sender,
 		writer:     writer,
 		settings:   settings,
-		wg:         wg,
 	}
 }
 
@@ -134,11 +55,15 @@ func (s *Stream) AddResponder(responderId string, responder Responder) {
 // We use Stream's wait group to ensure that all of these components are cleanly
 // finalized and closed when the stream is closed in Stream.Close().
 func (s *Stream) Start() {
-	s.wg.Add(4)
-	go s.handler.start(s.wg)
-	go s.writer.start(s.wg)
-	go s.sender.start(s.wg)
-	go s.dispatcher.start(s.wg)
+	s.handler.task.wg.Add(1)
+	s.writer.task.wg.Add(1)
+	s.sender.task.wg.Add(1)
+	s.dispatcher.task.wg.Add(1)
+
+	go s.handler.start()
+	go s.writer.start()
+	go s.sender.start()
+	go s.dispatcher.start()
 }
 
 func (s *Stream) HandleRecord(rec *service.Record) {
@@ -181,9 +106,24 @@ func (s *Stream) Close(wg *sync.WaitGroup) {
 	// s.HandleRecord(&record)
 
 	// signal to components that they should close
-	s.cancel()
+	s.handler.task.cancel()
 	// wait for components to finish closing
-	s.wg.Wait()
+	s.handler.task.wg.Wait()
+
+	// signal to components that they should close
+	s.writer.task.cancel()
+	// wait for components to finish closing
+	s.writer.task.wg.Wait()
+
+	// signal to components that they should close
+	s.sender.task.cancel()
+	// wait for components to finish closing
+	s.sender.task.wg.Wait()
+
+	// signal to components that they should close
+	s.dispatcher.task.cancel()
+	// wait for components to finish closing
+	s.dispatcher.task.wg.Wait()
 
 	settings := s.GetSettings()
 	run := s.GetRun()

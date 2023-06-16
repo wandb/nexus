@@ -9,7 +9,7 @@ import (
 )
 
 type Writer struct {
-	ctx      context.Context
+	task     *Task
 	settings *Settings
 	inChan   chan *service.Record
 	outChan  recordChannel
@@ -17,8 +17,10 @@ type Writer struct {
 }
 
 func NewWriter(ctx context.Context, settings *Settings, outChan recordChannel) *Writer {
+
+	task := NewTask(ctx)
 	writer := &Writer{
-		ctx:      ctx,
+		task:     task,
 		settings: settings,
 		inChan:   make(chan *service.Record),
 		outChan:  outChan,
@@ -27,7 +29,7 @@ func NewWriter(ctx context.Context, settings *Settings, outChan recordChannel) *
 	return writer
 }
 
-func (w *Writer) start(wg *sync.WaitGroup) {
+func (w *Writer) start() {
 	// wait group for inner goroutine looping over input channel
 	loopWg := &sync.WaitGroup{}
 	loopWg.Add(1)
@@ -38,7 +40,7 @@ func (w *Writer) start(wg *sync.WaitGroup) {
 		// wait for inner goroutine to finish
 		loopWg.Wait()
 		// signal stream that we're done
-		wg.Done()
+		w.task.wg.Done()
 	}()
 
 	// start inner goroutine looping over input channel
@@ -51,7 +53,7 @@ func (w *Writer) start(wg *sync.WaitGroup) {
 	}()
 
 	// wait for outer context to be cancelled
-	<-w.ctx.Done()
+	<-w.task.ctx.Done()
 }
 
 func (w *Writer) Deliver(msg *service.Record) {

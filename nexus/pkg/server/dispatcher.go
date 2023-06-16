@@ -9,14 +9,15 @@ import (
 )
 
 type Dispatcher struct {
-	ctx        context.Context
+	task       *Task
 	inChan     chan *service.Result
 	responders map[string]Responder
 }
 
 func NewDispatcher(ctx context.Context) *Dispatcher {
+	task := NewTask(ctx)
 	dispatcher := &Dispatcher{
-		ctx:        ctx,
+		task:       task,
 		inChan:     make(chan *service.Result),
 		responders: make(map[string]Responder),
 	}
@@ -35,14 +36,14 @@ func (d *Dispatcher) Deliver(result *service.Result) {
 	d.inChan <- result
 }
 
-func (d *Dispatcher) start(wg *sync.WaitGroup) {
+func (d *Dispatcher) start() {
 	loopWg := &sync.WaitGroup{}
 	loopWg.Add(1)
 
 	defer func() {
 		d.close()
 		loopWg.Wait()
-		wg.Done()
+		d.task.wg.Done()
 	}()
 
 	go func() {
@@ -59,7 +60,7 @@ func (d *Dispatcher) start(wg *sync.WaitGroup) {
 		loopWg.Done()
 	}()
 
-	<-d.ctx.Done()
+	<-d.task.ctx.Done()
 }
 
 func (d *Dispatcher) close() {

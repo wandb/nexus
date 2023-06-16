@@ -15,7 +15,7 @@ import (
 )
 
 type Handler struct {
-	ctx      context.Context
+	task     *Task
 	settings *Settings
 	inChan   chan *service.Record
 	outChan  recordChannel
@@ -29,26 +29,26 @@ type Handler struct {
 }
 
 func NewHandler(ctx context.Context, settings *Settings, outChan recordChannel, dispatcherChan dispatchChannel) *Handler {
-
+	task := NewTask(ctx)
 	handler := Handler{
-		ctx:            ctx,
-		settings:       settings,
-		summary:        make(map[string]string),
+		task:           task,
 		inChan:         make(chan *service.Record),
 		dispatcherChan: dispatcherChan,
 		outChan:        outChan,
+		settings:       settings,
+		summary:        make(map[string]string),
 	}
 	return &handler
 }
 
-func (h *Handler) start(wg *sync.WaitGroup) {
+func (h *Handler) start() {
 	loopWg := &sync.WaitGroup{}
 	loopWg.Add(1)
 
 	defer func() {
 		h.close()
 		loopWg.Wait()
-		wg.Done()
+		h.task.wg.Done()
 	}()
 
 	go func() {
@@ -60,7 +60,7 @@ func (h *Handler) start(wg *sync.WaitGroup) {
 		loopWg.Done()
 	}()
 
-	<-h.ctx.Done()
+	<-h.task.ctx.Done()
 }
 
 func (h *Handler) close() {
@@ -201,13 +201,9 @@ func (h *Handler) handleGetSummary(_ *service.Record, _ *service.GetSummaryReque
 
 func (h *Handler) handleDefer(rec *service.Record, req *service.DeferRequest) {
 	switch req.State {
-	case service.DeferRequest_END:
-		// if h.writer != nil {
-		// 	h.writer.Flush()
-		// }
 	default:
+		h.sendRecord(rec)
 	}
-	h.sendRecord(rec)
 }
 
 func (h *Handler) handlePartialHistory(_ *service.Record, req *service.PartialHistoryRequest) {
