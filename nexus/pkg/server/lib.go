@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -42,17 +41,6 @@ func ResultFromServerResponse(serverResponse *service.ServerResponse) *service.R
 		return r
 	}
 	return nil
-}
-
-func FuncRespondServerResponse(num int) func(ctx context.Context, serverResponse *service.ServerResponse) {
-	return func(ctx context.Context, serverResponse *service.ServerResponse) {
-		// fmt.Println("GOT", num, serverResponse)
-		ns := m[num]
-
-		result := ResultFromServerResponse(serverResponse)
-		ns.CaptureResult(result)
-		ns.Recv <- result
-	}
 }
 
 func InitLogging() {

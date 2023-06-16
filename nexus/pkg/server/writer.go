@@ -93,6 +93,6 @@ func (w *Writer) sendRecord(rec *service.Record) {
 }
 
 func (w *Writer) Flush() {
-	log.Debug("WRITER: flush")
+	log.Debug("WRITER: close")
 	close(w.inChan)
 }

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/base64"
 	"sync"
 	"time"
 
@@ -21,35 +20,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 )
-
-type authedTransport struct {
-	key     string
-	wrapped http.RoundTripper
-}
-
-func basicAuth(username, password string) string {
-	auth := username + ":" + password
-	return base64.StdEncoding.EncodeToString([]byte(auth))
-}
-
-func (t *authedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.Header.Set("Authorization", "Basic "+basicAuth("api", t.key))
-	req.Header.Set("User-Agent", "wandb-nexus")
-	// req.Header.Set("X-WANDB-USERNAME", "jeff")
-	// req.Header.Set("X-WANDB-USER-EMAIL", "jeff@wandb.com")
-	return t.wrapped.RoundTrip(req)
-}
-
-// newGraphqlClient creates a new graphql client
-func newGraphqlClient(url, apiKey string) graphql.Client {
-	httpClient := http.Client{
-		Transport: &authedTransport{
-			key:     apiKey,
-			wrapped: http.DefaultTransport,
-		},
-	}
-	return graphql.NewClient(url, &httpClient)
-}
 
 type Sender struct {
 	task           *Task
@@ -104,7 +74,7 @@ func (s *Sender) start() {
 func (s *Sender) close() {
 	log.Debug("Sender: close")
 	close(s.inChan)
-	s.fileStream.flush()
+	s.fileStream.close()
 }
 
 // Deliver delivers a message to the sender
@@ -210,13 +180,13 @@ func (s *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 
 func (s *Sender) sendHistory(msg *service.Record, _ *service.HistoryRecord) {
 	if s.fileStream != nil {
-		s.fileStream.StreamRecord(msg)
+		s.fileStream.stream(msg)
 	}
 }
 
 func (s *Sender) sendRunExit(msg *service.Record, _ *service.RunExitRecord) {
 	// send exit via filestream
-	s.fileStream.StreamRecord(msg)
+	s.fileStream.stream(msg)
 
 	result := &service.Result{
 		ResultType: &service.Result_ExitResult{ExitResult: &service.RunExitResult{}},
@@ -243,7 +213,7 @@ func sendData(fileName, urlPath string) error {
 		return err
 	}
 
-	req, err := http.NewRequest("PUT", urlPath, bytes.NewReader(b))
+	req, err := http.NewRequest(http.MethodPut, urlPath, bytes.NewReader(b))
 	if err != nil {
 		return err
 	}
