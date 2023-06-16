@@ -105,24 +105,22 @@ func (s *Stream) Close(wg *sync.WaitGroup) {
 	// }
 	// s.HandleRecord(&record)
 
-	// signal to components that they should close
+	// signal to components that they should close, then wait for them to finish
+	// we proceed in the following order:
+	// 1. handler
+	// 2. writer
+	// 3. sender
+	// 4. dispatcher
 	s.handler.task.cancel()
-	// wait for components to finish closing
 	s.handler.task.wg.Wait()
 
-	// signal to components that they should close
 	s.writer.task.cancel()
-	// wait for components to finish closing
 	s.writer.task.wg.Wait()
 
-	// signal to components that they should close
 	s.sender.task.cancel()
-	// wait for components to finish closing
 	s.sender.task.wg.Wait()
 
-	// signal to components that they should close
 	s.dispatcher.task.cancel()
-	// wait for components to finish closing
 	s.dispatcher.task.wg.Wait()
 
 	settings := s.GetSettings()

@@ -123,10 +123,11 @@ func (s *Sender) sendNetworkStatusRequest(_ *service.NetworkStatusRequest) {
 }
 
 func (s *Sender) sendDefer(req *service.DeferRequest) {
-	switch req.State {
-	default:
-		s.dispatcherChan.Deliver(nil)
-	}
+	// switch req.State {
+	// default:
+	// 	s.dispatcherChan.Deliver(nil)
+	// }
+	s.dispatcherChan.Deliver(nil)
 }
 
 func (s *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
