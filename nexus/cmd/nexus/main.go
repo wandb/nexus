@@ -17,7 +17,7 @@ func main() {
 
 	flag.Parse()
 
-	server.InitLogging()
+	server.SetupLogger(true)
 
 	log.WithFields(log.Fields{
 		"fname":     *portFilename,
