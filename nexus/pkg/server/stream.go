@@ -9,6 +9,7 @@ import (
 
 type Stream struct {
 	ctx        context.Context
+	cancel     context.CancelFunc
 	handler    *Handler
 	dispatcher *Dispatcher
 	writer     *Writer
@@ -19,7 +20,7 @@ type Stream struct {
 }
 
 func NewStream(settings *Settings) *Stream {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 	dispatcher := NewDispatcher(ctx)
 	sender := NewSender(ctx, settings, dispatcher)
 	writer := NewWriter(ctx, settings, sender)
@@ -28,6 +29,7 @@ func NewStream(settings *Settings) *Stream {
 
 	return &Stream{
 		ctx:        ctx,
+		cancel:     cancel,
 		dispatcher: dispatcher,
 		handler:    handler,
 		sender:     sender,
@@ -86,13 +88,13 @@ func (s *Stream) Close(wg *sync.WaitGroup) {
 	}
 
 	// send exit record to handler
-	record := service.Record{
-		RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{}},
-	}
-	s.HandleRecord(&record)
+	// record := service.Record{
+	// 	RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{}},
+	// }
+	// s.HandleRecord(&record)
 
 	// signal to components that they should close
-	s.ctx.Done()
+	s.cancel()
 	// wait for components to finish closing
 	s.wg.Wait()
 

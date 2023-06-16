@@ -127,12 +127,14 @@ func jsonify(msg *service.HistoryRecord) string {
 	items := msg.Item
 	var val2 any
 
+	log.Debug("GOT", items)
+
 	for i := 0; i < len(items); i++ {
 		val := items[i].ValueJson
 		b := []byte(val)
 		err = json.Unmarshal(b, &val2)
 		if err != nil {
-			log.Fatalln("json unmarshal error", err)
+			log.Fatalln("json unmarshal error", err, items)
 		}
 		data[items[i].Key] = val2
 	}

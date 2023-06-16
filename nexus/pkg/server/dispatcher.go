@@ -50,6 +50,7 @@ func (d *Dispatcher) start(wg *sync.WaitGroup) {
 			// todo: extract responder id from result
 			responderId := result.Control.ConnectionId
 			log.Debug("dispatching result to responder ", responderId)
+			log.Debug("+++result: ", result)
 			response := &service.ServerResponse{
 				ServerResponseType: &service.ServerResponse_ResultCommunicate{ResultCommunicate: result},
 			}
