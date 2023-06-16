@@ -60,7 +60,6 @@ func (d *Dispatcher) start(wg *sync.WaitGroup) {
 	}()
 
 	<-d.ctx.Done()
-
 }
 
 func (d *Dispatcher) close() {
