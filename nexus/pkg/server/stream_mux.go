@@ -9,7 +9,7 @@ type StreamMux struct {
 	mutex sync.RWMutex
 }
 
-func NewStreamManager() *StreamMux {
+func NewStreamMux() *StreamMux {
 	return &StreamMux{
 		mux: make(map[string]*Stream),
 	}
@@ -53,4 +53,4 @@ func (sm *StreamMux) Close() {
 	wg.Wait()
 }
 
-var streamManager = NewStreamManager()
+var streamMux = NewStreamMux()

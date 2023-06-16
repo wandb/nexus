@@ -150,7 +150,7 @@ func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 	settings := NewSettings(s)
 
 	streamId := msg.XInfo.StreamId
-	stream := streamManager.addStream(streamId, settings)
+	stream := streamMux.addStream(streamId, settings)
 	stream.AddResponder(nc.id, nc)
 	stream.Start()
 }
@@ -161,7 +161,7 @@ func (nc *Connection) handleInformStart(_ *service.ServerInformStartRequest) {
 
 func (nc *Connection) handleInformRecord(msg *service.Record) {
 	streamId := msg.XInfo.StreamId
-	if stream, ok := streamManager.getStream(streamId); ok {
+	if stream, ok := streamMux.getStream(streamId); ok {
 		ref := msg.ProtoReflect()
 		desc := ref.Descriptor()
 		num := ref.WhichOneof(desc.Oneofs().ByName("record_type")).Number()
@@ -184,7 +184,7 @@ func (nc *Connection) handleInformRecord(msg *service.Record) {
 func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest) {
 	log.Debug("handleInformFinish: finish")
 	streamId := msg.XInfo.StreamId
-	if stream, ok := streamManager.getStream(streamId); ok {
+	if stream, ok := streamMux.getStream(streamId); ok {
 		stream.MarkFinished()
 	} else {
 		log.Error("handleInformFinish: stream not found")
@@ -193,8 +193,8 @@ func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest)
 
 func (nc *Connection) handleInformTeardown(_ *service.ServerInformTeardownRequest) {
 	log.Debug("handleInformTeardown: teardown")
-	streamManager.Close()
-	log.Debug("handleInformTeardown: streamManager closed")
+	streamMux.Close()
+	log.Debug("handleInformTeardown: streamMux closed")
 	nc.cancel()
 	log.Debug("handleInformTeardown: context canceled")
 	nc.shutdownChan <- true
