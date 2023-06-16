@@ -229,7 +229,7 @@ func (h *Handler) handlePartialHistory(_ *service.Record, req *service.PartialHi
 		}
 	}
 	items = append(items,
-		&service.HistoryItem{Key: "_runtime", ValueJson: fmt.Sprintf("%fb", runTime)},
+		&service.HistoryItem{Key: "_runtime", ValueJson: fmt.Sprintf("%f", runTime)},
 		&service.HistoryItem{Key: "_step", ValueJson: fmt.Sprintf("%d", stepNum)},
 	)
 

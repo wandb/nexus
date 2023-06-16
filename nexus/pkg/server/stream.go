@@ -7,6 +7,93 @@ import (
 	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
+/*
+
+package main
+
+import (
+	"context"
+	"fmt"
+	"sync"
+	"time"
+)
+
+type Task struct {
+	Ctx    context.Context
+	Cancel context.CancelFunc
+	Wg     *sync.WaitGroup
+}
+
+func NewTask(parentCtx context.Context) *Task {
+	ctx, cancel := context.WithCancel(parentCtx)
+	return &Task{
+		Ctx:    ctx,
+		Cancel: cancel,
+		Wg:     &sync.WaitGroup{},
+	}
+}
+
+// Example task functions
+func dispatcher(task *Task) {
+	fmt.Println("Dispatcher started")
+	<-task.Ctx.Done()
+	fmt.Println("Dispatcher shutdown")
+}
+
+func sender(task *Task) {
+	fmt.Println("Sender started")
+	<-task.Ctx.Done()
+	fmt.Println("Sender shutdown")
+}
+
+func writer(task *Task) {
+	fmt.Println("Writer started")
+	<-task.Ctx.Done()
+	fmt.Println("Writer shutdown")
+}
+
+func handler(task *Task) {
+	fmt.Println("Handler started")
+	<-task.Ctx.Done()
+	fmt.Println("Handler shutdown")
+}
+
+// runTasks starts the tasks and waits for them to complete
+func runTasks(dispatcherTask, senderTask, writerTask, handlerTask *Task) {
+	// Start the tasks
+	go dispatcher(dispatcherTask)
+	go sender(senderTask)
+	go writer(writerTask)
+	go handler(handlerTask)
+
+	time.Sleep(3 * time.Second) // Simulate some work
+
+	// Shutdown tasks in desired order
+	handlerTask.Cancel()
+	writerTask.Cancel()
+	senderTask.Cancel()
+	dispatcherTask.Cancel()
+
+	// Wait for tasks to complete
+	handlerTask.Wg.Wait()
+	writerTask.Wg.Wait()
+	senderTask.Wg.Wait()
+	dispatcherTask.Wg.Wait()
+}
+
+func main() {
+	parentCtx := context.Background()
+
+	dispatcherTask := NewTask(parentCtx)
+	senderTask := NewTask(parentCtx)
+	writerTask := NewTask(parentCtx)
+	handlerTask := NewTask(parentCtx)
+
+	runTasks(dispatcherTask, senderTask, writerTask, handlerTask)
+}
+
+*/
+
 type Stream struct {
 	ctx        context.Context
 	cancel     context.CancelFunc
