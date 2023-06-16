@@ -137,7 +137,7 @@ func (fs *FileStream) send(data interface{}) {
 	var res map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&res)
 	if err != nil {
-		log.Fatalf("json decode error: %v", err)
+		log.Error("json decode error: %v", err)
 	}
 	log.WithFields(log.Fields{"res": res}).Debug("FileStream: post response")
 }
