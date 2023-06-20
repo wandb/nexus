@@ -152,7 +152,7 @@ func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 	streamId := msg.XInfo.StreamId
 	stream := streamMux.addStream(streamId, settings)
 	stream.AddResponder(nc.id, nc)
-	stream.Start()
+	go stream.Start()
 }
 
 func (nc *Connection) handleInformStart(_ *service.ServerInformStartRequest) {

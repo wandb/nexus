@@ -1,7 +1,6 @@
 package server
 
 import (
-	"sync"
 	"time"
 
 	"bytes"
@@ -10,8 +9,6 @@ import (
 	"context"
 	"fmt"
 
-	// "google.golang.org/protobuf/proto"
-	// "google.golang.org/protobuf/encoding/protojson"
 	"net/http"
 
 	"github.com/Khan/genqlient/graphql"
@@ -22,7 +19,6 @@ import (
 )
 
 type Sender struct {
-	task           *Task
 	settings       *Settings
 	inChan         chan *service.Record
 	dispatcherChan dispatchChannel
@@ -33,47 +29,21 @@ type Sender struct {
 
 // NewSender creates a new Sender instance
 func NewSender(ctx context.Context, settings *Settings, dispatcherChan dispatchChannel) *Sender {
-	task := NewTask(ctx)
 	sender := &Sender{
-		task:           task,
 		settings:       settings,
 		inChan:         make(chan *service.Record),
 		dispatcherChan: dispatcherChan,
 	}
+	log.Debug("Sender: start")
+	url := fmt.Sprintf("%s/graphql", settings.BaseURL)
+	sender.graphqlClient = newGraphqlClient(url, settings.ApiKey)
 	return sender
-}
-
-// start starts the sender
-func (s *Sender) start() {
-	loopWg := &sync.WaitGroup{}
-	loopWg.Add(1)
-
-	defer func() {
-		s.close()
-		loopWg.Wait()
-		s.task.wg.Done()
-	}()
-
-	go func() {
-		log.Debug("Sender: start")
-		url := fmt.Sprintf("%s/graphql", s.settings.BaseURL)
-		s.graphqlClient = newGraphqlClient(url, s.settings.ApiKey)
-		for msg := range s.inChan {
-			log.Debug("sender: ")
-			log.WithFields(log.Fields{"record": msg}).Debug("sender: got msg")
-			s.sendRecord(msg)
-		}
-		loopWg.Done()
-		log.Debug("SENDER: FIN")
-	}()
-
-	<-s.task.ctx.Done()
 }
 
 // close closes the sender's resources
 func (s *Sender) close() {
 	log.Debug("Sender: close")
-	close(s.inChan)
+	//close(s.inChan)
 	s.fileStream.close()
 }
 

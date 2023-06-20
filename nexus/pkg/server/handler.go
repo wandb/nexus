@@ -3,11 +3,9 @@ package server
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"sync"
-
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"google.golang.org/protobuf/proto"
+	"strconv"
 
 	// "time"
 
@@ -15,10 +13,9 @@ import (
 )
 
 type Handler struct {
-	task     *Task
 	settings *Settings
 	inChan   chan *service.Record
-	outChan  recordChannel
+	outChan  chan<- *service.Record
 
 	dispatcherChan dispatchChannel
 
@@ -28,10 +25,8 @@ type Handler struct {
 	summary     map[string]string
 }
 
-func NewHandler(ctx context.Context, settings *Settings, outChan recordChannel, dispatcherChan dispatchChannel) *Handler {
-	task := NewTask(ctx)
+func NewHandler(ctx context.Context, settings *Settings, outChan chan<- *service.Record, dispatcherChan dispatchChannel) *Handler {
 	handler := Handler{
-		task:           task,
 		inChan:         make(chan *service.Record),
 		dispatcherChan: dispatcherChan,
 		outChan:        outChan,
@@ -41,30 +36,8 @@ func NewHandler(ctx context.Context, settings *Settings, outChan recordChannel, 
 	return &handler
 }
 
-func (h *Handler) start() {
-	loopWg := &sync.WaitGroup{}
-	loopWg.Add(1)
-
-	defer func() {
-		h.close()
-		loopWg.Wait()
-		h.task.wg.Done()
-	}()
-
-	go func() {
-		log.Debug("handler started")
-		for msg := range h.inChan {
-			log.WithFields(log.Fields{"rec": msg}).Debug("HANDLER")
-			h.handleRecord(msg)
-		}
-		loopWg.Done()
-	}()
-
-	<-h.task.ctx.Done()
-}
-
 func (h *Handler) close() {
-	close(h.inChan)
+	close(h.outChan)
 }
 
 //gocyclo:ignore
@@ -163,7 +136,7 @@ func (h *Handler) sendRecord(rec *service.Record) {
 	if control != nil {
 		control.AlwaysSend = true
 	}
-	h.outChan.Deliver(rec)
+	h.outChan <- rec
 }
 
 func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartRequest) {

@@ -2,25 +2,20 @@ package server
 
 import (
 	"context"
-	"sync"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
 type Writer struct {
-	task     *Task
 	settings *Settings
 	inChan   chan *service.Record
-	outChan  recordChannel
+	outChan  chan<- *service.Record
 	store    *Store
 }
 
-func NewWriter(ctx context.Context, settings *Settings, outChan recordChannel) *Writer {
+func NewWriter(ctx context.Context, settings *Settings, outChan chan<- *service.Record) *Writer {
 
-	task := NewTask(ctx)
 	writer := &Writer{
-		task:     task,
 		settings: settings,
 		inChan:   make(chan *service.Record),
 		outChan:  outChan,
@@ -29,39 +24,12 @@ func NewWriter(ctx context.Context, settings *Settings, outChan recordChannel) *
 	return writer
 }
 
-func (w *Writer) start() {
-	// wait group for inner goroutine looping over input channel
-	loopWg := &sync.WaitGroup{}
-	loopWg.Add(1)
-
-	defer func() {
-		// finalize & clear writer's resources
-		w.close()
-		// wait for inner goroutine to finish
-		loopWg.Wait()
-		// signal stream that we're done
-		w.task.wg.Done()
-	}()
-
-	// start inner goroutine looping over input channel
-	go func() {
-		for msg := range w.inChan {
-			w.writeRecord(msg)
-		}
-		// signal outer goroutine that we're done
-		loopWg.Done()
-	}()
-
-	// wait for outer context to be cancelled
-	<-w.task.ctx.Done()
-}
-
 func (w *Writer) Deliver(msg *service.Record) {
 	w.inChan <- msg
 }
 
 func (w *Writer) close() {
-	close(w.inChan)
+	close(w.outChan)
 	err := w.store.Close()
 	if err != nil {
 		return
@@ -89,7 +57,7 @@ func (w *Writer) sendRecord(rec *service.Record) {
 	if w.settings.Offline && control != nil && !control.AlwaysSend {
 		return
 	}
-	w.outChan.Deliver(rec)
+	w.outChan <- rec
 }
 
 func (w *Writer) Flush() {
