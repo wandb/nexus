@@ -171,10 +171,6 @@ func (h *Handler) handleGetSummary(_ *service.Record, _ *service.GetSummaryReque
 }
 
 func (h *Handler) handleDefer(rec *service.Record, req *service.DeferRequest) {
-	// switch req.State {
-	// default:
-	// 	h.sendRecord(rec)
-	// }
 	h.sendRecord(rec)
 }
 
