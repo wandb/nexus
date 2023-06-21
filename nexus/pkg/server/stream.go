@@ -88,14 +88,16 @@ func (s *Stream) Start() {
 
 	// start the sender
 	go func(wg *sync.WaitGroup) {
-		//defer s.sender.close()
+		defer func(wg *sync.WaitGroup) {
+			s.sender.close()
+			wg.Done()
+		}(wg)
 
 		for msg := range s.sender.inChan {
 			log.WithFields(log.Fields{"record": msg}).Debug("sender: got msg")
 			s.sender.sendRecord(msg)
 		}
 		log.Debug("++++++++++++++sender: started and closed")
-		wg.Done()
 	}(s.wg)
 
 	// start the dispatcher

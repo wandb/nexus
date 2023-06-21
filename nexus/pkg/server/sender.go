@@ -43,6 +43,7 @@ func NewSender(ctx context.Context, settings *Settings) *Sender {
 // close closes the sender's resources
 func (s *Sender) close() {
 	log.Debug("Sender: close")
+	close(s.fileStream.inChan)
 	s.fileStream.close()
 }
 
