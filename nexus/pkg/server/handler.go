@@ -25,13 +25,11 @@ type Handler struct {
 	summary     map[string]string
 }
 
-func NewHandler(ctx context.Context, settings *Settings, outChan chan<- *service.Record, dispatcherChan dispatchChannel) *Handler {
+func NewHandler(ctx context.Context, settings *Settings) *Handler {
 	handler := Handler{
-		inChan:         make(chan *service.Record),
-		dispatcherChan: dispatcherChan,
-		outChan:        outChan,
-		settings:       settings,
-		summary:        make(map[string]string),
+		inChan:   make(chan *service.Record),
+		settings: settings,
+		summary:  make(map[string]string),
 	}
 	return &handler
 }
@@ -224,8 +222,4 @@ func (h *Handler) updateSummary(msg *service.HistoryRecord) {
 
 func (h *Handler) GetRun() *service.RunRecord {
 	return h.run
-}
-
-func (h *Handler) Handle(rec *service.Record) {
-	h.inChan <- rec
 }

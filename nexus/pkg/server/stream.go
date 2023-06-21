@@ -21,21 +21,33 @@ type Stream struct {
 	sender     *Sender
 	settings   *Settings
 	finished   bool
+	wg         *sync.WaitGroup
+	done       chan struct{}
 }
 
 func NewStream(settings *Settings) *Stream {
 	ctx := context.Background()
 	dispatcher := NewDispatcher(ctx)
-	sender := NewSender(ctx, settings, dispatcher)
-	writer := NewWriter(ctx, settings, sender.inChan)
-	handler := NewHandler(ctx, settings, writer.inChan, dispatcher)
+	sender := NewSender(ctx, settings)
+	writer := NewWriter(ctx, settings)
+	handler := NewHandler(ctx, settings)
+
+	handler.outChan = writer.inChan
+	handler.dispatcherChan = dispatcher
+
+	writer.outChan = sender.inChan
+
+	sender.outChan = handler.inChan
+	sender.dispatcherChan = dispatcher
 
 	return &Stream{
+		wg:         &sync.WaitGroup{},
 		dispatcher: dispatcher,
 		handler:    handler,
 		sender:     sender,
 		writer:     writer,
 		settings:   settings,
+		done:       make(chan struct{}),
 	}
 }
 
@@ -48,8 +60,7 @@ func (s *Stream) AddResponder(responderId string, responder Responder) {
 // finalized and closed when the stream is closed in Stream.Close().
 func (s *Stream) Start() {
 
-	wg := &sync.WaitGroup{}
-	wg.Add(3)
+	s.wg.Add(3)
 
 	// start the handler
 	go func(wg *sync.WaitGroup) {
@@ -59,8 +70,9 @@ func (s *Stream) Start() {
 			log.WithFields(log.Fields{"rec": msg}).Debug("handle: got msg")
 			s.handler.handleRecord(msg)
 		}
+		log.Debug("++++++++++++++handler: started and closed")
 		wg.Done()
-	}(wg)
+	}(s.wg)
 
 	// start the writer
 	go func(wg *sync.WaitGroup) {
@@ -70,17 +82,21 @@ func (s *Stream) Start() {
 			log.WithFields(log.Fields{"record": msg}).Debug("write: got msg")
 			s.writer.writeRecord(msg)
 		}
-	}(wg)
+		log.Debug("++++++++++++++writer: started and closed")
+		wg.Done()
+	}(s.wg)
 
 	// start the sender
 	go func(wg *sync.WaitGroup) {
-		defer s.sender.close()
+		//defer s.sender.close()
 
 		for msg := range s.sender.inChan {
 			log.WithFields(log.Fields{"record": msg}).Debug("sender: got msg")
 			s.sender.sendRecord(msg)
 		}
-	}(wg)
+		log.Debug("++++++++++++++sender: started and closed")
+		wg.Done()
+	}(s.wg)
 
 	// start the dispatcher
 	go func() {
@@ -90,15 +106,22 @@ func (s *Stream) Start() {
 			response := &service.ServerResponse{
 				ServerResponseType: &service.ServerResponse_ResultCommunicate{ResultCommunicate: msg},
 			}
+			if responderId == "" {
+				log.WithFields(log.Fields{"record": msg}).Debug("dispatch: got msg with no connection id")
+				continue
+			}
 			s.dispatcher.responders[responderId].Respond(response)
 		}
 	}()
 
-	wg.Wait()
+	log.Debug("++++++++++++++stream: started and waiting")
+	s.wg.Wait()
+	log.Debug("++++++++++++++stream: started and closed")
+	s.done <- struct{}{}
 }
 
 func (s *Stream) HandleRecord(rec *service.Record) {
-	s.handler.Handle(rec)
+	s.handler.inChan <- rec
 }
 
 func (s *Stream) MarkFinished() {
@@ -130,11 +153,14 @@ func (s *Stream) Close(wg *sync.WaitGroup) {
 		return
 	}
 
-	// send exit record to handler
-	// record := service.Record{
-	// 	RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{}},
-	// }
-	// s.HandleRecord(&record)
+	//send exit record to handler
+	record := service.Record{
+		RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{}},
+		Control:    &service.Control{AlwaysSend: true},
+	}
+	s.HandleRecord(&record)
+	close(s.handler.inChan)
+	<-s.done
 
 	settings := s.GetSettings()
 	run := s.GetRun()

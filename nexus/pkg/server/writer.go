@@ -13,12 +13,11 @@ type Writer struct {
 	store    *Store
 }
 
-func NewWriter(ctx context.Context, settings *Settings, outChan chan<- *service.Record) *Writer {
+func NewWriter(ctx context.Context, settings *Settings) *Writer {
 
 	writer := &Writer{
 		settings: settings,
 		inChan:   make(chan *service.Record),
-		outChan:  outChan,
 		store:    NewStore(settings.SyncFile),
 	}
 	return writer
@@ -54,13 +53,15 @@ func (w *Writer) writeRecord(rec *service.Record) {
 
 func (w *Writer) sendRecord(rec *service.Record) {
 	control := rec.GetControl()
+	log.Debug("WRITER: sendRecord", control, rec)
 	if w.settings.Offline && control != nil && !control.AlwaysSend {
 		return
 	}
+	log.Debug("WRITER: sendRecord: send")
 	w.outChan <- rec
 }
 
-func (w *Writer) Flush() {
-	log.Debug("WRITER: close")
-	close(w.inChan)
-}
+//func (w *Writer) Flush() {
+//	log.Debug("WRITER: close")
+//	close(w.inChan)
+//}

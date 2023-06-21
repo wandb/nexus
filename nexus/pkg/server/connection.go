@@ -128,8 +128,8 @@ func handleConnection(ctx context.Context, cancel context.CancelFunc, swg *sync.
 		if err != nil {
 			log.Error(err)
 		}
-		close(connection.requestChan)
-		close(connection.respondChan)
+		//close(connection.requestChan)
+		//close(connection.respondChan)
 	}()
 
 	wg := sync.WaitGroup{}

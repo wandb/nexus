@@ -36,7 +36,7 @@ func NewFileStream(path string, settings *Settings) *FileStream {
 		settings: settings,
 		inChan:   make(chan *service.Record)}
 	fs.wg.Add(1)
-	go fs.start()
+	//go fs.start()
 	return &fs
 }
 
@@ -108,6 +108,7 @@ func (fs *FileStream) stream(rec *service.Record) {
 	if fs.settings.Offline {
 		return
 	}
+	log.Debug("+++++FileStream: stream", rec)
 	fs.inChan <- rec
 }
 
@@ -162,6 +163,5 @@ func jsonify(msg *service.HistoryRecord) string {
 
 func (fs *FileStream) close() {
 	log.Debug("FileStream: CLOSE")
-	close(fs.inChan)
 	fs.wg.Wait()
 }

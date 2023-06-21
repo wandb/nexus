@@ -21,6 +21,7 @@ import (
 type Sender struct {
 	settings       *Settings
 	inChan         chan *service.Record
+	outChan        chan<- *service.Record
 	dispatcherChan dispatchChannel
 	graphqlClient  graphql.Client
 	fileStream     *FileStream
@@ -28,11 +29,10 @@ type Sender struct {
 }
 
 // NewSender creates a new Sender instance
-func NewSender(ctx context.Context, settings *Settings, dispatcherChan dispatchChannel) *Sender {
+func NewSender(ctx context.Context, settings *Settings) *Sender {
 	sender := &Sender{
-		settings:       settings,
-		inChan:         make(chan *service.Record),
-		dispatcherChan: dispatcherChan,
+		settings: settings,
+		inChan:   make(chan *service.Record),
 	}
 	log.Debug("Sender: start")
 	url := fmt.Sprintf("%s/graphql", settings.BaseURL)
@@ -43,15 +43,10 @@ func NewSender(ctx context.Context, settings *Settings, dispatcherChan dispatchC
 // close closes the sender's resources
 func (s *Sender) close() {
 	log.Debug("Sender: close")
-	//close(s.inChan)
 	s.fileStream.close()
 }
 
-// Deliver delivers a message to the sender
-func (s *Sender) Deliver(msg *service.Record) {
-	s.inChan <- msg
-}
-
+// sendRecord sends a record
 func (s *Sender) sendRecord(msg *service.Record) {
 	switch x := msg.RecordType.(type) {
 	case *service.Record_Run:
@@ -61,6 +56,7 @@ func (s *Sender) sendRecord(msg *service.Record) {
 	case *service.Record_Files:
 		s.sendFiles(msg, x.Files)
 	case *service.Record_History:
+		log.Debug("Sender: sendRecord", msg)
 		s.sendHistory(msg, x.History)
 	case *service.Record_Request:
 		s.sendRequest(msg, x.Request)
@@ -87,16 +83,14 @@ func (s *Sender) sendRunStart(_ *service.RunStartRequest) {
 	fsPath := fmt.Sprintf("%s/files/%s/%s/%s/file_stream",
 		s.settings.BaseURL, s.run.Entity, s.run.Project, s.run.RunId)
 	s.fileStream = NewFileStream(fsPath, s.settings)
+	log.Debug("Sender: sendRunStart: start file stream")
+	go s.fileStream.start()
 }
 
 func (s *Sender) sendNetworkStatusRequest(_ *service.NetworkStatusRequest) {
 }
 
 func (s *Sender) sendDefer(req *service.DeferRequest) {
-	// switch req.State {
-	// default:
-	// 	s.dispatcherChan.Deliver(nil)
-	// }
 	s.dispatcherChan.Deliver(nil)
 }
 
@@ -150,6 +144,7 @@ func (s *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 }
 
 func (s *Sender) sendHistory(msg *service.Record, _ *service.HistoryRecord) {
+	log.Debug("sending history result ", msg)
 	if s.fileStream != nil {
 		s.fileStream.stream(msg)
 	}
@@ -157,6 +152,7 @@ func (s *Sender) sendHistory(msg *service.Record, _ *service.HistoryRecord) {
 
 func (s *Sender) sendRunExit(msg *service.Record, _ *service.RunExitRecord) {
 	// send exit via filestream
+	log.Debug("sending run exit result ", msg)
 	s.fileStream.stream(msg)
 
 	result := &service.Result{
