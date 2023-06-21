@@ -36,7 +36,7 @@ func NewFileStream(path string, settings *Settings) *FileStream {
 		settings: settings,
 		inChan:   make(chan *service.Record)}
 	fs.wg.Add(1)
-	//go fs.start()
+	go fs.start()
 	return &fs
 }
 

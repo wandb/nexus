@@ -64,40 +64,37 @@ func (s *Stream) Start() {
 
 	// start the handler
 	go func(wg *sync.WaitGroup) {
-		defer s.handler.close()
+		defer wg.Done()
 
 		for msg := range s.handler.inChan {
 			log.WithFields(log.Fields{"rec": msg}).Debug("handle: got msg")
 			s.handler.handleRecord(msg)
 		}
-		log.Debug("++++++++++++++handler: started and closed")
-		wg.Done()
+		s.handler.close()
 	}(s.wg)
 
 	// start the writer
 	go func(wg *sync.WaitGroup) {
-		defer s.writer.close()
+		defer wg.Done()
 
 		for msg := range s.writer.inChan {
 			log.WithFields(log.Fields{"record": msg}).Debug("write: got msg")
 			s.writer.writeRecord(msg)
 		}
 		log.Debug("++++++++++++++writer: started and closed")
-		wg.Done()
+		s.writer.close()
 	}(s.wg)
 
 	// start the sender
 	go func(wg *sync.WaitGroup) {
-		defer func(wg *sync.WaitGroup) {
-			s.sender.close()
-			wg.Done()
-		}(wg)
+		defer wg.Done()
 
 		for msg := range s.sender.inChan {
 			log.WithFields(log.Fields{"record": msg}).Debug("sender: got msg")
 			s.sender.sendRecord(msg)
 		}
 		log.Debug("++++++++++++++sender: started and closed")
+		s.sender.close()
 	}(s.wg)
 
 	// start the dispatcher
@@ -116,9 +113,7 @@ func (s *Stream) Start() {
 		}
 	}()
 
-	log.Debug("++++++++++++++stream: started and waiting")
 	s.wg.Wait()
-	log.Debug("++++++++++++++stream: started and closed")
 	s.done <- struct{}{}
 }
 

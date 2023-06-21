@@ -44,10 +44,8 @@ func (s *Store) addHeader() {
 }
 
 func (s *Store) Close() error {
-	if err := s.writer.Close(); err != nil {
-		return err
-	}
-	return s.writer.Close()
+	err := s.writer.Close()
+	return err
 }
 
 func (s *Store) storeRecord(msg *service.Record) {

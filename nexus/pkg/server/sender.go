@@ -85,7 +85,6 @@ func (s *Sender) sendRunStart(_ *service.RunStartRequest) {
 		s.settings.BaseURL, s.run.Entity, s.run.Project, s.run.RunId)
 	s.fileStream = NewFileStream(fsPath, s.settings)
 	log.Debug("Sender: sendRunStart: start file stream")
-	go s.fileStream.start()
 }
 
 func (s *Sender) sendNetworkStatusRequest(_ *service.NetworkStatusRequest) {
