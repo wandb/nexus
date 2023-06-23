@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/binary"
+
 	log "github.com/sirupsen/logrus"
 )
 

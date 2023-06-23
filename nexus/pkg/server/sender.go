@@ -53,10 +53,10 @@ func (s *Sender) start(wg *sync.WaitGroup) {
 }
 
 // close closes the sender's resources
-func (s *Sender) close() {
-	log.Debug("Sender: close")
-	//close(s.fileStream.inChan)
-}
+// func (s *Sender) close() {
+// 	log.Debug("Sender: close")
+// 	//close(s.fileStream.inChan)
+// }
 
 // sendRecord sends a record
 func (s *Sender) sendRecord(msg *service.Record) {

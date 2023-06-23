@@ -2,8 +2,9 @@ package server
 
 import (
 	"encoding/base64"
-	"github.com/Khan/genqlient/graphql"
 	"net/http"
+
+	"github.com/Khan/genqlient/graphql"
 )
 
 func basicAuth(username, password string) string {

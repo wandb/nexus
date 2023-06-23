@@ -114,7 +114,7 @@ func (s *Stream) Close(wg *sync.WaitGroup) {
 		return
 	}
 
-	//send exit record to handler
+	// send exit record to handler
 	record := &service.Record{RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{}}, Control: &service.Control{AlwaysSend: true}}
 	s.HandleRecord(record)
 	<-s.done

@@ -1,8 +1,9 @@
 package server
 
 import (
-	"github.com/wandb/wandb/nexus/pkg/service"
 	"strings"
+
+	"github.com/wandb/wandb/nexus/pkg/service"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/wandb/wandb/nexus/pkg/auth"

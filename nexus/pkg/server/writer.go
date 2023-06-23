@@ -2,9 +2,10 @@ package server
 
 import (
 	"context"
+	"sync"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/wandb/wandb/nexus/pkg/service"
-	"sync"
 )
 
 type Writer struct {
@@ -72,7 +73,7 @@ func (w *Writer) sendRecord(rec *service.Record) {
 	w.outChan <- rec
 }
 
-//func (w *Writer) Flush() {
-//	log.Debug("WRITER: close")
-//	close(w.inChan)
-//}
+// func (w *Writer) Flush() {
+// 	log.Debug("WRITER: close")
+// 	close(w.inChan)
+// }
