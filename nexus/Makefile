@@ -28,3 +28,6 @@ build-alpha: clean ## builds source and wheel package
 
 release-alpha-test: build-alpha ## package and upload test release
 	twine upload --repository testpypi dist/*
+
+release-alpha: build-alpha ## package and upload test release
+	twine upload dist/*
