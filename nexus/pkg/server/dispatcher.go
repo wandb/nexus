@@ -30,3 +30,19 @@ func (d *Dispatcher) AddResponder(responderId string, responder Responder) {
 func (d *Dispatcher) Deliver(result *service.Result) {
 	d.inChan <- result
 }
+
+func (d *Dispatcher) start() {
+	// start the dispatcher
+	for msg := range d.inChan {
+		responderId := msg.Control.ConnectionId
+		log.WithFields(log.Fields{"record": msg}).Debug("dispatch: got msg")
+		response := &service.ServerResponse{
+			ServerResponseType: &service.ServerResponse_ResultCommunicate{ResultCommunicate: msg},
+		}
+		if responderId == "" {
+			log.WithFields(log.Fields{"record": msg}).Debug("dispatch: got msg with no connection id")
+			continue
+		}
+		d.responders[responderId].Respond(response)
+	}
+}

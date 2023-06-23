@@ -1,6 +1,7 @@
 package server
 
 import (
+	"sync"
 	"time"
 
 	"bytes"
@@ -40,11 +41,21 @@ func NewSender(ctx context.Context, settings *Settings) *Sender {
 	return sender
 }
 
+// start starts the sender
+func (s *Sender) start(wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	for msg := range s.inChan {
+		log.WithFields(log.Fields{"record": msg}).Debug("sender: got msg")
+		s.sendRecord(msg)
+	}
+	log.Debug("sender: started and closed")
+}
+
 // close closes the sender's resources
 func (s *Sender) close() {
 	log.Debug("Sender: close")
-	close(s.fileStream.inChan)
-	s.fileStream.close()
+	//close(s.fileStream.inChan)
 }
 
 // sendRecord sends a record
@@ -53,7 +64,7 @@ func (s *Sender) sendRecord(msg *service.Record) {
 	case *service.Record_Run:
 		s.sendRun(msg, x.Run)
 	case *service.Record_Exit:
-		s.sendRunExit(msg, x.Exit)
+		s.sendExit(msg, x.Exit)
 	case *service.Record_Files:
 		s.sendFiles(msg, x.Files)
 	case *service.Record_History:
@@ -91,7 +102,29 @@ func (s *Sender) sendNetworkStatusRequest(_ *service.NetworkStatusRequest) {
 }
 
 func (s *Sender) sendDefer(req *service.DeferRequest) {
-	s.dispatcherChan.Deliver(nil)
+	switch req.State {
+	case service.DeferRequest_FLUSH_FS:
+		log.Debug("Sender: sendDefer: flush file stream", req.State)
+		s.fileStream.close()
+		req.State++
+		s.sendRequestDefer(req)
+	case service.DeferRequest_END:
+		log.Debug("Sender: sendDefer: end", req.State)
+	default:
+		log.Debug("Sender: sendDefer: unknown state", req.State)
+		req.State++
+		s.sendRequestDefer(req)
+	}
+}
+
+func (s *Sender) sendRequestDefer(req *service.DeferRequest) {
+	r := service.Record{
+		RecordType: &service.Record_Request{Request: &service.Request{
+			RequestType: &service.Request_Defer{Defer: req},
+		}},
+		Control: &service.Control{AlwaysSend: true},
+	}
+	s.outChan <- &r
 }
 
 func (s *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
@@ -150,7 +183,7 @@ func (s *Sender) sendHistory(msg *service.Record, _ *service.HistoryRecord) {
 	}
 }
 
-func (s *Sender) sendRunExit(msg *service.Record, _ *service.RunExitRecord) {
+func (s *Sender) sendExit(msg *service.Record, _ *service.RunExitRecord) {
 	// send exit via filestream
 	log.Debug("sending run exit result ", msg)
 	s.fileStream.stream(msg)
@@ -161,6 +194,10 @@ func (s *Sender) sendRunExit(msg *service.Record, _ *service.RunExitRecord) {
 		Uuid:       msg.Uuid,
 	}
 	s.dispatcherChan.Deliver(result)
+	//RequestType: &service.Request_Defer{Defer: &service.DeferRequest{State: service.DeferRequest_BEGIN}}
+	req := &service.Request{RequestType: &service.Request_Defer{Defer: &service.DeferRequest{State: service.DeferRequest_BEGIN}}}
+	rec := &service.Record{RecordType: &service.Record_Request{Request: req}, Control: msg.Control, Uuid: msg.Uuid}
+	s.sendRecord(rec)
 }
 
 func (s *Sender) sendFiles(msg *service.Record, filesRecord *service.FilesRecord) {

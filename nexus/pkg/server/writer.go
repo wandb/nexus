@@ -4,6 +4,7 @@ import (
 	"context"
 	log "github.com/sirupsen/logrus"
 	"github.com/wandb/wandb/nexus/pkg/service"
+	"sync"
 )
 
 type Writer struct {
@@ -25,6 +26,16 @@ func NewWriter(ctx context.Context, settings *Settings) *Writer {
 
 func (w *Writer) Deliver(msg *service.Record) {
 	w.inChan <- msg
+}
+
+func (w *Writer) start(wg *sync.WaitGroup) {
+	defer wg.Done()
+	for msg := range w.inChan {
+		log.WithFields(log.Fields{"record": msg}).Debug("write: got msg")
+		w.writeRecord(msg)
+	}
+	w.close()
+	log.Debug("writer: started and closed")
 }
 
 func (w *Writer) close() {

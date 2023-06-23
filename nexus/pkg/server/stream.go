@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	log "github.com/sirupsen/logrus"
 	"sync"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
@@ -21,7 +20,6 @@ type Stream struct {
 	sender     *Sender
 	settings   *Settings
 	finished   bool
-	wg         *sync.WaitGroup
 	done       chan struct{}
 }
 
@@ -32,16 +30,16 @@ func NewStream(settings *Settings) *Stream {
 	writer := NewWriter(ctx, settings)
 	handler := NewHandler(ctx, settings)
 
+	// connect the components
 	handler.outChan = writer.inChan
-	handler.dispatcherChan = dispatcher
-
 	writer.outChan = sender.inChan
-
 	sender.outChan = handler.inChan
+
+	// connect the dispatcher to the handler and sender
+	handler.dispatcherChan = dispatcher
 	sender.dispatcherChan = dispatcher
 
-	return &Stream{
-		wg:         &sync.WaitGroup{},
+	stream := &Stream{
 		dispatcher: dispatcher,
 		handler:    handler,
 		sender:     sender,
@@ -49,6 +47,9 @@ func NewStream(settings *Settings) *Stream {
 		settings:   settings,
 		done:       make(chan struct{}),
 	}
+
+	return stream
+
 }
 
 func (s *Stream) AddResponder(responderId string, responder Responder) {
@@ -60,60 +61,23 @@ func (s *Stream) AddResponder(responderId string, responder Responder) {
 // finalized and closed when the stream is closed in Stream.Close().
 func (s *Stream) Start() {
 
-	s.wg.Add(3)
+	wg := &sync.WaitGroup{}
 
 	// start the handler
-	go func(wg *sync.WaitGroup) {
-		defer wg.Done()
-
-		for msg := range s.handler.inChan {
-			log.WithFields(log.Fields{"rec": msg}).Debug("handle: got msg")
-			s.handler.handleRecord(msg)
-		}
-		s.handler.close()
-	}(s.wg)
+	go s.handler.start()
 
 	// start the writer
-	go func(wg *sync.WaitGroup) {
-		defer wg.Done()
-
-		for msg := range s.writer.inChan {
-			log.WithFields(log.Fields{"record": msg}).Debug("write: got msg")
-			s.writer.writeRecord(msg)
-		}
-		log.Debug("++++++++++++++writer: started and closed")
-		s.writer.close()
-	}(s.wg)
+	wg.Add(1)
+	go s.writer.start(wg)
 
 	// start the sender
-	go func(wg *sync.WaitGroup) {
-		defer wg.Done()
-
-		for msg := range s.sender.inChan {
-			log.WithFields(log.Fields{"record": msg}).Debug("sender: got msg")
-			s.sender.sendRecord(msg)
-		}
-		log.Debug("++++++++++++++sender: started and closed")
-		s.sender.close()
-	}(s.wg)
+	wg.Add(1)
+	go s.sender.start(wg)
 
 	// start the dispatcher
-	go func() {
-		for msg := range s.dispatcher.inChan {
-			responderId := msg.Control.ConnectionId
-			log.WithFields(log.Fields{"record": msg}).Debug("dispatch: got msg")
-			response := &service.ServerResponse{
-				ServerResponseType: &service.ServerResponse_ResultCommunicate{ResultCommunicate: msg},
-			}
-			if responderId == "" {
-				log.WithFields(log.Fields{"record": msg}).Debug("dispatch: got msg with no connection id")
-				continue
-			}
-			s.dispatcher.responders[responderId].Respond(response)
-		}
-	}()
+	go s.dispatcher.start()
 
-	s.wg.Wait()
+	wg.Wait()
 	s.done <- struct{}{}
 }
 
@@ -151,12 +115,8 @@ func (s *Stream) Close(wg *sync.WaitGroup) {
 	}
 
 	//send exit record to handler
-	record := service.Record{
-		RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{}},
-		Control:    &service.Control{AlwaysSend: true},
-	}
-	s.HandleRecord(&record)
-	close(s.handler.inChan)
+	record := &service.Record{RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{}}, Control: &service.Control{AlwaysSend: true}}
+	s.HandleRecord(record)
 	<-s.done
 
 	settings := s.GetSettings()

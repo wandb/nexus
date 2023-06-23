@@ -34,6 +34,13 @@ func NewHandler(ctx context.Context, settings *Settings) *Handler {
 	return &handler
 }
 
+func (h *Handler) start() {
+	for msg := range h.inChan {
+		log.WithFields(log.Fields{"rec": msg}).Debug("handle: got msg")
+		h.handleRecord(msg)
+	}
+}
+
 func (h *Handler) close() {
 	close(h.outChan)
 }
@@ -48,7 +55,7 @@ func (h *Handler) handleRecord(msg *service.Record) {
 	case *service.Record_Config:
 		// TODO: handle config
 	case *service.Record_Exit:
-		h.handleRunExit(msg, x.Exit)
+		h.handleExit(msg, x.Exit)
 	case *service.Record_Files:
 		h.handleFiles(msg, x.Files)
 	case *service.Record_Final:
@@ -71,7 +78,7 @@ func (h *Handler) handleRecord(msg *service.Record) {
 		// TODO: handle preempting
 	case *service.Record_Request:
 		log.WithFields(log.Fields{"req": x}).Debug("reqgot")
-		h.handleRequest(msg, x.Request)
+		h.handleRequest(msg)
 	case *service.Record_Run:
 		h.handleRun(msg, x.Run)
 	case *service.Record_Stats:
@@ -89,7 +96,8 @@ func (h *Handler) handleRecord(msg *service.Record) {
 	}
 }
 
-func (h *Handler) handleRequest(rec *service.Record, req *service.Request) {
+func (h *Handler) handleRequest(rec *service.Record) {
+	req := rec.GetRequest()
 	ref := req.ProtoReflect()
 	desc := ref.Descriptor()
 	num := ref.WhichOneof(desc.Oneofs().ByName("request_type")).Number()
@@ -100,7 +108,7 @@ func (h *Handler) handleRequest(rec *service.Record, req *service.Request) {
 	case *service.Request_CheckVersion:
 		// TODO: handle checkversion
 	case *service.Request_Defer:
-		h.handleDefer(rec, x.Defer)
+		h.handleDefer(rec)
 	case *service.Request_GetSummary:
 		h.handleGetSummary(rec, x.GetSummary, response)
 	case *service.Request_Keepalive:
@@ -152,8 +160,8 @@ func (h *Handler) handleRun(rec *service.Record, _ *service.RunRecord) {
 	h.sendRecord(rec)
 }
 
-func (h *Handler) handleRunExit(rec *service.Record, _ *service.RunExitRecord) {
-	h.sendRecord(rec)
+func (h *Handler) handleExit(msg *service.Record, _ *service.RunExitRecord) {
+	h.sendRecord(msg)
 }
 
 func (h *Handler) handleFiles(rec *service.Record, _ *service.FilesRecord) {
@@ -170,8 +178,15 @@ func (h *Handler) handleGetSummary(_ *service.Record, _ *service.GetSummaryReque
 	response.ResponseType = &service.Response_GetSummaryResponse{GetSummaryResponse: &service.GetSummaryResponse{Item: items}}
 }
 
-func (h *Handler) handleDefer(rec *service.Record, req *service.DeferRequest) {
-	h.sendRecord(rec)
+func (h *Handler) handleDefer(rec *service.Record) {
+	// TODO: add defer state machine
+	req := rec.GetRequest().GetDefer()
+	switch req.State {
+	case service.DeferRequest_END:
+		h.close()
+	default:
+		h.sendRecord(rec)
+	}
 }
 
 func (h *Handler) handlePartialHistory(_ *service.Record, req *service.PartialHistoryRequest) {

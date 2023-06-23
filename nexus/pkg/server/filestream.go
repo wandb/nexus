@@ -163,5 +163,6 @@ func jsonify(msg *service.HistoryRecord) string {
 
 func (fs *FileStream) close() {
 	log.Debug("FileStream: CLOSE")
+	close(fs.inChan)
 	fs.wg.Wait()
 }
