@@ -32,9 +32,7 @@ type Handler struct {
 func NewHandler(respondResult func(result *service.Result), settings *Settings) *Handler {
 	var writer *Writer
 	wg := sync.WaitGroup{}
-	if !settings.NoWrite {
-		writer = NewWriter(settings)
-	}
+	writer = NewWriter(settings)
 	sender := NewSender(&wg, respondResult, settings)
 	handler := Handler{
 		wg:            &wg,

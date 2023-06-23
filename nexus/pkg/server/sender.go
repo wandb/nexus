@@ -52,7 +52,7 @@ func NewSender(wg *sync.WaitGroup, respondResult func(result *service.Result), s
 
 func (sender *Sender) startRunWorkers() {
 	fsPath := fmt.Sprintf("%s/files/%s/%s/%s/file_stream",
-		sender.settings.BaseURL, sender.run.Entity, sender.run.Project, sender.run.RunId)
+		sender.settings.BaseUrl, sender.run.Entity, sender.run.Project, sender.run.RunId)
 	sender.fstream = NewFileStream(fsPath, sender.settings)
 }
 
@@ -93,7 +93,7 @@ func (sender *Sender) senderInit() {
 			wrapped: http.DefaultTransport,
 		},
 	}
-	url := fmt.Sprintf("%s/graphql", sender.settings.BaseURL)
+	url := fmt.Sprintf("%s/graphql", sender.settings.BaseUrl)
 	sender.graphqlClient = graphql.NewClient(url, &httpClient)
 }
 

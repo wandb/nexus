@@ -6,6 +6,7 @@ require (
 	github.com/Khan/genqlient v0.5.0
 	github.com/sirupsen/logrus v1.9.0
 	github.com/stretchr/testify v1.8.3
+	golang.org/x/text v0.3.7
 	google.golang.org/protobuf v1.28.1
 )
 

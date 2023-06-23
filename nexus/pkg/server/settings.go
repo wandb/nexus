@@ -1,36 +1,271 @@
+// Code generated via go:generate. DO NOT EDIT.
+
 package server
 
-import (
-	"strings"
-
-	log "github.com/sirupsen/logrus"
-	"github.com/wandb/wandb/nexus/pkg/auth"
-)
+import "github.com/wandb/wandb/nexus/pkg/service"
 
 type Settings struct {
-	BaseURL  string
-	ApiKey   string
-	Offline  bool
+	AwsLambda bool
+	AsyncUploadConcurrencyLimit int64
+	CliOnlyMode bool
+	Colab bool
+	Cuda string
+	DisableMeta bool
+	DisableService bool
+	DisableStats bool
+	DisableViewer bool
+	ExceptExit bool
+	Executable string
+	FlowControlCustom bool
+	FlowControlDisabled bool
+	Ipython bool
+	Jupyter bool
+	JupyterName string
+	JupyterPath string
+	JupyterRoot string
+	Kaggle bool
+	LivePolicyRateLimit int64
+	LivePolicyWaitTime int64
+	LogLevel int64
+	NetworkBuffer int64
+	Noop bool
+	Notebook bool
+	Offline bool
+	Sync bool
+	Os string
+	Platform string
+	Python string
+	RunqueueItemId string
+	RequireNexus bool
+	SaveRequirements bool
+	ServiceTransport string
+	ServiceWait float64
+	StartTime float64
+	StatsPid int64
+	StatsSampleRateSeconds float64
+	StatsSamplesToAverage int64
+	StatsJoinAssets bool
+	StatsNeuronMonitorConfigPath string
+	TmpCodeDir string
+	Tracelog string
+	Windows bool
+	AllowValChange bool
+	Anonymous string
+	ApiKey string
+	BaseUrl string
+	CodeDir string
+	Console string
+	Deployment string
+	DisableCode bool
+	DisableGit bool
+	DisableHints bool
+	DisableJobCreation bool
+	Disabled bool
+	Docker string
+	Email string
+	Entity string
+	FilesDir string
+	Force bool
+	GitCommit string
+	GitRemote string
+	GitRemoteUrl string
+	GitRoot string
+	HeartbeatSeconds int64
+	Host string
+	InitTimeout float64
+	IsLocal bool
+	JobSource string
+	LabelDisable bool
+	Launch bool
+	LaunchConfigPath string
+	LogDir string
+	LogInternal string
+	LogSymlinkInternal string
+	LogSymlinkUser string
+	LogUser string
+	LoginTimeout float64
+	Mode string
+	NotebookName string
+	Problem string
+	Program string
+	ProgramRelpath string
+	Project string
+	ProjectUrl string
+	Quiet bool
+	Reinit bool
+	Relogin bool
+	ResumeFname string
+	Resumed bool
+	RootDir string
+	RunGroup string
+	RunId string
+	RunJobType string
+	RunMode string
+	RunName string
+	RunNotes string
+	RunUrl string
+	SagemakerDisable bool
+	SaveCode bool
+	SettingsSystem string
+	SettingsWorkspace string
+	ShowColors bool
+	ShowEmoji bool
+	ShowErrors bool
+	ShowInfo bool
+	ShowWarnings bool
+	Silent bool
+	StartMethod string
+	Strict bool
+	SummaryErrors int64
+	SummaryTimeout int64
+	SummaryWarnings int64
+	SweepId string
+	SweepParamPath string
+	SweepUrl string
+	Symlink bool
+	SyncDir string
 	SyncFile string
-	NoWrite  bool
+	SyncSymlinkLatest string
+	SystemSample int64
+	SystemSampleSeconds int64
+	TableRaiseOnMaxRowLimitExceeded bool
+	Timespec string
+	TmpDir string
+	Username string
+	WandbDir string
 }
 
-func (s *Settings) parseNetrc() {
-	if s.ApiKey != "" {
-		return
+func NewSettings(s map[string]*service.SettingsValue) *Settings {
+	settings := &Settings{
+			AwsLambda: s["_aws_lambda"].GetBoolValue(),
+			AsyncUploadConcurrencyLimit: s["_async_upload_concurrency_limit"].GetIntValue(),
+			CliOnlyMode: s["_cli_only_mode"].GetBoolValue(),
+			Colab: s["_colab"].GetBoolValue(),
+			Cuda: s["_cuda"].GetStringValue(),
+			DisableMeta: s["_disable_meta"].GetBoolValue(),
+			DisableService: s["_disable_service"].GetBoolValue(),
+			DisableStats: s["_disable_stats"].GetBoolValue(),
+			DisableViewer: s["_disable_viewer"].GetBoolValue(),
+			ExceptExit: s["_except_exit"].GetBoolValue(),
+			Executable: s["_executable"].GetStringValue(),
+			FlowControlCustom: s["_flow_control_custom"].GetBoolValue(),
+			FlowControlDisabled: s["_flow_control_disabled"].GetBoolValue(),
+			Ipython: s["_ipython"].GetBoolValue(),
+			Jupyter: s["_jupyter"].GetBoolValue(),
+			JupyterName: s["_jupyter_name"].GetStringValue(),
+			JupyterPath: s["_jupyter_path"].GetStringValue(),
+			JupyterRoot: s["_jupyter_root"].GetStringValue(),
+			Kaggle: s["_kaggle"].GetBoolValue(),
+			LivePolicyRateLimit: s["_live_policy_rate_limit"].GetIntValue(),
+			LivePolicyWaitTime: s["_live_policy_wait_time"].GetIntValue(),
+			LogLevel: s["_log_level"].GetIntValue(),
+			NetworkBuffer: s["_network_buffer"].GetIntValue(),
+			Noop: s["_noop"].GetBoolValue(),
+			Notebook: s["_notebook"].GetBoolValue(),
+			Offline: s["_offline"].GetBoolValue(),
+			Sync: s["_sync"].GetBoolValue(),
+			Os: s["_os"].GetStringValue(),
+			Platform: s["_platform"].GetStringValue(),
+			Python: s["_python"].GetStringValue(),
+			RunqueueItemId: s["_runqueue_item_id"].GetStringValue(),
+			RequireNexus: s["_require_nexus"].GetBoolValue(),
+			SaveRequirements: s["_save_requirements"].GetBoolValue(),
+			ServiceTransport: s["_service_transport"].GetStringValue(),
+			ServiceWait: s["_service_wait"].GetFloatValue(),
+			StartTime: s["_start_time"].GetFloatValue(),
+			StatsPid: s["_stats_pid"].GetIntValue(),
+			StatsSampleRateSeconds: s["_stats_sample_rate_seconds"].GetFloatValue(),
+			StatsSamplesToAverage: s["_stats_samples_to_average"].GetIntValue(),
+			StatsJoinAssets: s["_stats_join_assets"].GetBoolValue(),
+			StatsNeuronMonitorConfigPath: s["_stats_neuron_monitor_config_path"].GetStringValue(),
+			TmpCodeDir: s["_tmp_code_dir"].GetStringValue(),
+			Tracelog: s["_tracelog"].GetStringValue(),
+			Windows: s["_windows"].GetBoolValue(),
+			AllowValChange: s["allow_val_change"].GetBoolValue(),
+			Anonymous: s["anonymous"].GetStringValue(),
+			ApiKey: s["api_key"].GetStringValue(),
+			BaseUrl: s["base_url"].GetStringValue(),
+			CodeDir: s["code_dir"].GetStringValue(),
+			Console: s["console"].GetStringValue(),
+			Deployment: s["deployment"].GetStringValue(),
+			DisableCode: s["disable_code"].GetBoolValue(),
+			DisableGit: s["disable_git"].GetBoolValue(),
+			DisableHints: s["disable_hints"].GetBoolValue(),
+			DisableJobCreation: s["disable_job_creation"].GetBoolValue(),
+			Disabled: s["disabled"].GetBoolValue(),
+			Docker: s["docker"].GetStringValue(),
+			Email: s["email"].GetStringValue(),
+			Entity: s["entity"].GetStringValue(),
+			FilesDir: s["files_dir"].GetStringValue(),
+			Force: s["force"].GetBoolValue(),
+			GitCommit: s["git_commit"].GetStringValue(),
+			GitRemote: s["git_remote"].GetStringValue(),
+			GitRemoteUrl: s["git_remote_url"].GetStringValue(),
+			GitRoot: s["git_root"].GetStringValue(),
+			HeartbeatSeconds: s["heartbeat_seconds"].GetIntValue(),
+			Host: s["host"].GetStringValue(),
+			InitTimeout: s["init_timeout"].GetFloatValue(),
+			IsLocal: s["is_local"].GetBoolValue(),
+			JobSource: s["job_source"].GetStringValue(),
+			LabelDisable: s["label_disable"].GetBoolValue(),
+			Launch: s["launch"].GetBoolValue(),
+			LaunchConfigPath: s["launch_config_path"].GetStringValue(),
+			LogDir: s["log_dir"].GetStringValue(),
+			LogInternal: s["log_internal"].GetStringValue(),
+			LogSymlinkInternal: s["log_symlink_internal"].GetStringValue(),
+			LogSymlinkUser: s["log_symlink_user"].GetStringValue(),
+			LogUser: s["log_user"].GetStringValue(),
+			LoginTimeout: s["login_timeout"].GetFloatValue(),
+			Mode: s["mode"].GetStringValue(),
+			NotebookName: s["notebook_name"].GetStringValue(),
+			Problem: s["problem"].GetStringValue(),
+			Program: s["program"].GetStringValue(),
+			ProgramRelpath: s["program_relpath"].GetStringValue(),
+			Project: s["project"].GetStringValue(),
+			ProjectUrl: s["project_url"].GetStringValue(),
+			Quiet: s["quiet"].GetBoolValue(),
+			Reinit: s["reinit"].GetBoolValue(),
+			Relogin: s["relogin"].GetBoolValue(),
+			ResumeFname: s["resume_fname"].GetStringValue(),
+			Resumed: s["resumed"].GetBoolValue(),
+			RootDir: s["root_dir"].GetStringValue(),
+			RunGroup: s["run_group"].GetStringValue(),
+			RunId: s["run_id"].GetStringValue(),
+			RunJobType: s["run_job_type"].GetStringValue(),
+			RunMode: s["run_mode"].GetStringValue(),
+			RunName: s["run_name"].GetStringValue(),
+			RunNotes: s["run_notes"].GetStringValue(),
+			RunUrl: s["run_url"].GetStringValue(),
+			SagemakerDisable: s["sagemaker_disable"].GetBoolValue(),
+			SaveCode: s["save_code"].GetBoolValue(),
+			SettingsSystem: s["settings_system"].GetStringValue(),
+			SettingsWorkspace: s["settings_workspace"].GetStringValue(),
+			ShowColors: s["show_colors"].GetBoolValue(),
+			ShowEmoji: s["show_emoji"].GetBoolValue(),
+			ShowErrors: s["show_errors"].GetBoolValue(),
+			ShowInfo: s["show_info"].GetBoolValue(),
+			ShowWarnings: s["show_warnings"].GetBoolValue(),
+			Silent: s["silent"].GetBoolValue(),
+			StartMethod: s["start_method"].GetStringValue(),
+			Strict: s["strict"].GetBoolValue(),
+			SummaryErrors: s["summary_errors"].GetIntValue(),
+			SummaryTimeout: s["summary_timeout"].GetIntValue(),
+			SummaryWarnings: s["summary_warnings"].GetIntValue(),
+			SweepId: s["sweep_id"].GetStringValue(),
+			SweepParamPath: s["sweep_param_path"].GetStringValue(),
+			SweepUrl: s["sweep_url"].GetStringValue(),
+			Symlink: s["symlink"].GetBoolValue(),
+			SyncDir: s["sync_dir"].GetStringValue(),
+			SyncFile: s["sync_file"].GetStringValue(),
+			SyncSymlinkLatest: s["sync_symlink_latest"].GetStringValue(),
+			SystemSample: s["system_sample"].GetIntValue(),
+			SystemSampleSeconds: s["system_sample_seconds"].GetIntValue(),
+			TableRaiseOnMaxRowLimitExceeded: s["table_raise_on_max_row_limit_exceeded"].GetBoolValue(),
+			Timespec: s["timespec"].GetStringValue(),
+			TmpDir: s["tmp_dir"].GetStringValue(),
+			Username: s["username"].GetStringValue(),
+			WandbDir: s["wandb_dir"].GetStringValue(),
 	}
-	host := strings.TrimPrefix(s.BaseURL, "https://")
-	host = strings.TrimPrefix(host, "http://")
 
-	netlist, err := auth.ReadNetrc()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for i := 0; i < len(netlist); i++ {
-		if netlist[i].Machine == host {
-			s.ApiKey = netlist[i].Password
-			break
-		}
-	}
+	return settings
 }

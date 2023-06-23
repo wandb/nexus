@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"github.com/wandb/wandb/nexus/pkg/auth"
 	"net"
+	"strings"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -197,13 +199,21 @@ func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 	log.Debug("PROCESS: INIT")
 
 	s := msg.XSettingsMap
-	settings := &Settings{
-		BaseURL:  s["base_url"].GetStringValue(),
-		ApiKey:   s["api_key"].GetStringValue(),
-		SyncFile: s["sync_file"].GetStringValue(),
-		Offline:  s["_offline"].GetBoolValue()}
+	settings := NewSettings(s)
 
-	settings.parseNetrc()
+	func(s *Settings) {
+		if s.ApiKey != "" {
+			return
+		}
+		host := strings.TrimPrefix(s.BaseUrl, "https://")
+		host = strings.TrimPrefix(host, "http://")
+
+		_, password, err := auth.GetNetrcLogin(host)
+		if err != nil {
+			log.Fatal(err)
+		}
+		s.ApiKey = password
+	}(settings)
 
 	log.Debug("STREAM init")
 

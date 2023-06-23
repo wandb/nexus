@@ -21,7 +21,7 @@ func PrintHeadFoot(run *service.RunRecord, settings *Settings) {
 	colorBlue := "\033[34m"
 	colorYellow := "\033[33m"
 
-	appURL := strings.Replace(settings.BaseURL, "//api.", "//", 1)
+	appURL := strings.Replace(settings.BaseUrl, "//api.", "//", 1)
 	url := fmt.Sprintf("%v/%v/%v/runs/%v", appURL, run.Entity, run.Project, run.RunId)
 	fmt.Printf("%vwandb%v: 🚀 View run %v%v%v at: %v%v%v\n", colorBrightBlue, colorReset, colorYellow, run.DisplayName, colorReset, colorBlue, url, colorReset)
 }
@@ -90,7 +90,7 @@ func LibStart() int {
 	}
 
 	settings := &Settings{
-		BaseURL:  base_url,
+		BaseUrl:  base_url,
 		ApiKey:   api_key,
 		SyncFile: "something.wandb",
 		Offline:  false}
