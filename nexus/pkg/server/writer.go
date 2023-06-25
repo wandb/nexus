@@ -1,88 +1,81 @@
 package server
 
 import (
-	"bytes"
-	"encoding/binary"
-	"os"
+	"context"
 	"sync"
 
-	"github.com/golang/leveldb/record"
-	log "github.com/sirupsen/logrus"
 	"github.com/wandb/wandb/nexus/pkg/service"
-	"google.golang.org/protobuf/proto"
+	"golang.org/x/exp/slog"
 )
 
 type Writer struct {
-	writerChan chan *service.Record
-	wg         *sync.WaitGroup
-	settings   *Settings
+	settings *Settings
+	inChan   chan *service.Record
+	outChan  chan<- *service.Record
+	store    *Store
+	logger   *slog.Logger
 }
 
-func NewWriter(wg *sync.WaitGroup, settings *Settings) *Writer {
-	writer := Writer{
-		wg:         wg,
-		settings:   settings,
-		writerChan: make(chan *service.Record),
+func NewWriter(ctx context.Context, settings *Settings, logger *slog.Logger) *Writer {
+
+	writer := &Writer{
+		settings: settings,
+		inChan:   make(chan *service.Record),
+		store:    NewStore(settings.SyncFile, logger),
+		logger:   logger,
 	}
-
-	wg.Add(1)
-	go writer.writerGo()
-	return &writer
+	return writer
 }
 
-func (writer *Writer) Stop() {
-	close(writer.writerChan)
+func (w *Writer) Deliver(msg *service.Record) {
+	w.inChan <- msg
 }
 
-func (writer *Writer) WriteRecord(rec *service.Record) {
-	writer.writerChan <- rec
-}
-
-func logHeader(f *os.File) {
-	type logHeader struct {
-		ident   [4]byte
-		magic   uint16
-		version byte
+func (w *Writer) start(wg *sync.WaitGroup) {
+	defer wg.Done()
+	for msg := range w.inChan {
+		LogRecord(w.logger, "write: got msg", msg)
+		w.writeRecord(msg)
 	}
-	buf := new(bytes.Buffer)
-	ident := [4]byte{byte(':'), byte('W'), byte('&'), byte('B')}
-	head := logHeader{ident: ident, magic: 0xBEE1, version: 1}
-	err := binary.Write(buf, binary.LittleEndian, &head)
-	check(err)
-	_, err = f.Write(buf.Bytes())
-	check(err)
+	w.close()
+	slog.Debug("writer: started and closed")
 }
 
-func (w *Writer) writerGo() {
-	f, err := os.Create(w.settings.SyncFile)
-	check(err)
-	defer w.wg.Done()
-	defer f.Close()
-
-	logHeader(f)
-
-	records := record.NewWriter(f)
-
-	log.Debug("WRITER: OPEN")
-	for {
-		msg, ok := <-w.writerChan
-		if !ok {
-			log.Debug("NOMORE")
-			break
-		}
-		log.Debug("WRITE *******")
-		// handleLogWriter(w, msg)
-
-		rec, err := records.Next()
-		check(err)
-
-		out, err := proto.Marshal(msg)
-		check(err)
-
-		_, err = rec.Write(out)
-		check(err)
+func (w *Writer) close() {
+	close(w.outChan)
+	err := w.store.Close()
+	if err != nil {
+		return
 	}
-	log.Debug("WRITER: CLOSE")
-	records.Close()
-	log.Debug("WRITER: FIN")
 }
+
+// writeRecord Writing messages to the append-only log,
+// and passing them to the sender.
+// We ensure that the messages are written to the log
+// before they are sent to the server.
+func (w *Writer) writeRecord(rec *service.Record) {
+	switch rec.RecordType.(type) {
+	case *service.Record_Request:
+		w.sendRecord(rec)
+	case nil:
+		slog.Error("nil record type")
+	default:
+		w.store.storeRecord(rec)
+		w.sendRecord(rec)
+	}
+}
+
+func (w *Writer) sendRecord(rec *service.Record) {
+	control := rec.GetControl()
+	LogRecord(w.logger, "WRITER: sendRecord", rec)
+	if w.settings.Offline && control != nil && !control.AlwaysSend {
+		return
+	}
+	slog.Debug("WRITER: sendRecord: send")
+	w.outChan <- rec
+}
+
+// func (w *Writer) Flush() {
+// 	log.Debug("WRITER: close")
+// 	close(w.inChan)
+// }

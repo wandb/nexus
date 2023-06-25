@@ -1,123 +1,102 @@
 package server
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"net"
 	"os"
+	"sync"
 
-	log "github.com/sirupsen/logrus"
+	"golang.org/x/exp/slog"
 )
 
-func InitLogging() {
-	/*
-
-	   InfoLogger = log.New(file, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
-	   WarningLogger = log.New(file, "WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
-	   ErrorLogger = log.New(file, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
-
-	   InfoLogger.Println("Starting the application...")
-	   InfoLogger.Println("Something noteworthy happened")
-	   WarningLogger.Println("There is something you should know about")
-	   ErrorLogger.Println("Something went wrong")
-	*/
-
-	logFile, err := os.OpenFile("/tmp/logs.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+func writePortFile(portFile string, port int) {
+	tempFile := fmt.Sprintf("%s.tmp", portFile)
+	f, err := os.Create(tempFile)
 	if err != nil {
-		log.Fatal(err)
+		LogError(slog.Default(), "fail create", err)
+	}
+	defer func(f *os.File) {
+		_ = f.Close()
+	}(f)
+
+	if _, err = f.WriteString(fmt.Sprintf("sock=%d\n", port)); err != nil {
+		LogError(slog.Default(), "fail write", err)
 	}
 
-	logToConsole := false
-	// logToConsole = true
-	if logToConsole {
-		mw := io.MultiWriter(os.Stderr, logFile)
-		log.SetOutput(mw)
-	} else {
-		log.SetOutput(logFile)
+	if _, err = f.WriteString("EOF"); err != nil {
+		LogError(slog.Default(), "fail write EOF", err)
 	}
 
-	log.SetFormatter(&log.JSONFormatter{})
-	log.SetLevel(log.DebugLevel)
-	/*
-	   log.Debug("Useful debugging information.")
-	   log.Info("Something noteworthy happened!")
-	   log.Warn("You should probably take a look at this.")
-	   log.Error("Something failed but I'm not quitting.")
-	*/
-}
+	if err = f.Sync(); err != nil {
+		LogError(slog.Default(), "fail sync", err)
+	}
 
-func writePortfile(portfile string, port int) {
-	// TODO
-	// GRPC_TOKEN = "grpc="
-	// SOCK_TOKEN = "sock="
-	// EOF_TOKEN = "EOF"
-	//            data = []
-	//            if self._grpc_port:
-	//                data.append(f"{self.GRPC_TOKEN}{self._grpc_port}")
-	//            if self._sock_port:
-	//                data.append(f"{self.SOCK_TOKEN}{self._sock_port}")
-	//            data.append(self.EOF_TOKEN)
-	//            port_str = "\n".join(data)
-	//            written = f.write(port_str)
-
-	tmpfile := fmt.Sprintf("%s.tmp", portfile)
-	f, err := os.Create(tmpfile)
-	check(err)
-	defer f.Close()
-
-	_, err = f.WriteString(fmt.Sprintf("sock=%d\n", port))
-	check(err)
-	_, err = f.WriteString("EOF")
-	check(err)
-	err = f.Sync()
-	check(err)
-	f.Close()
-
-	err = os.Rename(tmpfile, portfile)
-	check(err)
+	if err = os.Rename(tempFile, portFile); err != nil {
+		LogError(slog.Default(), "fail rename", err)
+	}
 }
 
 type NexusServer struct {
-	shutdown bool
-	listen   net.Listener
+	shutdownChan chan bool
+	shutdown     bool
+	listen       net.Listener
 }
 
-func tcp_server(portfile string) {
-	addr := "localhost:0"
+func tcpServer(portFile string) {
+	addr := "127.0.0.1:0"
 	listen, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatalln(err)
+		LogError(slog.Default(), "cant listen", err)
 	}
-	defer listen.Close()
 
-	serverState := NexusServer{listen: listen}
+	server := NexusServer{shutdownChan: make(chan bool), listen: listen}
 
-	log.Println("Server is running on:", addr)
-	port := listen.Addr().(*net.TCPAddr).Port
-	log.Println("PORT", port)
-
-	writePortfile(portfile, port)
-
-	for {
-		conn, err := listen.Accept()
+	defer func() {
+		err := listen.Close()
 		if err != nil {
-			if serverState.shutdown {
-				log.Println("shutting down...")
-				break
-			}
-			log.Println("Failed to accept conn.", err)
-			// sleep so we dont have a busy loop
-			continue
+			LogError(slog.Default(), "Error closing listener:", err)
 		}
+		close(server.shutdownChan)
+	}()
 
-		go handleConnection(&serverState, conn)
-	}
-}
+	slog.Info(fmt.Sprintf("Server is running on: %v", addr))
+	port := listen.Addr().(*net.TCPAddr).Port
+	slog.Info(fmt.Sprintf("PORT %v", port))
 
-func wb_service(portfile string) {
-	tcp_server(portfile)
+	writePortFile(portFile, port)
+
+	wg := sync.WaitGroup{}
+
+	// Run a separate goroutine to handle incoming connections
+	go func() {
+		for {
+			conn, err := listen.Accept()
+			if err != nil {
+				if server.shutdown {
+					break // Break when shutdown has been requested
+				}
+				LogError(slog.Default(), "Failed to accept conn.", err)
+				continue
+			}
+
+			ctx, cancel := context.WithCancel(context.Background())
+
+			wg.Add(1)
+			go handleConnection(ctx, cancel, &wg, conn, server.shutdownChan)
+		}
+	}()
+
+	// Wait for a shutdown signal
+	<-server.shutdownChan
+	server.shutdown = true
+	slog.Debug("shutting down...")
+
+	slog.Debug("What goes on here in my mind...")
+	wg.Wait()
+	slog.Debug("I think that I am falling down...")
 }
 
 func WandbService(portFilename string) {
-	wb_service(portFilename)
+	tcpServer(portFilename)
 }

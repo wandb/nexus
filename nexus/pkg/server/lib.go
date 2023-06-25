@@ -13,12 +13,13 @@ var m map[int]*NexusStream = make(map[int]*NexusStream)
 func PrintHeadFoot(run *service.RunRecord, settings *Settings) {
 	// fmt.Println("GOT", ns.run)
 	colorReset := "\033[0m"
+	colorBrightBlue := "\033[1;34m"
 	colorBlue := "\033[34m"
 	colorYellow := "\033[33m"
 
 	appURL := strings.Replace(settings.BaseURL, "//api.", "//", 1)
 	url := fmt.Sprintf("%v/%v/%v/runs/%v", appURL, run.Entity, run.Project, run.RunId)
-	fmt.Printf("%vwandb%v: 🚀 View run %v%v%v at: %v%v%v\n", colorBlue, colorReset, colorYellow, run.DisplayName, colorReset, colorBlue, url, colorReset)
+	fmt.Printf("%vwandb%v: 🚀 View run %v%v%v at: %v%v%v\n", colorBrightBlue, colorReset, colorYellow, run.DisplayName, colorReset, colorBlue, url, colorReset)
 }
 
 func ResultCallback(run *service.RunRecord, settings *Settings, result *service.Result) {
@@ -39,19 +40,8 @@ func ResultFromServerResponse(serverResponse *service.ServerResponse) *service.R
 	return nil
 }
 
-func FuncRespondServerResponse(num int) func(serverResponse *service.ServerResponse) {
-	return func(serverResponse *service.ServerResponse) {
-		// fmt.Println("GOT", num, serverResponse)
-		ns := m[num]
-
-		result := ResultFromServerResponse(serverResponse)
-		ns.CaptureResult(result)
-		ns.Recv <- result
-	}
-}
-
 func LibStart() int {
-	InitLogging()
+	SetupDefaultLogger()
 
 	base_url := os.Getenv("WANDB_BASE_URL")
 	if base_url == "" {
@@ -83,7 +73,8 @@ func LibStartSettings(settings *Settings, run_id string) int {
 	}
 
 	num := 42
-	s := NewStream(FuncRespondServerResponse(num), settings)
+	s := NewStream(settings, "junk")
+	s.Start()
 
 	c := make(chan *service.Record, 1000)
 	d := make(chan *service.Result, 1000)
@@ -96,7 +87,7 @@ func LibStartSettings(settings *Settings, run_id string) int {
 	ns.Start(s)
 
 	ns.SendRecord(&r)
-	// s.ProcessRecord(&r)
+	// s.Handle(&r)
 
 	// go processStuff()
 	return num

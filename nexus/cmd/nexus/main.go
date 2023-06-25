@@ -1,10 +1,11 @@
 package main
 
 import (
+	"context"
 	"flag"
-	// "fmt"
-	log "github.com/sirupsen/logrus"
+
 	"github.com/wandb/wandb/nexus/pkg/server"
+	"golang.org/x/exp/slog"
 )
 
 func main() {
@@ -15,19 +16,19 @@ func main() {
 	serveSock := flag.Bool("serve-sock", false, "debug")
 	serveGrpc := flag.Bool("serve-grpc", false, "debug")
 
-	// fmt.Println("Starting 0.0\n")
 	flag.Parse()
 
-	server.InitLogging()
+	server.SetupDefaultLogger()
 
-	// log.Println("got", *portFilename, *pid, *debug, *serveSock, *serveGrpc)
-	log.WithFields(log.Fields{
-		"fname":     *portFilename,
-		"pid":       *pid,
-		"debug":     *debug,
-		"serveSock": *serveSock,
-		"serveGrpc": *serveGrpc,
-	}).Debug("Flags")
+	slog.LogAttrs(
+		context.Background(),
+		slog.LevelDebug,
+		"Flags",
+		slog.String("fname", *portFilename),
+		slog.Int("pid", *pid),
+		slog.Bool("debug", *debug),
+		slog.Bool("serveSock", *serveSock),
+		slog.Bool("serveGrpc", *serveGrpc))
 
 	server.WandbService(*portFilename)
 }

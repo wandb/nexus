@@ -1,205 +1,230 @@
 package server
 
 import (
-	// "flag"
-	"context"
-	// "io"
 	"bufio"
-	"bytes"
+	"context"
 	"encoding/binary"
+	"fmt"
 	"net"
+	"sync"
 
-	"google.golang.org/protobuf/proto"
-
-	// "google.golang.org/protobuf/reflect/protoreflect"
-	log "github.com/sirupsen/logrus"
 	"github.com/wandb/wandb/nexus/pkg/service"
+	"golang.org/x/exp/slog"
+	"google.golang.org/protobuf/proto"
 )
 
-// import "wandb.ai/wandb/wbserver/wandb_internal":
-
-type Header struct {
-	Magic      uint8
-	DataLength uint32
-}
-
-type Tokenizer struct {
-	// data         []byte
-	header       Header
-	headerLength int
-	headerValid  bool
-}
-
-type NexusConn struct {
-	conn   net.Conn
-	server *NexusServer
-	done   chan bool
+type Connection struct {
 	ctx    context.Context
+	cancel context.CancelFunc
+	conn   net.Conn
+	id     string
 
-	mux         map[string]*Stream
-	processChan chan *service.ServerRequest
-	respondChan chan *service.ServerResponse
+	shutdownChan chan<- bool
+	requestChan  chan *service.ServerRequest
+	respondChan  chan *service.ServerResponse
 }
 
-func (nc *NexusConn) init() {
-	process := make(chan *service.ServerRequest)
-	respond := make(chan *service.ServerResponse)
-	nc.processChan = process
-	nc.respondChan = respond
-	nc.done = make(chan bool)
-	nc.ctx = context.Background()
-	nc.mux = make(map[string]*Stream)
-	// writer := make(chan service.Record)
-	// stream := Stream{exit: exit, done: done, process: process, respond: respond, writer: writer, ctx: ctx, server: nc.server}
-	// stream := Stream{exit: exit, done: done, process: process, respond: respond, ctx: ctx, server: nc.server}
-	// nc.stream = stream
-}
-
-func check(e error) {
-	if e != nil {
-		panic(e)
+func NewConnection(
+	ctx context.Context,
+	cancel context.CancelFunc,
+	conn net.Conn,
+	shutdownChan chan<- bool,
+) *Connection {
+	return &Connection{
+		ctx:          ctx,
+		cancel:       cancel,
+		conn:         conn,
+		id:           conn.RemoteAddr().String(), // check if this is properly unique
+		shutdownChan: shutdownChan,
+		requestChan:  make(chan *service.ServerRequest),
+		respondChan:  make(chan *service.ServerResponse),
 	}
 }
 
-func (x *Tokenizer) split(data []byte, atEOF bool) (retAdvance int, retToken []byte, retErr error) {
-	if x.headerLength == 0 {
-		x.headerLength = binary.Size(x.header)
-	}
+func (nc *Connection) receive(wg *sync.WaitGroup) {
+	defer wg.Done()
 
-	retAdvance = 0
-
-	// parse header
-	if !x.headerValid {
-		if len(data) < x.headerLength {
-			return
-		}
-		buf := bytes.NewReader(data)
-		err := binary.Read(buf, binary.LittleEndian, &x.header)
-		if err != nil {
-			log.Fatal(err)
-		}
-		// fmt.Println("head", x.header, x.headerLength)
-		if x.header.Magic != uint8('W') {
-			log.Fatal("badness")
-		}
-		x.headerValid = true
-		retAdvance += x.headerLength
-		data = data[retAdvance:]
-	}
-
-	// fmt.Println("gotdata", len(data))
-	// check if we have the full amount of data
-	if len(data) < int(x.header.DataLength) {
-		return
-	}
-
-	retAdvance += int(x.header.DataLength)
-	retToken = data[:x.header.DataLength]
-	x.headerValid = false
-	return
-}
-
-/*
-   resp := &service.ServerResponse{
-       ServerResponseType: &service.ServerResponse_ResultCommunicate{result},
-   }
-*/
-
-func respondServerResponse(nc *NexusConn, msg *service.ServerResponse) {
-	// fmt.Println("respond")
-	out, err := proto.Marshal(msg)
-	check(err)
-	// fmt.Println("respond", len(out), out)
-
-	writer := bufio.NewWriter(nc.conn)
-
-	header := Header{Magic: byte('W')}
-	header.DataLength = uint32(len(out))
-
-	err = binary.Write(writer, binary.LittleEndian, &header)
-	check(err)
-
-	_, err = writer.Write(out)
-	check(err)
-
-	err = writer.Flush()
-	check(err)
-}
-
-func (nc *NexusConn) reader() {
 	scanner := bufio.NewScanner(nc.conn)
 	tokenizer := Tokenizer{}
-
 	scanner.Split(tokenizer.split)
-	for scanner.Scan() {
-		// fmt.Printf("%q ", scanner.Text())
-		msg := &service.ServerRequest{}
-		err := proto.Unmarshal(scanner.Bytes(), msg)
-		if err != nil {
-			log.Fatal("unmarshaling error: ", err)
+
+	// Run Scanner in a separate goroutine to listen for incoming messages
+	go func() {
+		for scanner.Scan() {
+			msg := &service.ServerRequest{}
+			err := proto.Unmarshal(scanner.Bytes(), msg)
+			if err != nil {
+				slog.LogAttrs(context.Background(),
+					slog.LevelError,
+					"Unmarshalling error",
+					slog.String("err", err.Error()))
+				continue
+			}
+			nc.requestChan <- msg
 		}
-		// fmt.Println("gotmsg")
-		nc.processChan <- msg
-		// fmt.Println("data2 ", msg)
-	}
-	log.Debug("SOCKETREADER: DONE")
-	nc.done <- true
-}
-
-func (nc *NexusConn) writer() {
-	for {
-		select {
-		case msg := <-nc.respondChan:
-			respondServerResponse(nc, msg)
-		case <-nc.done:
-			log.Debug("PROCESS: DONE")
-			return
-		}
-	}
-}
-
-func (nc *NexusConn) process() {
-	for {
-		select {
-		case msg := <-nc.processChan:
-			handleServerRequest(nc, msg)
-		case <-nc.done:
-			log.Debug("PROCESS: DONE")
-			return
-		}
-	}
-}
-
-func (nc *NexusConn) RespondServerResponse(serverResponse *service.ServerResponse) {
-	nc.respondChan <- serverResponse
-}
-
-func (nc *NexusConn) wait() {
-	log.Debug("WAIT1")
-	for {
-		select {
-		case <-nc.done:
-			log.Debug("WAIT done")
-			return
-		case <-nc.ctx.Done():
-			log.Debug("WAIT ctx done")
-			return
-		}
-	}
-}
-
-func handleConnection(serverState *NexusServer, conn net.Conn) {
-	defer func() {
-		conn.Close()
+		nc.cancel()
 	}()
 
-	connection := NexusConn{conn: conn, server: serverState}
+	// wait for context to be canceled
+	<-nc.ctx.Done()
 
-	connection.init()
-	go connection.reader()
-	go connection.writer()
-	go connection.process()
-	connection.wait()
+	slog.Debug("receive: Context canceled")
+}
 
-	log.Debug("WAIT3 done handle con")
+func (nc *Connection) transmit(wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	go func() {
+		for msg := range nc.respondChan {
+			out, err := proto.Marshal(msg)
+			if err != nil {
+				LogError(slog.Default(), "Error marshalling msg", err)
+				return
+			}
+
+			writer := bufio.NewWriter(nc.conn)
+			header := Header{Magic: byte('W'), DataLength: uint32(len(out))}
+			if err = binary.Write(writer, binary.LittleEndian, &header); err != nil {
+				LogError(slog.Default(), "Error writing header", err)
+				return
+			}
+			if _, err = writer.Write(out); err != nil {
+				LogError(slog.Default(), "Error writing msg", err)
+				return
+			}
+
+			if err = writer.Flush(); err != nil {
+				LogError(slog.Default(), "Error flusing writer", err)
+				return
+			}
+		}
+	}()
+
+	// wait for context to be canceled
+	<-nc.ctx.Done()
+	slog.Debug("transmit: Context canceled")
+}
+
+func (nc *Connection) process(wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	for {
+		select {
+		case msg := <-nc.requestChan:
+			nc.handleMessage(msg)
+		case <-nc.ctx.Done():
+			slog.Debug("PROCESS: Context canceled")
+			return
+		}
+	}
+}
+
+func (nc *Connection) Respond(resp *service.ServerResponse) {
+	nc.respondChan <- resp
+}
+
+func handleConnection(ctx context.Context, cancel context.CancelFunc, swg *sync.WaitGroup, conn net.Conn, shutdownChan chan<- bool) {
+	connection := NewConnection(ctx, cancel, conn, shutdownChan)
+
+	defer func() {
+		swg.Done()
+		err := connection.conn.Close()
+		if err != nil {
+			LogError(slog.Default(), "problem closing connection", err)
+		}
+		// close(connection.requestChan)
+		// close(connection.respondChan)
+	}()
+
+	wg := sync.WaitGroup{}
+	wg.Add(3)
+
+	go connection.receive(&wg)
+	go connection.process(&wg)
+	go connection.transmit(&wg)
+
+	wg.Wait()
+
+	slog.Debug("handleConnection: DONE")
+}
+
+func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
+	slog.Debug("connection: handleInformInit: init")
+	s := msg.XSettingsMap
+	settings := NewSettings(s)
+
+	streamId := msg.XInfo.StreamId
+	stream := streamMux.addStream(streamId, settings)
+	stream.AddResponder(nc.id, nc)
+	go stream.Start()
+}
+
+func (nc *Connection) handleInformStart(_ *service.ServerInformStartRequest) {
+	slog.Debug("handleInformStart: start")
+}
+
+func (nc *Connection) handleInformRecord(msg *service.Record) {
+	streamId := msg.XInfo.StreamId
+	if stream, ok := streamMux.getStream(streamId); ok {
+		ref := msg.ProtoReflect()
+		desc := ref.Descriptor()
+		num := ref.WhichOneof(desc.Oneofs().ByName("record_type")).Number()
+		slog.LogAttrs(context.Background(),
+			slog.LevelDebug,
+			"PROCESS: COMM/PUBLISH",
+			slog.Int("type", int(num)))
+		// add connection id to control message
+		// so that the stream can send back a response
+		// to the correct connection
+		if msg.Control != nil {
+			msg.Control.ConnectionId = nc.id
+		} else {
+			msg.Control = &service.Control{ConnectionId: nc.id}
+		}
+		LogRecord(slog.Default(), "handleInformRecord", msg)
+		stream.HandleRecord(msg)
+	} else {
+		slog.Error("handleInformRecord: stream not found")
+	}
+}
+
+func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest) {
+	slog.Debug("handleInformFinish: finish")
+	streamId := msg.XInfo.StreamId
+	if stream, ok := streamMux.getStream(streamId); ok {
+		stream.MarkFinished()
+	} else {
+		slog.Error("handleInformFinish: stream not found")
+	}
+}
+
+func (nc *Connection) handleInformTeardown(_ *service.ServerInformTeardownRequest) {
+	slog.Debug("handleInformTeardown: teardown")
+	streamMux.Close()
+	slog.Debug("handleInformTeardown: streamMux closed")
+	nc.cancel()
+	slog.Debug("handleInformTeardown: context canceled")
+	nc.shutdownChan <- true
+	slog.Debug("handleInformTeardown: shutdownChan signaled")
+}
+
+func (nc *Connection) handleMessage(msg *service.ServerRequest) {
+	switch x := msg.ServerRequestType.(type) {
+	case *service.ServerRequest_InformInit:
+		nc.handleInformInit(x.InformInit)
+	case *service.ServerRequest_InformStart:
+		nc.handleInformStart(x.InformStart)
+	case *service.ServerRequest_RecordPublish:
+		nc.handleInformRecord(x.RecordPublish)
+	case *service.ServerRequest_RecordCommunicate:
+		nc.handleInformRecord(x.RecordCommunicate)
+	case *service.ServerRequest_InformFinish:
+		nc.handleInformFinish(x.InformFinish)
+	case *service.ServerRequest_InformTeardown:
+		nc.handleInformTeardown(x.InformTeardown)
+	case nil:
+		panic("ServerRequestType is nil")
+	default:
+		panic(fmt.Sprintf("ServerRequestType is unknown, %T", x))
+	}
 }
