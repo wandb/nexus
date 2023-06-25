@@ -3,8 +3,8 @@ package server
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"path/filepath"
+	"strconv"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"golang.org/x/exp/slog"
@@ -157,7 +157,7 @@ func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartReque
 	files := service.Record{
 		RecordType: &service.Record_Files{Files: &service.FilesRecord{Files: []*service.FilesItem{
 			&service.FilesItem{Path: MetaFilename},
-		} }},
+		}}},
 	}
 	h.sendRecord(&files)
 

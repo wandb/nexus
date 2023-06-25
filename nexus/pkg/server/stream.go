@@ -2,8 +2,8 @@ package server
 
 import (
 	"context"
-	"sync"
 	"fmt"
+	"sync"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"golang.org/x/exp/slog"
