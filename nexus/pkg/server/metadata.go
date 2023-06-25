@@ -2,7 +2,7 @@ package server
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"time"
 
 	"golang.org/x/exp/slog"
@@ -11,46 +11,46 @@ import (
 const MetaFilename string = "wandb-metadata.json"
 
 type metaGitInfo struct {
-	remote string `json:"remote"`
-	commit string `json:"commit"`
+	Remote string `json:"remote"`
+	Commit string `json:"commit"`
 }
 
 type diskInfo struct {
-	total float64 `json:"total"`
-	used  float64 `json:"used"`
+	Total float64 `json:"total"`
+	Used  float64 `json:"used"`
 }
 
 type gpuAppleInfo struct {
-	gpuType string `json:"type"`
-	vendor  string `json:"vendor"`
+	GpuType string `json:"type"`
+	Vendor  string `json:"vendor"`
 }
 
 type memInfo struct {
-	total float64 `json:"total"`
+	Total float64 `json:"total"`
 }
 
 type Metadata struct {
 	Os                string       `json:"os"`
-	python            string       `json:"python"`
-	heartbeatAt       time.Time    `json:"heartbeatAt"`
-	startedAt         time.Time    `json:"startedAt"`
-	docker            string       `json:"docker"`
-	cuda              string       `json:"cuda"`
-	args              []string     `json:"args"`
+	Python            string       `json:"python"`
+	HeartbeatAt       time.Time    `json:"heartbeatAt"`
+	StartedAt         time.Time    `json:"startedAt"`
+	Docker            string       `json:"docker"`
+	Cuda              string       `json:"cuda"`
+	Args              []string     `json:"args"`
 	State             string       `json:"state"`
-	program           string       `json:"program"`
-	codePath          string       `json:"codePath"`
-	git               metaGitInfo  `json:"git"`
-	email             string       `json:"email"`
-	root              string       `json:"root"`
-	host              string       `json:"host"`
-	username          string       `json:"username"`
-	executable        string       `json:"executable"`
-	cpu_count         int          `json:"cpu_count"`
-	cpu_count_logical int          `json:"cpu_count_logical"`
-	disk              diskInfo     `json:"disk"`
-	gpuapple          gpuAppleInfo `json:"gpuapple"`
-	memory            memInfo      `json:"memory"`
+	Program           string       `json:"program"`
+	CodePath          string       `json:"codePath"`
+	Git               metaGitInfo  `json:"git"`
+	Email             string       `json:"email"`
+	Root              string       `json:"root"`
+	Host              string       `json:"host"`
+	Username          string       `json:"username"`
+	Executable        string       `json:"executable"`
+	Cpu_count         int          `json:"cpu_count"`
+	Cpu_count_logical int          `json:"cpu_count_logical"`
+	Disk              diskInfo     `json:"disk"`
+	Gpuapple          gpuAppleInfo `json:"gpuapple"`
+	Memory            memInfo      `json:"memory"`
 }
 
 func NewMetadata(meta Metadata) *Metadata {
@@ -64,5 +64,5 @@ func NewMetadata(meta Metadata) *Metadata {
 func (m *Metadata) WriteFile(fileName string) {
 	file, _ := json.MarshalIndent(m, "", "  ")
 
-	_ = ioutil.WriteFile(fileName, file, 0644)
+	_ = os.WriteFile(fileName, file, 0644)
 }
