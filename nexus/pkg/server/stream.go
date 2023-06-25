@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"sync"
+	"fmt"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"golang.org/x/exp/slog"
@@ -30,6 +31,7 @@ func NewStream(settings *Settings, streamId string) *Stream {
 	logFile := settings.LogInternal
 	logger := SetupStreamLogger(logFile, streamId)
 
+	fmt.Println("SETT", settings)
 	dispatcher := NewDispatcher(ctx, logger)
 	sender := NewSender(ctx, settings, logger)
 	writer := NewWriter(ctx, settings, logger)
