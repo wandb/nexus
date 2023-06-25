@@ -5,9 +5,9 @@ import (
 	"encoding/binary"
 	"os"
 
-	"golang.org/x/exp/slog"
 	"github.com/wandb/wandb/nexus/pkg/leveldb"
 	"github.com/wandb/wandb/nexus/pkg/service"
+	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
 )
 

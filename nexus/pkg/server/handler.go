@@ -30,7 +30,7 @@ func NewHandler(ctx context.Context, settings *Settings, logger *slog.Logger) *H
 		inChan:   make(chan *service.Record),
 		settings: settings,
 		summary:  make(map[string]string),
-		logger: logger,
+		logger:   logger,
 	}
 	return &handler
 }

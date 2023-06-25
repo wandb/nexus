@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
-	"golang.org/x/exp/slog"
 	"github.com/wandb/wandb/nexus/pkg/service"
+	"golang.org/x/exp/slog"
 )
 
 // Stream is a collection of components that work together to handle incoming

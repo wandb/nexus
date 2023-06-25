@@ -41,15 +41,15 @@ func SetupStreamLogger(logFile string, streamID string) *slog.Logger {
 	logger := setupLogger(logFile)
 	return logger
 	/*
-	toStderr := os.Getenv("WANDB_NEXUS_DEBUG") != ""
-	opts := &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	}
-	logger := slog.New(slog.NewJSONHandler(writer, opts))
-	jsonHandler := slog.NewTextHandler(os.Stdout).
-		WithAttrs([]slog.Attr{slog.String("app-version", "v0.0.1-beta")})
-	logger := slog.New(textHandler)
-	return logger
+		toStderr := os.Getenv("WANDB_NEXUS_DEBUG") != ""
+		opts := &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		}
+		logger := slog.New(slog.NewJSONHandler(writer, opts))
+		jsonHandler := slog.NewTextHandler(os.Stdout).
+			WithAttrs([]slog.Attr{slog.String("app-version", "v0.0.1-beta")})
+		logger := slog.New(textHandler)
+		return logger
 	*/
 }
 

@@ -17,7 +17,7 @@ func NewDispatcher(ctx context.Context, logger *slog.Logger) *Dispatcher {
 	dispatcher := &Dispatcher{
 		inChan:     make(chan *service.Result),
 		responders: make(map[string]Responder),
-		logger: logger,
+		logger:     logger,
 	}
 	return dispatcher
 }

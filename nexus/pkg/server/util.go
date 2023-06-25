@@ -3,8 +3,8 @@ package server
 import (
 	"crypto/rand"
 
-	"golang.org/x/exp/slog"
 	"github.com/wandb/wandb/nexus/pkg/service"
+	"golang.org/x/exp/slog"
 )
 
 type NexusStream struct {

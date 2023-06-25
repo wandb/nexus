@@ -3,9 +3,9 @@ package server
 import (
 	"strings"
 
+	"github.com/wandb/wandb/nexus/pkg/auth"
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"golang.org/x/exp/slog"
-	"github.com/wandb/wandb/nexus/pkg/auth"
 )
 
 type Settings struct {
