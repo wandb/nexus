@@ -7,164 +7,58 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
-	"os"
-
 	"sync"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
 
-	log "github.com/sirupsen/logrus"
+	"golang.org/x/exp/slog"
 )
 
-type FileStream struct {
-	wg          *sync.WaitGroup
-	fstreamChan chan *service.Record
-	fstreamPath string
+const historyFileName = "wandb-history.jsonl"
 
-	// FIXME this should be per file
+type FileStream struct {
+	wg     *sync.WaitGroup
+	inChan chan *service.Record
+	path   string
+
+	// FIXME this should be per db
 	offset int
 
 	settings   *Settings
+	logger     *slog.Logger
 	httpClient http.Client
 }
 
-func NewFileStream(fstreamPath string, settings *Settings) *FileStream {
+func NewFileStream(path string, settings *Settings, logger *slog.Logger) *FileStream {
 	fs := FileStream{
-		wg:          &sync.WaitGroup{},
-		fstreamPath: fstreamPath,
-		settings:    settings,
-		fstreamChan: make(chan *service.Record)}
+		wg:       &sync.WaitGroup{},
+		path:     path,
+		settings: settings,
+		logger:   logger,
+		inChan:   make(chan *service.Record)}
 	fs.wg.Add(1)
-	go fs.fstreamGo()
+	go fs.start()
 	return &fs
 }
 
-func (fs *FileStream) StreamRecord(rec *service.Record) {
+func (fs *FileStream) start() {
+	defer fs.wg.Done()
+
+	slog.Debug("FileStream: OPEN")
+
 	if fs.settings.Offline {
 		return
 	}
-	fs.fstreamChan <- rec
-}
 
-func (fs *FileStream) fstreamInit() {
-	httpClient := http.Client{
-		Transport: &authedTransport{
-			key:     fs.settings.ApiKey,
-			wrapped: http.DefaultTransport,
-		},
+	fs.httpClient = newHttpClient(fs.settings.ApiKey)
+	for msg := range fs.inChan {
+		slog.Debug("FileStream *******")
+		LogRecord(fs.logger, "FileStream: got record", msg)
+		fs.streamRecord(msg)
 	}
-	fs.httpClient = httpClient
-}
-
-func (fs *FileStream) send(fsdata interface{}) {
-	json_data, err := json.Marshal(fsdata)
-	if err != nil {
-		log.Fatalln("json marshal error", err)
-	}
-	// fmt.Println("ABOUT TO", string(json_data))
-
-	buffer := bytes.NewBuffer(json_data)
-	req, err := http.NewRequest(http.MethodPost, fs.fstreamPath, buffer)
-	if err != nil {
-		fmt.Printf("client: could not create request: %s\n", err)
-		os.Exit(1)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := fs.httpClient.Do(req)
-	if err != nil {
-		fmt.Printf("client: error making http request: %s\n", err)
-		os.Exit(1)
-	}
-
-	var res map[string]interface{}
-	err = json.NewDecoder(resp.Body).Decode(&res)
-	if err != nil {
-		log.Fatalln("json decode error", err)
-	}
-	log.WithFields(log.Fields{"res": res}).Debug("FSTREAM: post response")
-}
-
-/*
-    "complete": False,
-    "failed": False,
-    "dropped": self._dropped_chunks,
-    "uploaded": list(uploaded),
-
-    "complete": False,
-    "preempting": True,
-    "dropped": self._dropped_chunks,
-    "uploaded": list(uploaded),
-
-	fs={"fname": {"content": ["fdsf", "fdfs"], offset=}}
-	or
-    return {"offset": self._offset, "content": enc, "encoding": "base64"}
-    json={"files": fs, "dropped": self._dropped_chunks},
-
-    "complete": True,
-    "exitcode": int(finished.exitcode),
-    "dropped": self._dropped_chunks,
-    "uploaded": list(uploaded),
-*/
-
-func (fs *FileStream) streamFinish() {
-	type FsFinishedData struct {
-		Complete bool `json:"complete"`
-		Exitcode int  `json:"exitcode"`
-		// Uploaded []string `json:"uploaded"`
-	}
-
-	// uploaded := []string{"data.txt"}
-	// fsdata := FsFinishedData{Complete: true, Exitcode: 0, Uploaded: uploaded}
-	fsdata := FsFinishedData{Complete: true, Exitcode: 0}
-	fs.send(fsdata)
-}
-
-func jsonify(msg *service.HistoryRecord) string {
-	data := map[string]any{}
-
-	var err error
-	items := msg.Item
-	var val2 any
-
-	for i := 0; i < len(items); i++ {
-		val := items[i].ValueJson
-		b := []byte(val)
-		err = json.Unmarshal(b, &val2)
-		if err != nil {
-			log.Fatalln("json unmarshal error", err)
-		}
-		data[items[i].Key] = val2
-	}
-	json_data, err := json.Marshal(data)
-	checkError(err)
-	// fmt.Println("GOT", string(json_data))
-	return string(json_data)
-}
-
-func (fs *FileStream) streamHistory(msg *service.HistoryRecord) {
-	fname := "wandb-history.jsonl"
-
-	type FsChunkData struct {
-		Offset  int      `json:"offset"`
-		Content []string `json:"content"`
-	}
-
-	type FsFilesData struct {
-		Files map[string]FsChunkData `json:"files"`
-	}
-	j := jsonify(msg)
-
-	content := []string{j}
-	chunk := FsChunkData{
-		Offset:  fs.offset,
-		Content: content}
-	fs.offset += 1
-	files := map[string]FsChunkData{
-		fname: chunk,
-	}
-	fsdata := FsFilesData{Files: files}
-	fs.send(fsdata)
+	slog.Debug("FileStream: finished")
 }
 
 func (fs *FileStream) streamRecord(msg *service.Record) {
@@ -175,38 +69,103 @@ func (fs *FileStream) streamRecord(msg *service.Record) {
 		fs.streamFinish()
 	case nil:
 		// The field is not set.
-		panic("bad2rec")
+		LogFatal(fs.logger, "FileStream: RecordType is nil")
 	default:
-		bad := fmt.Sprintf("REC UNKNOWN type %T", x)
-		panic(bad)
+		LogFatal(fs.logger, fmt.Sprintf("FileStream: Unknown type %T", x))
 	}
 }
 
-func (fs *FileStream) flush() {
-	log.Debug("FSTREAM: flush")
-	close(fs.fstreamChan)
-	fs.wg.Wait()
+func (fs *FileStream) streamHistory(msg *service.HistoryRecord) {
+
+	type FsChunkData struct {
+		Offset  int      `json:"offset"`
+		Content []string `json:"content"`
+	}
+
+	type FsFilesData struct {
+		Files map[string]FsChunkData `json:"files"`
+	}
+
+	chunk := FsChunkData{
+		Offset:  fs.offset,
+		Content: []string{jsonify(msg, fs.logger)}}
+	fs.offset += 1
+	files := map[string]FsChunkData{
+		historyFileName: chunk,
+	}
+	data := FsFilesData{Files: files}
+	fs.send(data)
 }
 
-func (fs *FileStream) fstreamGo() {
-	defer fs.wg.Done()
+func (fs *FileStream) streamFinish() {
+	type FsFinishedData struct {
+		Complete bool `json:"complete"`
+		Exitcode int  `json:"exitcode"`
+	}
 
-	log.Debug("FSTREAM: OPEN")
+	data := FsFinishedData{Complete: true, Exitcode: 0}
+	fs.send(data)
+}
 
+func (fs *FileStream) stream(rec *service.Record) {
 	if fs.settings.Offline {
 		return
 	}
+	LogRecord(fs.logger, "+++++FileStream: stream", rec)
+	fs.inChan <- rec
+}
 
-	fs.fstreamInit()
-	for {
-		msg, ok := <-fs.fstreamChan
-		if !ok {
-			log.Debug("FSTREAM: NOMORE")
-			break
-		}
-		log.Debug("FSTREAM *******")
-		log.WithFields(log.Fields{"record": msg}).Debug("FSTREAM: got msg")
-		fs.streamRecord(msg)
+func (fs *FileStream) send(data interface{}) {
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		LogFatalError(fs.logger, "json marshal error", err)
 	}
-	log.Debug("FSTREAM: FIN")
+
+	buffer := bytes.NewBuffer(jsonData)
+	req, err := http.NewRequest(http.MethodPost, fs.path, buffer)
+	if err != nil {
+		LogFatalError(fs.logger, "FileStream: could not create request", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := fs.httpClient.Do(req)
+	if err != nil {
+		LogFatalError(fs.logger, "FileStream: error making HTTP request", err)
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			LogError(fs.logger, "FileStream: error closing response body", err)
+		}
+	}(resp.Body)
+
+	var res map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&res)
+	if err != nil {
+		LogError(fs.logger, "json decode error", err)
+	}
+	slog.Debug(fmt.Sprintf("FileStream: post response: %v", res))
+}
+
+func jsonify(msg *service.HistoryRecord, logger *slog.Logger) string {
+	data := make(map[string]interface{})
+
+	for _, item := range msg.Item {
+		var val interface{}
+		if err := json.Unmarshal([]byte(item.ValueJson), &val); err != nil {
+			LogFatal(logger, fmt.Sprintf("json unmarshal error: %v, items: %v", err, item))
+		}
+		data[item.Key] = val
+	}
+
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		LogError(logger, "json marshal error", err)
+	}
+	return string(jsonData)
+}
+
+func (fs *FileStream) close() {
+	slog.Debug("FileStream: CLOSE")
+	close(fs.inChan)
+	fs.wg.Wait()
 }
