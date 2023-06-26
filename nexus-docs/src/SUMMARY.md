@@ -3,10 +3,9 @@
 # Development
 - [Setting up](./setup.md)
 - [Code Generation](./code-generation.md)
-- [Testing](./testing.md)
-  - [Unit Testing](./unit-testing.md)
-  - [Integration Testing](./integration-testing.md)
-  - [End-to-End Testing](./end-to-end-testing.md)
+- [Testing](testing/README.md)
+  - [Unit Testing](testing/unit.md)
+  - [Benchmarking](testing/benchmark.md)
 - [Style Guide](./style-guide.md)
 # Reference
 - [Code organization](./code-organization.md)
