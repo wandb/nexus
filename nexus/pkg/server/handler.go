@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strconv"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
@@ -24,7 +23,6 @@ type Handler struct {
 	run         *service.RunRecord
 	summary     map[string]string
 	logger      *slog.Logger
-	meta        *Metadata
 }
 
 func NewHandler(ctx context.Context, settings *Settings, logger *slog.Logger) *Handler {
@@ -151,19 +149,26 @@ func (h *Handler) sendRecord(rec *service.Record) {
 func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartRequest) {
 	var ok bool
 	run := req.Run
-	h.meta = NewMetadata(Metadata{})
-	h.meta.WriteFile(filepath.Join(h.settings.FilesDir, MetaFilename))
 
+	// Sending metadata as a request for now, eventually this should be turned into
+	// a record and stored in the transaction log
 	meta := service.Record{
-		RecordType: &service.Record_Request{Request: &service.Request{RequestType: &service.Request_Metadata{Metadata: &service.MetadataRequest{Os: "junk", Python: "blah"}}}}}
+		RecordType: &service.Record_Request{
+			Request: &service.Request{RequestType: &service.Request_Metadata{
+				Metadata: &service.MetadataRequest{
+					Os: h.settings.XOs,
+					Python: h.settings.XPython}}}}}
+
 	h.sendRecord(&meta)
 
+	/*
 	files := service.Record{
 		RecordType: &service.Record_Files{Files: &service.FilesRecord{Files: []*service.FilesItem{
 			&service.FilesItem{Path: MetaFilename},
 		}}},
 	}
 	h.sendRecord(&files)
+	*/
 
 	h.startTime = float64(run.StartTime.AsTime().UnixMicro()) / 1e6
 	h.run, ok = proto.Clone(run).(*service.RunRecord)

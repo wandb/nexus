@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"context"
+	"path/filepath"
 	"fmt"
 
 	"net/http"
@@ -19,6 +20,8 @@ import (
 
 	"golang.org/x/exp/slog"
 )
+
+const MetaFilename string = "wandb-metadata.json"
 
 type Sender struct {
 	settings       *Settings
@@ -109,10 +112,12 @@ func (s *Sender) sendNetworkStatusRequest(_ *service.NetworkStatusRequest) {
 func (s *Sender) sendMetadata(req *service.MetadataRequest) {
 	mo := protojson.MarshalOptions{
 		Indent:          "  ",
-		EmitUnpopulated: true,
+		// EmitUnpopulated: true,
 	}
 	jsonBytes, _ := mo.Marshal(req)
-	fmt.Println(string(jsonBytes))
+	_ = os.WriteFile(filepath.Join(s.settings.FilesDir, MetaFilename), jsonBytes, 0644)
+
+	s.sendFile(MetaFilename)
 }
 
 func (s *Sender) sendDefer(req *service.DeferRequest) {
@@ -217,7 +222,7 @@ func (s *Sender) sendExit(msg *service.Record, _ *service.RunExitRecord) {
 func (s *Sender) sendFiles(msg *service.Record, filesRecord *service.FilesRecord) {
 	files := filesRecord.GetFiles()
 	for _, file := range files {
-		s.sendFile(msg, file)
+		s.sendFile(file.GetPath())
 	}
 }
 
@@ -245,14 +250,14 @@ func sendData(fileName, urlPath string, logger *slog.Logger) error {
 	return nil
 }
 
-func (s *Sender) sendFile(_ *service.Record, fileItem *service.FilesItem) {
+func (s *Sender) sendFile(path string) {
 
+	fullPath := filepath.Join(s.settings.FilesDir, path)
 	if s.run == nil {
 		LogFatal(s.logger, "upsert run not called before send db")
 	}
 
 	entity := s.run.Entity
-	path := fileItem.GetPath()
 	resp, err := RunUploadUrls(
 		context.Background(),
 		s.graphqlClient,
@@ -269,7 +274,7 @@ func (s *Sender) sendFile(_ *service.Record, fileItem *service.FilesItem) {
 	edges := resp.GetModel().GetBucket().GetFiles().GetEdges()
 	for _, e := range edges {
 		url := e.GetNode().GetUrl()
-		if err = sendData(path, *url, s.logger); err != nil {
+		if err = sendData(fullPath, *url, s.logger); err != nil {
 			LogError(s.logger, "error sending data", err)
 		}
 	}
