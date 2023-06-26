@@ -154,6 +154,10 @@ func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartReque
 	h.meta = NewMetadata(Metadata{})
 	h.meta.WriteFile(filepath.Join(h.settings.FilesDir, MetaFilename))
 
+	meta := service.Record{
+		RecordType: &service.Record_Request{Request: &service.Request{RequestType: &service.Request_Metadata{Metadata: &service.MetadataRequest{Os: "junk", Python: "blah"}}}}}
+	h.sendRecord(&meta)
+
 	files := service.Record{
 		RecordType: &service.Record_Files{Files: &service.FilesRecord{Files: []*service.FilesItem{
 			&service.FilesItem{Path: MetaFilename},

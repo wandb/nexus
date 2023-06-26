@@ -494,6 +494,7 @@ message Request {
     KeepaliveRequest      keepalive = 17;
     CancelRequest         cancel = 18;
     RespondRequest        respond = 19;
+    MetadataRequest       metadata = 20;
     ShutdownRequest       shutdown = 64;
     AttachRequest         attach = 65;
     StatusRequest         status = 66;

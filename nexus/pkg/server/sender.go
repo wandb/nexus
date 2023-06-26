@@ -14,6 +14,7 @@ import (
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/wandb/wandb/nexus/pkg/service"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
 	"golang.org/x/exp/slog"
@@ -89,6 +90,8 @@ func (s *Sender) sendRequest(_ *service.Record, req *service.Request) {
 		s.sendNetworkStatusRequest(x.NetworkStatus)
 	case *service.Request_Defer:
 		s.sendDefer(x.Defer)
+	case *service.Request_Metadata:
+		s.sendMetadata(x.Metadata)
 	default:
 	}
 }
@@ -101,6 +104,15 @@ func (s *Sender) sendRunStart(_ *service.RunStartRequest) {
 }
 
 func (s *Sender) sendNetworkStatusRequest(_ *service.NetworkStatusRequest) {
+}
+
+func (s *Sender) sendMetadata(req *service.MetadataRequest) {
+	mo := protojson.MarshalOptions{
+		Indent:          "  ",
+		EmitUnpopulated: true,
+	}
+	jsonBytes, _ := mo.Marshal(req)
+	fmt.Println(string(jsonBytes))
 }
 
 func (s *Sender) sendDefer(req *service.DeferRequest) {

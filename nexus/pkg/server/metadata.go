@@ -2,15 +2,10 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"time"
 
 	"golang.org/x/exp/slog"
-	"google.golang.org/protobuf/encoding/protojson"
-
-	// "google.golang.org/protobuf/types/known/timestamppb"
-	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
 const MetaFilename string = "wandb-metadata.json"
@@ -70,12 +65,4 @@ func (m *Metadata) WriteFile(fileName string) {
 	file, _ := json.MarshalIndent(m, "", "  ")
 
 	_ = os.WriteFile(fileName, file, 0644)
-
-	d := &service.MetadataRequest{}
-	mo := protojson.MarshalOptions{
-		Indent:          "  ",
-		EmitUnpopulated: true,
-	}
-	jsonBytes, _ := mo.Marshal(d)
-	fmt.Println(string(jsonBytes))
 }
