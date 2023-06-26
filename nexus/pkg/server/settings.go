@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/wandb/wandb/nexus/pkg/auth"
@@ -22,7 +21,6 @@ type Settings struct {
 }
 
 func NewSettings(s map[string]*service.SettingsValue) *Settings {
-	fmt.Println("GOT", s)
 	settings := Settings{
 		BaseURL:     s["base_url"].GetStringValue(),
 		ApiKey:      s["api_key"].GetStringValue(),
