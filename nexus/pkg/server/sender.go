@@ -11,9 +11,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"net/http"
 	"encoding/json"
-
+	"net/http"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/wandb/wandb/nexus/pkg/service"
@@ -152,7 +151,7 @@ func (s *Sender) parseConfigUpdate(config *service.ConfigRecord) map[string]inte
 	datas := make(map[string]interface{})
 
 	// TODO: handle deletes and nested key updates
-	for x, d := range config.GetUpdate() {
+	for _, d := range config.GetUpdate() {
 		j := d.GetValueJson()
 		var data interface{}
 		err := json.Unmarshal([]byte(j), &data)
@@ -166,7 +165,7 @@ func (s *Sender) parseConfigUpdate(config *service.ConfigRecord) map[string]inte
 
 func (s *Sender) getValueConfig(config map[string]interface{}) map[string]map[string]interface{} {
 	datas := make(map[string]map[string]interface{})
-	
+
 	for key, elem := range config {
 		datas[key] = make(map[string]interface{})
 		datas[key]["value"] = elem
