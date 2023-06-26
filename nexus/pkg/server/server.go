@@ -7,28 +7,34 @@ import (
 	"os"
 	"sync"
 
-	log "github.com/sirupsen/logrus"
+	"golang.org/x/exp/slog"
 )
 
 func writePortFile(portFile string, port int) {
 	tempFile := fmt.Sprintf("%s.tmp", portFile)
 	f, err := os.Create(tempFile)
-	checkError(err)
+	if err != nil {
+		LogError(slog.Default(), "fail create", err)
+	}
 	defer func(f *os.File) {
 		_ = f.Close()
 	}(f)
 
-	_, err = f.WriteString(fmt.Sprintf("sock=%d\n", port))
-	checkError(err)
+	if _, err = f.WriteString(fmt.Sprintf("sock=%d\n", port)); err != nil {
+		LogError(slog.Default(), "fail write", err)
+	}
 
-	_, err = f.WriteString("EOF")
-	checkError(err)
+	if _, err = f.WriteString("EOF"); err != nil {
+		LogError(slog.Default(), "fail write EOF", err)
+	}
 
-	err = f.Sync()
-	checkError(err)
+	if err = f.Sync(); err != nil {
+		LogError(slog.Default(), "fail sync", err)
+	}
 
-	err = os.Rename(tempFile, portFile)
-	checkError(err)
+	if err = os.Rename(tempFile, portFile); err != nil {
+		LogError(slog.Default(), "fail rename", err)
+	}
 }
 
 type NexusServer struct {
@@ -41,7 +47,7 @@ func tcpServer(portFile string) {
 	addr := "127.0.0.1:0"
 	listen, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatal(err)
+		LogError(slog.Default(), "cant listen", err)
 	}
 
 	server := NexusServer{shutdownChan: make(chan bool), listen: listen}
@@ -49,14 +55,14 @@ func tcpServer(portFile string) {
 	defer func() {
 		err := listen.Close()
 		if err != nil {
-			log.Error("Error closing listener:", err)
+			LogError(slog.Default(), "Error closing listener:", err)
 		}
 		close(server.shutdownChan)
 	}()
 
-	log.Println("Server is running on:", addr)
+	slog.Info(fmt.Sprintf("Server is running on: %v", addr))
 	port := listen.Addr().(*net.TCPAddr).Port
-	log.Println("PORT", port)
+	slog.Info(fmt.Sprintf("PORT %v", port))
 
 	writePortFile(portFile, port)
 
@@ -70,7 +76,7 @@ func tcpServer(portFile string) {
 				if server.shutdown {
 					break // Break when shutdown has been requested
 				}
-				log.Println("Failed to accept conn.", err)
+				LogError(slog.Default(), "Failed to accept conn.", err)
 				continue
 			}
 
@@ -84,11 +90,11 @@ func tcpServer(portFile string) {
 	// Wait for a shutdown signal
 	<-server.shutdownChan
 	server.shutdown = true
-	log.Println("shutting down...")
+	slog.Debug("shutting down...")
 
-	log.Println("What goes on here in my mind...")
+	slog.Debug("What goes on here in my mind...")
 	wg.Wait()
-	log.Println("I think that I am falling down...")
+	slog.Debug("I think that I am falling down...")
 }
 
 func WandbService(portFilename string) {
