@@ -3,16 +3,31 @@ package server
 import (
 	"strings"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/wandb/wandb/nexus/pkg/auth"
+	"github.com/wandb/wandb/nexus/pkg/service"
+	"golang.org/x/exp/slog"
 )
 
 type Settings struct {
-	BaseURL  string
-	ApiKey   string
-	Offline  bool
-	SyncFile string
-	NoWrite  bool
+	BaseURL     string
+	ApiKey      string
+	Offline     bool
+	SyncFile    string
+	NoWrite     bool
+	LogInternal string
+}
+
+func NewSettings(s map[string]*service.SettingsValue) *Settings {
+	settings := Settings{
+		BaseURL:     s["base_url"].GetStringValue(),
+		ApiKey:      s["api_key"].GetStringValue(),
+		Offline:     s["offline"].GetBoolValue(),
+		SyncFile:    s["sync_file"].GetStringValue(),
+		LogInternal: s["log_internal"].GetStringValue(),
+	}
+
+	settings.parseNetrc()
+	return &settings
 }
 
 func (s *Settings) parseNetrc() {
@@ -24,7 +39,7 @@ func (s *Settings) parseNetrc() {
 
 	netlist, err := auth.ReadNetrc()
 	if err != nil {
-		log.Fatal(err)
+		LogFatalError(slog.Default(), "cant read netrc", err)
 	}
 
 	for i := 0; i < len(netlist); i++ {
