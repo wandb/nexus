@@ -8,8 +8,8 @@ import (
 	"os"
 
 	"context"
-	"path/filepath"
 	"fmt"
+	"path/filepath"
 
 	"net/http"
 
@@ -111,7 +111,7 @@ func (s *Sender) sendNetworkStatusRequest(_ *service.NetworkStatusRequest) {
 
 func (s *Sender) sendMetadata(req *service.MetadataRequest) {
 	mo := protojson.MarshalOptions{
-		Indent:          "  ",
+		Indent: "  ",
 		// EmitUnpopulated: true,
 	}
 	jsonBytes, _ := mo.Marshal(req)

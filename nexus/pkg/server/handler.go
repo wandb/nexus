@@ -156,18 +156,18 @@ func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartReque
 		RecordType: &service.Record_Request{
 			Request: &service.Request{RequestType: &service.Request_Metadata{
 				Metadata: &service.MetadataRequest{
-					Os: h.settings.XOs,
+					Os:     h.settings.XOs,
 					Python: h.settings.XPython}}}}}
 
 	h.sendRecord(&meta)
 
 	/*
-	files := service.Record{
-		RecordType: &service.Record_Files{Files: &service.FilesRecord{Files: []*service.FilesItem{
-			&service.FilesItem{Path: MetaFilename},
-		}}},
-	}
-	h.sendRecord(&files)
+		files := service.Record{
+			RecordType: &service.Record_Files{Files: &service.FilesRecord{Files: []*service.FilesItem{
+				&service.FilesItem{Path: MetaFilename},
+			}}},
+		}
+		h.sendRecord(&files)
 	*/
 
 	h.startTime = float64(run.StartTime.AsTime().UnixMicro()) / 1e6
