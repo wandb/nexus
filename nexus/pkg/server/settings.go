@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/wandb/wandb/nexus/pkg/auth"
@@ -16,9 +17,12 @@ type Settings struct {
 	NoWrite     bool
 	LogInternal string
 	FilesDir    string
+	XPython     string
+	XOs         string
 }
 
 func NewSettings(s map[string]*service.SettingsValue) *Settings {
+	fmt.Println("GOT", s)
 	settings := Settings{
 		BaseURL:     s["base_url"].GetStringValue(),
 		ApiKey:      s["api_key"].GetStringValue(),
@@ -26,6 +30,8 @@ func NewSettings(s map[string]*service.SettingsValue) *Settings {
 		SyncFile:    s["sync_file"].GetStringValue(),
 		LogInternal: s["log_internal"].GetStringValue(),
 		FilesDir:    s["files_dir"].GetStringValue(),
+		XPython:     s["_python"].GetStringValue(),
+		XOs:         s["_os"].GetStringValue(),
 	}
 
 	settings.parseNetrc()
