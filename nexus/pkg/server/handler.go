@@ -157,7 +157,11 @@ func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartReque
 			Request: &service.Request{RequestType: &service.Request_Metadata{
 				Metadata: &service.MetadataRequest{
 					Os:     h.settings.XOs,
-					Python: h.settings.XPython}}}}}
+					Python: h.settings.XPython,
+					Host: h.settings.Host,
+					Cuda: h.settings.XCuda,
+					Program: h.settings.Program,
+				    StartedAt: run.StartTime}}}}}
 
 	h.sendRecord(&meta)
 

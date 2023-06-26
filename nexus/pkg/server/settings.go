@@ -18,6 +18,10 @@ type Settings struct {
 	FilesDir    string
 	XPython     string
 	XOs         string
+	XCuda       string
+	// XArgs       []string
+	Host        string
+	Program     string
 }
 
 func NewSettings(s map[string]*service.SettingsValue) *Settings {
@@ -30,6 +34,10 @@ func NewSettings(s map[string]*service.SettingsValue) *Settings {
 		FilesDir:    s["files_dir"].GetStringValue(),
 		XPython:     s["_python"].GetStringValue(),
 		XOs:         s["_os"].GetStringValue(),
+		XCuda:       s["_cuda"].GetStringValue(),
+		// XArgs:       s["_args"].GetTupleValue(),
+		Host:        s["host"].GetStringValue(),
+		Program:     s["program"].GetStringValue(),
 	}
 
 	settings.parseNetrc()

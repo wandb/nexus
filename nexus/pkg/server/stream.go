@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
