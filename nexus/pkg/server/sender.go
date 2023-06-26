@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 
 	"net/http"
+	"encoding/json"
+
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/wandb/wandb/nexus/pkg/service"
@@ -146,12 +148,46 @@ func (s *Sender) sendRequestDefer(req *service.DeferRequest) {
 	s.outChan <- &r
 }
 
+func (s *Sender) parseConfigUpdate(config *service.ConfigRecord) map[string]interface{} {
+	datas := make(map[string]interface{})
+
+	// TODO: handle deletes and nested key updates
+	for x, d := range config.GetUpdate() {
+		j := d.GetValueJson()
+		var data interface{}
+		err := json.Unmarshal([]byte(j), &data)
+		if err != nil {
+			LogFatalError(s.logger, "unmarshal problem", err)
+		}
+		datas[d.GetKey()] = data
+	}
+	return datas
+}
+
+func (s *Sender) getValueConfig(config map[string]interface{}) map[string]map[string]interface{} {
+	datas := make(map[string]map[string]interface{})
+	
+	for key, elem := range config {
+		datas[key] = make(map[string]interface{})
+		datas[key]["value"] = elem
+	}
+	return datas
+}
+
 func (s *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 
 	run, ok := proto.Clone(record).(*service.RunRecord)
 	if !ok {
 		LogFatal(s.logger, "error")
 	}
+
+	config := s.parseConfigUpdate(record.Config)
+	valueConfig := s.getValueConfig(config)
+	configJson, err := json.Marshal(valueConfig)
+	if err != nil {
+		LogFatalError(s.logger, "marshal prob", err)
+	}
+	configString := string(configJson)
 
 	ctx := context.Background()
 	var tags []string
@@ -166,7 +202,7 @@ func (s *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 		nil,           // displayName
 		nil,           // notes
 		nil,           // commit
-		nil,           // config
+		&configString, // config
 		nil,           // host
 		nil,           // debug
 		nil,           // program
