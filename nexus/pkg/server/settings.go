@@ -20,8 +20,8 @@ type Settings struct {
 	XOs         string
 	XCuda       string
 	// XArgs       []string
-	Host        string
-	Program     string
+	Host    string
+	Program string
 }
 
 func NewSettings(s map[string]*service.SettingsValue) *Settings {
@@ -36,8 +36,8 @@ func NewSettings(s map[string]*service.SettingsValue) *Settings {
 		XOs:         s["_os"].GetStringValue(),
 		XCuda:       s["_cuda"].GetStringValue(),
 		// XArgs:       s["_args"].GetTupleValue(),
-		Host:        s["host"].GetStringValue(),
-		Program:     s["program"].GetStringValue(),
+		Host:    s["host"].GetStringValue(),
+		Program: s["program"].GetStringValue(),
 	}
 
 	settings.parseNetrc()
