@@ -159,7 +159,7 @@ func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 		if s.ApiKey != "" {
 			return
 		}
-		host := strings.TrimPrefix(s.BaseUrl, "https://")
+		host := strings.TrimPrefix(s.BaseURL, "https://")
 		host = strings.TrimPrefix(host, "http://")
 
 		_, password, err := auth.GetNetrcLogin(host)
