@@ -9,15 +9,21 @@ import (
 
 	"context"
 	"fmt"
+	"path/filepath"
 
+	"encoding/json"
 	"net/http"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/wandb/wandb/nexus/pkg/service"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
 	"golang.org/x/exp/slog"
 )
+
+const CliVersion string = "0.0.1a1"
+const MetaFilename string = "wandb-metadata.json"
 
 type Sender struct {
 	settings       *Settings
@@ -89,6 +95,8 @@ func (s *Sender) sendRequest(_ *service.Record, req *service.Request) {
 		s.sendNetworkStatusRequest(x.NetworkStatus)
 	case *service.Request_Defer:
 		s.sendDefer(x.Defer)
+	case *service.Request_Metadata:
+		s.sendMetadata(x.Metadata)
 	default:
 	}
 }
@@ -101,6 +109,17 @@ func (s *Sender) sendRunStart(_ *service.RunStartRequest) {
 }
 
 func (s *Sender) sendNetworkStatusRequest(_ *service.NetworkStatusRequest) {
+}
+
+func (s *Sender) sendMetadata(req *service.MetadataRequest) {
+	mo := protojson.MarshalOptions{
+		Indent: "  ",
+		// EmitUnpopulated: true,
+	}
+	jsonBytes, _ := mo.Marshal(req)
+	_ = os.WriteFile(filepath.Join(s.settings.FilesDir, MetaFilename), jsonBytes, 0644)
+
+	s.sendFile(MetaFilename)
 }
 
 func (s *Sender) sendDefer(req *service.DeferRequest) {
@@ -129,12 +148,57 @@ func (s *Sender) sendRequestDefer(req *service.DeferRequest) {
 	s.outChan <- &r
 }
 
+func (s *Sender) parseConfigUpdate(config *service.ConfigRecord) map[string]interface{} {
+	datas := make(map[string]interface{})
+
+	// TODO: handle deletes and nested key updates
+	for _, d := range config.GetUpdate() {
+		j := d.GetValueJson()
+		var data interface{}
+		err := json.Unmarshal([]byte(j), &data)
+		if err != nil {
+			LogFatalError(s.logger, "unmarshal problem", err)
+		}
+		datas[d.GetKey()] = data
+	}
+	return datas
+}
+
+func (s *Sender) updateConfigTelemetry(config map[string]interface{}) {
+	got := config["_wandb"]
+	switch v := got.(type) {
+	case map[string]interface{}:
+		v["cli_version"] = CliVersion
+	default:
+		LogFatal(s.logger, fmt.Sprintf("can not parse config _wandb, saw: %v", v))
+	}
+}
+
+func (s *Sender) getValueConfig(config map[string]interface{}) map[string]map[string]interface{} {
+	datas := make(map[string]map[string]interface{})
+
+	for key, elem := range config {
+		datas[key] = make(map[string]interface{})
+		datas[key]["value"] = elem
+	}
+	return datas
+}
+
 func (s *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 
 	run, ok := proto.Clone(record).(*service.RunRecord)
 	if !ok {
 		LogFatal(s.logger, "error")
 	}
+
+	config := s.parseConfigUpdate(record.Config)
+	s.updateConfigTelemetry(config)
+	valueConfig := s.getValueConfig(config)
+	configJson, err := json.Marshal(valueConfig)
+	if err != nil {
+		LogFatalError(s.logger, "marshal prob", err)
+	}
+	configString := string(configJson)
 
 	ctx := context.Background()
 	var tags []string
@@ -149,7 +213,7 @@ func (s *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 		nil,           // displayName
 		nil,           // notes
 		nil,           // commit
-		nil,           // config
+		&configString, // config
 		nil,           // host
 		nil,           // debug
 		nil,           // program
@@ -205,7 +269,7 @@ func (s *Sender) sendExit(msg *service.Record, _ *service.RunExitRecord) {
 func (s *Sender) sendFiles(msg *service.Record, filesRecord *service.FilesRecord) {
 	files := filesRecord.GetFiles()
 	for _, file := range files {
-		s.sendFile(msg, file)
+		s.sendFile(file.GetPath())
 	}
 }
 
@@ -233,14 +297,14 @@ func sendData(fileName, urlPath string, logger *slog.Logger) error {
 	return nil
 }
 
-func (s *Sender) sendFile(_ *service.Record, fileItem *service.FilesItem) {
+func (s *Sender) sendFile(path string) {
 
+	fullPath := filepath.Join(s.settings.FilesDir, path)
 	if s.run == nil {
 		LogFatal(s.logger, "upsert run not called before send db")
 	}
 
 	entity := s.run.Entity
-	path := fileItem.GetPath()
 	resp, err := RunUploadUrls(
 		context.Background(),
 		s.graphqlClient,
@@ -257,7 +321,7 @@ func (s *Sender) sendFile(_ *service.Record, fileItem *service.FilesItem) {
 	edges := resp.GetModel().GetBucket().GetFiles().GetEdges()
 	for _, e := range edges {
 		url := e.GetNode().GetUrl()
-		if err = sendData(path, *url, s.logger); err != nil {
+		if err = sendData(fullPath, *url, s.logger); err != nil {
 			LogError(s.logger, "error sending data", err)
 		}
 	}
