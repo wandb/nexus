@@ -74,6 +74,7 @@ jobs:
             cd /mnt/ramdisk
             git clone https://github.com/wandb/wandb.git
             cd wandb
+            git checkout settings-proto
             # install requirements
             pip install .
             pip install -r requirements_test.txt
