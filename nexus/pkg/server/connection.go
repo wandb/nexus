@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/wandb/wandb/nexus/pkg/auth"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	"net"
 	"strings"
 	"sync"
@@ -152,21 +153,20 @@ func handleConnection(ctx context.Context, cancel context.CancelFunc, swg *sync.
 
 func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 	slog.Debug("connection: handleInformInit: init")
-	s := msg.XSettingsMap
-	settings := NewSettings(s)
+	settings := msg.Settings
 
-	func(s *Settings) {
-		if s.ApiKey != "" {
+	func(s *service.Settings) {
+		if s.GetApiKey().GetValue() != "" {
 			return
 		}
-		host := strings.TrimPrefix(s.BaseURL, "https://")
+		host := strings.TrimPrefix(s.GetBaseUrl().GetValue(), "https://")
 		host = strings.TrimPrefix(host, "http://")
 
 		_, password, err := auth.GetNetrcLogin(host)
 		if err != nil {
 			LogFatal(slog.Default(), err.Error())
 		}
-		s.ApiKey = password
+		s.ApiKey = &wrapperspb.StringValue{Value: password}
 	}(settings)
 
 	slog.Debug("STREAM init")
