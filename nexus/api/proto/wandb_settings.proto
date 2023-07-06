@@ -2,21 +2,25 @@ syntax = "proto3";
 
 package wandb_internal;
 
-import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 
 message ListStringValue{
-  repeated string value = 1; 
+  repeated string value = 1;
 }
 
 message MapStringKeyStringValue{
   map<string, string> value = 1;
 }
 
-message Timestamp{
-  google.protobuf.Timestamp timestamp = 1;
-  string value = 2;
+message MapStringKeyMapStringKeyStringValue{
+  map<string, MapStringKeyStringValue> value = 1;
+}
 
+message OpenMetricsFilters{
+  oneof value {
+    ListStringValue sequence = 1;
+    MapStringKeyMapStringKeyStringValue mapping = 2;
+  }
 }
 
 message Settings {
@@ -24,25 +28,25 @@ message Settings {
   google.protobuf.BoolValue _aws_lambda = 2;
   google.protobuf.Int32Value _async_upload_concurrency_limit = 3;
   google.protobuf.BoolValue _cli_only_mode = 4;
-  // todo? store potentially nested config dict?
-  // map<google.protobuf.StringValue, google.protobuf.StringValue> = _config_dict = 5;
   google.protobuf.BoolValue _colab = 5;
   google.protobuf.StringValue _cuda = 6;
   google.protobuf.BoolValue _disable_meta = 7;
   google.protobuf.BoolValue _disable_service = 8;
-  google.protobuf.BoolValue _disable_stats = 9;
-  google.protobuf.BoolValue _disable_viewer = 10;
-  google.protobuf.BoolValue _except_exit = 11;
-  google.protobuf.StringValue _executable = 12;
-  MapStringKeyStringValue _extra_http_headers = 13;
-  google.protobuf.BoolValue _flow_control_custom = 14;
-  google.protobuf.BoolValue _flow_control_disabled = 15;
-  google.protobuf.DoubleValue _internal_check_process = 16;
-  google.protobuf.DoubleValue _internal_queue_timeout = 17;
-  google.protobuf.BoolValue _ipython = 18;
-  google.protobuf.BoolValue _jupyter = 19;
-  google.protobuf.StringValue _jupyter_name = 20;
-  google.protobuf.StringValue _jupyter_path = 21;
+  google.protobuf.BoolValue _disable_setproctitle = 9;
+  google.protobuf.BoolValue _disable_stats = 10;
+  google.protobuf.BoolValue _disable_viewer = 11;
+  google.protobuf.BoolValue _except_exit = 12;
+  google.protobuf.StringValue _executable = 13;
+  MapStringKeyStringValue _extra_http_headers = 14;
+  google.protobuf.DoubleValue _file_stream_timeout_seconds = 15;
+  google.protobuf.BoolValue _flow_control_custom = 16;
+  google.protobuf.BoolValue _flow_control_disabled = 17;
+  google.protobuf.DoubleValue _internal_check_process = 18;
+  google.protobuf.DoubleValue _internal_queue_timeout = 19;
+  google.protobuf.BoolValue _ipython = 20;
+  google.protobuf.BoolValue _jupyter = 21;
+  google.protobuf.StringValue _jupyter_name = 143;
+  google.protobuf.StringValue _jupyter_path = 144;
   google.protobuf.StringValue _jupyter_root = 22;
   google.protobuf.BoolValue _kaggle = 23;
   google.protobuf.Int32Value _live_policy_rate_limit = 24;
@@ -61,7 +65,7 @@ message Settings {
   google.protobuf.BoolValue _save_requirements = 37;
   google.protobuf.StringValue _service_transport = 38;
   google.protobuf.DoubleValue _service_wait = 39;
-  Timestamp _start_datetime = 40;
+  google.protobuf.StringValue _start_datetime = 40;
   google.protobuf.DoubleValue _start_time = 41;
   google.protobuf.Int32Value _stats_pid = 42;
   google.protobuf.DoubleValue _stats_sample_rate_seconds = 43;
@@ -69,9 +73,7 @@ message Settings {
   google.protobuf.BoolValue _stats_join_assets = 45;
   google.protobuf.StringValue _stats_neuron_monitor_config_path = 46;
   MapStringKeyStringValue _stats_open_metrics_endpoints = 47;
-  // _stats_open_metrics_filters representation needs further refinement
-  //oneof repeated google.protobuf.StringValue | map<string, map<google.protobuf.StringValue, google.protobuf.StringValue>> _stats_open_metrics_filters = 48;
-  ListStringValue _stats_open_metrics_filters = 48;
+  OpenMetricsFilters _stats_open_metrics_filters = 48;
   google.protobuf.StringValue _tmp_code_dir = 49;
   google.protobuf.StringValue _tracelog = 50;
   ListStringValue _unsaved_keys = 51;
@@ -114,7 +116,6 @@ message Settings {
   google.protobuf.StringValue log_symlink_user = 88;
   google.protobuf.StringValue log_user = 89;
   google.protobuf.DoubleValue login_timeout = 90;
-  google.protobuf.StringValue magic = 91;
   google.protobuf.StringValue mode = 92;
   google.protobuf.StringValue notebook_name = 93;
   google.protobuf.StringValue problem = 94;
@@ -166,6 +167,7 @@ message Settings {
   google.protobuf.StringValue tmp_dir = 140;
   google.protobuf.StringValue username = 141;
   google.protobuf.StringValue wandb_dir = 142;
+
   // todo?
   //  map<google.protobuf.StringValue, google.protobuf.Int32Value> _sources = 500;
 }
