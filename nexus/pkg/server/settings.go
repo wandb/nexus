@@ -15,15 +15,29 @@ type Settings struct {
 	SyncFile    string
 	NoWrite     bool
 	LogInternal string
+	FilesDir    string
+	XPython     string
+	XOs         string
+	XCuda       string
+	// XArgs       []string
+	Host    string
+	Program string
 }
 
-func NewSettings(s map[string]*service.SettingsValue) *Settings {
+func NewSettings(s *service.Settings) *Settings {
 	settings := Settings{
-		BaseURL:     s["base_url"].GetStringValue(),
-		ApiKey:      s["api_key"].GetStringValue(),
-		Offline:     s["offline"].GetBoolValue(),
-		SyncFile:    s["sync_file"].GetStringValue(),
-		LogInternal: s["log_internal"].GetStringValue(),
+		BaseURL:     s.GetBaseUrl().GetValue(),
+		ApiKey:      s.GetApiKey().GetValue(),
+		Offline:     s.GetXOffline().GetValue(),
+		SyncFile:    s.GetSyncFile().GetValue(),
+		LogInternal: s.GetLogInternal().GetValue(),
+		FilesDir:    s.GetFilesDir().GetValue(),
+		XPython:     s.GetXPython().GetValue(),
+		XOs:         s.GetXOs().GetValue(),
+		XCuda:       s.GetXCuda().GetValue(),
+		// XArgs:       s["_args"].GetTupleValue(),
+		Host:    s.GetHost().GetValue(),
+		Program: s.GetProgram().GetValue(),
 	}
 
 	settings.parseNetrc()

@@ -12,7 +12,7 @@ import (
 )
 
 type Handler struct {
-	settings *Settings
+	settings *service.Settings
 	inChan   chan *service.Record
 	outChan  chan<- *service.Record
 
@@ -25,7 +25,7 @@ type Handler struct {
 	logger      *slog.Logger
 }
 
-func NewHandler(ctx context.Context, settings *Settings, logger *slog.Logger) *Handler {
+func NewHandler(ctx context.Context, settings *service.Settings, logger *slog.Logger) *Handler {
 	handler := Handler{
 		inChan:   make(chan *service.Record),
 		settings: settings,
@@ -149,6 +149,31 @@ func (h *Handler) sendRecord(rec *service.Record) {
 func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartRequest) {
 	var ok bool
 	run := req.Run
+
+	// Sending metadata as a request for now, eventually this should be turned into
+	// a record and stored in the transaction log
+	meta := service.Record{
+		RecordType: &service.Record_Request{
+			Request: &service.Request{RequestType: &service.Request_Metadata{
+				Metadata: &service.MetadataRequest{
+					Os:        h.settings.GetXOs().GetValue(),
+					Python:    h.settings.GetXPython().GetValue(),
+					Host:      h.settings.GetHost().GetValue(),
+					Cuda:      h.settings.GetXCuda().GetValue(),
+					Program:   h.settings.GetProgram().GetValue(),
+					StartedAt: run.StartTime}}}}}
+
+	h.sendRecord(&meta)
+
+	/*
+		files := service.Record{
+			RecordType: &service.Record_Files{Files: &service.FilesRecord{Files: []*service.FilesItem{
+				&service.FilesItem{Path: MetaFilename},
+			}}},
+		}
+		h.sendRecord(&files)
+	*/
+
 	h.startTime = float64(run.StartTime.AsTime().UnixMicro()) / 1e6
 	h.run, ok = proto.Clone(run).(*service.RunRecord)
 	if !ok {
