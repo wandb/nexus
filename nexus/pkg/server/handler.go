@@ -101,6 +101,8 @@ func (h *Handler) handleRequest(rec *service.Record) {
 	req := rec.GetRequest()
 	ref := req.ProtoReflect()
 	desc := ref.Descriptor()
+	fmt.Print("DESCRIPTOR: ", desc)
+	fmt.Print("DESCRIPTOR: ", desc.Oneofs().ByName("request_type"))
 	num := ref.WhichOneof(desc.Oneofs().ByName("request_type")).Number()
 	h.logger.Debug(fmt.Sprintf("PROCESS: REQUEST, type:%v", num))
 
