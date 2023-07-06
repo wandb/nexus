@@ -18,6 +18,8 @@ set -e
 BASE=$(dirname $(dirname $(readlink -f $0)))
 cd $BASE
 
+./scripts/update-dev-env.sh protoc-gen-go
+
 MOD=pkg/service/
 INC=api/proto/
 
