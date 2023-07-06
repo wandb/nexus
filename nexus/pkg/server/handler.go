@@ -12,6 +12,7 @@ import (
 )
 
 type Handler struct {
+	ctx      context.Context
 	settings *service.Settings
 	inChan   chan *service.Record
 	outChan  chan<- *service.Record
@@ -27,6 +28,7 @@ type Handler struct {
 
 func NewHandler(ctx context.Context, settings *service.Settings, logger *slog.Logger) *Handler {
 	handler := Handler{
+		ctx:      ctx,
 		inChan:   make(chan *service.Record),
 		settings: settings,
 		summary:  make(map[string]string),
@@ -48,6 +50,9 @@ func (h *Handler) close() {
 
 //gocyclo:ignore
 func (h *Handler) handleRecord(msg *service.Record) {
+	if h.settings.GetXOffline().GetValue() {
+		msg.Control.AlwaysSend = false
+	}
 	switch x := msg.RecordType.(type) {
 	case *service.Record_Alert:
 		// TODO: handle alert
@@ -101,8 +106,6 @@ func (h *Handler) handleRequest(rec *service.Record) {
 	req := rec.GetRequest()
 	ref := req.ProtoReflect()
 	desc := ref.Descriptor()
-	fmt.Print("DESCRIPTOR: ", desc)
-	fmt.Print("DESCRIPTOR: ", desc.Oneofs().ByName("request_type"))
 	num := ref.WhichOneof(desc.Oneofs().ByName("request_type")).Number()
 	h.logger.Debug(fmt.Sprintf("PROCESS: REQUEST, type:%v", num))
 
