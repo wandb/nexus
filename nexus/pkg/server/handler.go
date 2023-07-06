@@ -128,6 +128,7 @@ func (h *Handler) handleRequest(rec *service.Record) {
 	case *service.Request_ServerInfo:
 	case *service.Request_Shutdown:
 	case *service.Request_StopStatus:
+	case *service.Request_JobInfo:
 	default:
 		LogFatal(h.logger, fmt.Sprintf("handleRequest: unknown request type %T", x))
 	}
