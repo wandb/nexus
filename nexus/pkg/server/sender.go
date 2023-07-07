@@ -34,6 +34,7 @@ type Sender struct {
 	graphqlClient  graphql.Client
 	fileStream     *FileStream
 	// uploader       *Uploader
+	// todo: add watcher that would use https://pkg.go.dev/github.com/fsnotify/fsnotify
 	run    *service.RunRecord
 	logger *slog.Logger
 }
