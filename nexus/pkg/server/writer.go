@@ -70,7 +70,6 @@ func (w *Writer) writeRecord(rec *service.Record) {
 
 func (w *Writer) sendRecord(rec *service.Record) {
 	control := rec.GetControl()
-	fmt.Println("control", control, rec)
 	LogRecord(w.logger, "WRITER: sendRecord", rec)
 	if w.settings.GetXOffline().GetValue() && control != nil && !control.AlwaysSend {
 		return
