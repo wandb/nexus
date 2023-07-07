@@ -50,9 +50,6 @@ func (h *Handler) close() {
 
 //gocyclo:ignore
 func (h *Handler) handleRecord(msg *service.Record) {
-	if h.settings.GetXOffline().GetValue() {
-		msg.Control.AlwaysSend = false
-	}
 	switch x := msg.RecordType.(type) {
 	case *service.Record_Alert:
 		// TODO: handle alert
