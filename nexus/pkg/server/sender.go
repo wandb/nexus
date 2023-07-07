@@ -34,8 +34,8 @@ type Sender struct {
 	graphqlClient  graphql.Client
 	fileStream     *FileStream
 	//uploader       *Uploader
-	run            *service.RunRecord
-	logger         *slog.Logger
+	run    *service.RunRecord
+	logger *slog.Logger
 }
 
 // NewSender creates a new Sender instance
