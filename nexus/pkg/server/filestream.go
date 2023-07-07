@@ -35,24 +35,25 @@ func NewFileStream(path string, settings *service.Settings, logger *slog.Logger)
 		settings: settings,
 		logger:   logger,
 		inChan:   make(chan *service.Record)}
-
 	fs.wg.Add(1)
-	go func() {
-		defer fs.wg.Done()
-		fs.start()
-	}()
-
+	go fs.start()
 	return &fs
 }
 
 func (fs *FileStream) start() {
+	defer fs.wg.Done()
+
 	slog.Debug("FileStream: OPEN")
+
+	if fs.settings.GetXOffline().GetValue() {
+		return
+	}
 
 	fs.httpClient = newHttpClient(fs.settings.GetApiKey().GetValue())
 	for msg := range fs.inChan {
 		slog.Debug("FileStream *******")
 		LogRecord(fs.logger, "FileStream: got record", msg)
-		fs.streamRecord(msg) // todo: should this be a goroutine?
+		fs.streamRecord(msg)
 	}
 	slog.Debug("FileStream: finished")
 }
@@ -104,6 +105,9 @@ func (fs *FileStream) streamFinish() {
 }
 
 func (fs *FileStream) stream(rec *service.Record) {
+	if fs.settings.GetXOffline().GetValue() {
+		return
+	}
 	LogRecord(fs.logger, "+++++FileStream: stream", rec)
 	fs.inChan <- rec
 }
