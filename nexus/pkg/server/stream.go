@@ -20,10 +20,10 @@ type Stream struct {
 	dispatcher *Dispatcher
 	writer     *Writer
 	sender     *Sender
-	settings *service.Settings
-	logger   *slog.Logger
-	finished bool
-	done     chan struct{}
+	settings   *service.Settings
+	logger     *slog.Logger
+	finished   bool
+	done       chan struct{}
 }
 
 func NewStream(settings *service.Settings, streamId string) *Stream {
