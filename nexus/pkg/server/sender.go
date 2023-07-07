@@ -33,6 +33,7 @@ type Sender struct {
 	dispatcherChan dispatchChannel
 	graphqlClient  graphql.Client
 	fileStream     *FileStream
+	uploader       *Uploader
 	run            *service.RunRecord
 	logger         *slog.Logger
 }
