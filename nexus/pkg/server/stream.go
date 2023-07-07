@@ -20,8 +20,6 @@ type Stream struct {
 	dispatcher *Dispatcher
 	writer     *Writer
 	sender     *Sender
-	// sentry  *Sentry
-	// systemMonitor *SystemMonitor
 	settings *service.Settings
 	logger   *slog.Logger
 	finished bool
