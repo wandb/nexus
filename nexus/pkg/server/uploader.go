@@ -2,11 +2,12 @@ package server
 
 import (
 	"context"
-	"github.com/hashicorp/go-retryablehttp"
 	"net/http"
 	"net/url"
 	"os"
 	"time"
+
+	"github.com/hashicorp/go-retryablehttp"
 )
 
 type UploadTask struct {
