@@ -3,11 +3,10 @@ package server
 import (
 	"context"
 	"fmt"
+	"golang.org/x/exp/slog"
 	"net"
 	"os"
 	"sync"
-
-	"golang.org/x/exp/slog"
 )
 
 func writePortFile(portFile string, port int) {
@@ -37,27 +36,18 @@ func writePortFile(portFile string, port int) {
 	}
 }
 
-type NexusServer struct {
-	shutdownChan chan bool
-	shutdown     bool
-	listen       net.Listener
-}
-
-func tcpServer(portFile string) {
+func tcpServer(ctx context.Context, portFile string, shutdownChan chan bool) {
 	addr := "127.0.0.1:0"
 	listen, err := net.Listen("tcp", addr)
 	if err != nil {
 		LogError(slog.Default(), "cant listen", err)
 	}
 
-	server := NexusServer{shutdownChan: make(chan bool), listen: listen}
-
 	defer func() {
 		err := listen.Close()
 		if err != nil {
 			LogError(slog.Default(), "Error closing listener:", err)
 		}
-		close(server.shutdownChan)
 	}()
 
 	slog.Info(fmt.Sprintf("Server is running on: %v", addr))
@@ -66,48 +56,48 @@ func tcpServer(portFile string) {
 
 	writePortFile(portFile, port)
 
-	wg := sync.WaitGroup{}
+	slog.Info("Nexus server started")
 
 	// Run a separate goroutine to handle incoming connections
+	wg := &sync.WaitGroup{}
+	shutdown := false
 	go func() {
 		for {
 			conn, err := listen.Accept()
 			if err != nil {
-				if server.shutdown {
-					break // Break when shutdown has been requested
+				if shutdown {
+					slog.Debug("Server is shutting down")
+					break
 				}
 				LogError(slog.Default(), "Failed to accept conn.", err)
 				continue
 			}
-
-			ctx, cancel := context.WithCancel(context.Background())
-
+			slog.Info("Accepted connection")
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				handleConnection(ctx, cancel, conn, server.shutdownChan)
+				handleConnection(ctx, conn, shutdownChan)
 			}()
+			slog.Debug("handleConnection: DONE")
 		}
 	}()
 
-	// Wait for a shutdown signal
-	<-server.shutdownChan
-	server.shutdown = true
-	slog.Debug("Shutting down server...")
+	shutdown = <-shutdownChan
+	slog.Debug("tcpServer: waiting for connections to finish")
 	wg.Wait()
-	slog.Debug("Server shutdown complete")
+	slog.Info("Nexus server stopped")
 }
 
-func handleConnection(ctx context.Context, cancel context.CancelFunc, conn net.Conn, shutdownChan chan<- bool) {
-	connection := NewConnection(ctx, cancel, conn, shutdownChan)
+func handleConnection(ctx context.Context, conn net.Conn, shutdownChan chan<- bool) {
+	connection := NewConnection(ctx, conn, shutdownChan)
 	slog.Debug("handleConnection: NewConnection")
-
-	defer connection.close()
-
 	connection.start()
 	slog.Debug("handleConnection: DONE")
 }
 
 func WandbService(portFilename string) {
-	tcpServer(portFilename)
+	shutdownChan := make(chan bool)
+	defer close(shutdownChan)
+	ctx := context.Background()
+	tcpServer(ctx, portFilename, shutdownChan)
 }

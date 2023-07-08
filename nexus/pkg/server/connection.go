@@ -22,25 +22,26 @@ type Connection struct {
 	conn   net.Conn
 	id     string
 
-	shutdownChan chan<- bool
 	requestChan  chan *service.ServerRequest
 	respondChan  chan *service.ServerResponse
+	shutdownChan chan<- bool
 }
 
 func NewConnection(
 	ctx context.Context,
-	cancel context.CancelFunc,
 	conn net.Conn,
 	shutdownChan chan<- bool,
 ) *Connection {
+	ctx, cancel := context.WithCancel(ctx)
+
 	return &Connection{
 		ctx:          ctx,
 		cancel:       cancel,
 		conn:         conn,
 		id:           conn.RemoteAddr().String(), // check if this is properly unique
-		shutdownChan: shutdownChan,
 		requestChan:  make(chan *service.ServerRequest),
 		respondChan:  make(chan *service.ServerResponse),
+		shutdownChan: shutdownChan,
 	}
 }
 
@@ -120,11 +121,12 @@ func (nc *Connection) close() {
 		LogError(slog.Default(), "problem closing connection", err)
 	}
 	slog.Debug("connection: close")
-	//
-	//close(nc.respondChan)
+	close(nc.respondChan)
 }
 
 func (nc *Connection) start() {
+	defer nc.close()
+
 	wg := sync.WaitGroup{}
 	wg.Add(3)
 
@@ -142,6 +144,7 @@ func (nc *Connection) start() {
 		nc.transmit()
 	}()
 	wg.Wait()
+	slog.Debug("connection: start: finished")
 }
 
 func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
@@ -211,12 +214,12 @@ func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest)
 
 func (nc *Connection) handleInformTeardown(_ *service.ServerInformTeardownRequest) {
 	slog.Debug("handleInformTeardown: teardown")
+	nc.shutdownChan <- true
+	slog.Debug("handleInformTeardown: shutdownChan sent")
 	streamMux.Close()
 	slog.Debug("handleInformTeardown: streamMux closed")
 	nc.cancel()
 	slog.Debug("handleInformTeardown: context canceled")
-	nc.shutdownChan <- true
-	slog.Debug("handleInformTeardown: shutdownChan signaled")
 }
 
 func (nc *Connection) handleMessage(msg *service.ServerRequest) {

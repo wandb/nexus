@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-
 	"github.com/wandb/wandb/nexus/pkg/server"
 	"golang.org/x/exp/slog"
 )
@@ -30,5 +29,6 @@ func main() {
 		slog.Bool("serveSock", *serveSock),
 		slog.Bool("serveGrpc", *serveGrpc))
 
+	slog.Info("starting server")
 	server.WandbService(*portFilename)
 }
