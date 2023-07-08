@@ -91,24 +91,19 @@ func (s *Server) serve(ctx context.Context) {
 	}
 }
 
-func (s *Server) close() {
+func (s *Server) Close() {
 	<-s.shutdownChan
 	s.shutdown = true
 	err := s.listener.Close()
 	if err != nil {
-		slog.Error("Failed to close listener", err)
+		slog.Error("Failed to Close listener", err)
 	}
 	s.wg.Wait()
 }
 
 func handleConnection(ctx context.Context, conn net.Conn, shutdownChan chan struct{}) {
-	connection := NewConnection(ctx, conn, shutdownChan)
 	slog.Debug("handleConnection: NewConnection")
-	connection.start()
+	connection := NewConnection(ctx, conn, shutdownChan)
+	connection.Close()
 	slog.Debug("handleConnection: done	")
-}
-
-func WandbService(portFilename string) {
-	server := NewServer("127.0.0.1:0", portFilename)
-	server.close()
 }

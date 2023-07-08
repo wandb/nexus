@@ -115,7 +115,7 @@ func (s *Stream) GetRun() *service.RunRecord {
 
 // Close closes the stream's handler, writer, sender, and dispatcher.
 // We first mark the Stream's context as done, which signals to the
-// components that they should close. Each of the components will
+// components that they should Close. Each of the components will
 // call Done() on the Stream's wait group when they are finished closing.
 
 func (s *Stream) Close() {

@@ -30,5 +30,8 @@ func main() {
 		slog.Bool("serveGrpc", *serveGrpc))
 
 	slog.Info("starting server")
-	server.WandbService(*portFilename)
+
+	nexus := server.NewServer("127.0.0.1:0", *portFilename)
+	nexus.Close()
+	slog.Debug("server: done")
 }

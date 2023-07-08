@@ -58,7 +58,7 @@ func (u *Uploader) addTask(task *UploadTask) {
 }
 
 func (u *Uploader) close() {
-	u.logger.Debug("uploader: close")
+	u.logger.Debug("uploader: Close")
 	close(u.inChan)
 	u.wg.Wait()
 }
