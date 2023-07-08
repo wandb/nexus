@@ -118,9 +118,7 @@ func (s *Stream) GetRun() *service.RunRecord {
 // components that they should close. Each of the components will
 // call Done() on the Stream's wait group when they are finished closing.
 
-func (s *Stream) Close(wg *sync.WaitGroup) {
-	defer wg.Done()
-
+func (s *Stream) Close() {
 	// todo: is this the best way to handle this?
 	if s.IsFinished() {
 		return

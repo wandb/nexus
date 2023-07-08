@@ -54,7 +54,11 @@ func (sm *StreamMux) Close() {
 	wg := sync.WaitGroup{}
 	for _, stream := range sm.mux {
 		wg.Add(1)
-		go stream.Close(&wg) // test this
+		go func(stream *Stream) {
+			defer wg.Done()
+			stream.Close() // test this
+		}(stream)
+
 	}
 	wg.Wait()
 }

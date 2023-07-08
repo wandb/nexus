@@ -44,9 +44,7 @@ func NewConnection(
 	}
 }
 
-func (nc *Connection) receive(wg *sync.WaitGroup) {
-	defer wg.Done()
-
+func (nc *Connection) receive() {
 	scanner := bufio.NewScanner(nc.conn)
 	tokenizer := Tokenizer{}
 	scanner.Split(tokenizer.split)
@@ -54,6 +52,7 @@ func (nc *Connection) receive(wg *sync.WaitGroup) {
 	// Run Scanner in a separate goroutine to listen for incoming messages
 	go func() {
 		for scanner.Scan() {
+
 			msg := &service.ServerRequest{}
 			err := proto.Unmarshal(scanner.Bytes(), msg)
 			if err != nil {
@@ -65,18 +64,15 @@ func (nc *Connection) receive(wg *sync.WaitGroup) {
 			}
 			nc.requestChan <- msg
 		}
-		nc.cancel()
 	}()
 
-	// wait for context to be canceled
 	<-nc.ctx.Done()
-
-	slog.Debug("receive: Context canceled")
+	slog.Debug("receive: finished")
+	close(nc.requestChan)
+	slog.Debug("receive: closed requestChan")
 }
 
-func (nc *Connection) transmit(wg *sync.WaitGroup) {
-	defer wg.Done()
-
+func (nc *Connection) transmit() {
 	go func() {
 		for msg := range nc.respondChan {
 			out, err := proto.Marshal(msg)
@@ -97,58 +93,55 @@ func (nc *Connection) transmit(wg *sync.WaitGroup) {
 			}
 
 			if err = writer.Flush(); err != nil {
-				LogError(slog.Default(), "Error flusing writer", err)
+				LogError(slog.Default(), "Error flushing writer", err)
 				return
 			}
 		}
 	}()
 
-	// wait for context to be canceled
 	<-nc.ctx.Done()
-	slog.Debug("transmit: Context canceled")
+	slog.Debug("transmit: finished")
 }
 
-func (nc *Connection) process(wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	for {
-		select {
-		case msg := <-nc.requestChan:
-			nc.handleMessage(msg)
-		case <-nc.ctx.Done():
-			slog.Debug("PROCESS: Context canceled")
-			return
-		}
+func (nc *Connection) process() {
+	for msg := range nc.requestChan {
+		nc.handleMessage(msg)
 	}
+	slog.Debug("process: finished")
 }
 
 func (nc *Connection) Respond(resp *service.ServerResponse) {
 	nc.respondChan <- resp
 }
 
-func handleConnection(ctx context.Context, cancel context.CancelFunc, swg *sync.WaitGroup, conn net.Conn, shutdownChan chan<- bool) {
-	connection := NewConnection(ctx, cancel, conn, shutdownChan)
+func (nc *Connection) close() {
+	err := nc.conn.Close()
+	if err != nil {
+		LogError(slog.Default(), "problem closing connection", err)
+	}
+	slog.Debug("connection: close")
+	//
+	//close(nc.respondChan)
+}
 
-	defer func() {
-		swg.Done()
-		err := connection.conn.Close()
-		if err != nil {
-			LogError(slog.Default(), "problem closing connection", err)
-		}
-		// close(connection.requestChan)
-		// close(connection.respondChan)
-	}()
-
+func (nc *Connection) start() {
 	wg := sync.WaitGroup{}
 	wg.Add(3)
 
-	go connection.receive(&wg)
-	go connection.process(&wg)
-	go connection.transmit(&wg)
+	go func() {
+		defer wg.Done()
+		nc.receive()
+	}()
+	go func() {
+		defer wg.Done()
+		nc.process()
+	}()
 
+	go func() {
+		defer wg.Done()
+		nc.transmit()
+	}()
 	wg.Wait()
-
-	slog.Debug("handleConnection: DONE")
 }
 
 func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {

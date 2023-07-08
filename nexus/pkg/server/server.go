@@ -83,18 +83,29 @@ func tcpServer(portFile string) {
 			ctx, cancel := context.WithCancel(context.Background())
 
 			wg.Add(1)
-			go handleConnection(ctx, cancel, &wg, conn, server.shutdownChan)
+			go func() {
+				defer wg.Done()
+				handleConnection(ctx, cancel, conn, server.shutdownChan)
+			}()
 		}
 	}()
 
 	// Wait for a shutdown signal
 	<-server.shutdownChan
 	server.shutdown = true
-	slog.Debug("shutting down...")
-
-	slog.Debug("What goes on here in my mind...")
+	slog.Debug("Shutting down server...")
 	wg.Wait()
-	slog.Debug("I think that I am falling down...")
+	slog.Debug("Server shutdown complete")
+}
+
+func handleConnection(ctx context.Context, cancel context.CancelFunc, conn net.Conn, shutdownChan chan<- bool) {
+	connection := NewConnection(ctx, cancel, conn, shutdownChan)
+	slog.Debug("handleConnection: NewConnection")
+
+	defer connection.close()
+
+	connection.start()
+	slog.Debug("handleConnection: DONE")
 }
 
 func WandbService(portFilename string) {
