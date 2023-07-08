@@ -2,9 +2,10 @@ package server
 
 import (
 	"context"
+	"golang.org/x/exp/slog"
 	"net/http"
-	"net/url"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -12,16 +13,18 @@ import (
 
 type UploadTask struct {
 	path string
-	url  *url.URL
+	url  string
 }
 
 type Uploader struct {
 	ctx         context.Context
 	inChan      chan *UploadTask
 	retryClient *retryablehttp.Client
+	logger      *slog.Logger
+	wg          *sync.WaitGroup
 }
 
-func NewUploader(ctx context.Context) *Uploader {
+func NewUploader(ctx context.Context, logger *slog.Logger) *Uploader {
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = 10
 	retryClient.RetryWaitMin = 1 * time.Second
@@ -31,34 +34,54 @@ func NewUploader(ctx context.Context) *Uploader {
 		ctx:         ctx,
 		inChan:      make(chan *UploadTask),
 		retryClient: retryClient,
+		logger:      logger,
+		wg:          &sync.WaitGroup{},
 	}
+	uploader.wg.Add(1)
+	go uploader.start()
 	return uploader
 }
 
-func (u *Uploader) Do() {
+func (u *Uploader) start() {
+	defer u.wg.Done()
+
+	u.logger.Debug("uploader: start")
 	for task := range u.inChan {
-		go u.upload(task)
+		u.logger.Debug("uploader: got task", task)
+		u.upload(task)
 	}
 }
 
-func (u *Uploader) upload(task *UploadTask) {
+func (u *Uploader) addTask(task *UploadTask) {
+	u.logger.Debug("uploader: adding task, %v", task)
+	u.inChan <- task
+}
+
+func (u *Uploader) close() {
+	u.logger.Debug("uploader: close")
+	close(u.inChan)
+	u.wg.Wait()
+}
+
+func (u *Uploader) upload(task *UploadTask) error {
 	// read in the file at task.path:
 	file, err := os.ReadFile(task.path)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	req, err := retryablehttp.NewRequest(
 		http.MethodPut,
-		task.url.String(),
+		task.url,
 		file,
 	)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	_, err = u.retryClient.Do(req)
 	if err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }

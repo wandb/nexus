@@ -2,8 +2,7 @@ package server
 
 import (
 	"context"
-	"sync"
-
+	"fmt"
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"golang.org/x/exp/slog"
 )
@@ -17,6 +16,7 @@ type Writer struct {
 	logger   *slog.Logger
 }
 
+// NewWriter Creating a new writer.
 func NewWriter(ctx context.Context, settings *service.Settings, logger *slog.Logger) *Writer {
 
 	writer := &Writer{
@@ -29,20 +29,22 @@ func NewWriter(ctx context.Context, settings *service.Settings, logger *slog.Log
 	return writer
 }
 
+// Deliver Delivering messages to the writer.
 func (w *Writer) Deliver(msg *service.Record) {
 	w.inChan <- msg
 }
 
-func (w *Writer) start(wg *sync.WaitGroup) {
-	defer wg.Done()
+// start Starting the writer.
+func (w *Writer) start() {
 	for msg := range w.inChan {
 		LogRecord(w.logger, "write: got msg", msg)
 		w.writeRecord(msg)
 	}
 	w.close()
-	slog.Debug("writer: started and closed")
+	w.logger.Debug("writer: started and closed")
 }
 
+// close Closing the writer.
 func (w *Writer) close() {
 	close(w.outChan)
 	err := w.store.Close()
@@ -58,26 +60,23 @@ func (w *Writer) close() {
 func (w *Writer) writeRecord(rec *service.Record) {
 	switch rec.RecordType.(type) {
 	case *service.Record_Request:
+		w.logger.Debug(fmt.Sprintf("WRITER: request: %v\n", rec))
 		w.sendRecord(rec)
 	case nil:
-		slog.Error("nil record type")
+		w.logger.Error("nil record type")
 	default:
 		w.store.storeRecord(rec)
 		w.sendRecord(rec)
 	}
 }
 
+// sendRecord Sending messages to the sender.
 func (w *Writer) sendRecord(rec *service.Record) {
 	control := rec.GetControl()
 	LogRecord(w.logger, "WRITER: sendRecord", rec)
 	if w.settings.GetXOffline().GetValue() && control != nil && !control.AlwaysSend {
 		return
 	}
-	slog.Debug("WRITER: sendRecord: send")
+	w.logger.Debug("WRITER: sendRecord: send")
 	w.outChan <- rec
 }
-
-// func (w *Writer) Flush() {
-// 	log.Debug("WRITER: close")
-// 	close(w.inChan)
-// }

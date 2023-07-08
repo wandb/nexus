@@ -55,9 +55,7 @@ func NewStream(settings *service.Settings, streamId string) *Stream {
 		logger:     logger,
 		done:       make(chan struct{}),
 	}
-
 	return stream
-
 }
 
 func (s *Stream) AddResponder(responderId string, responder Responder) {
@@ -76,11 +74,17 @@ func (s *Stream) Start() {
 
 	// start the writer
 	wg.Add(1)
-	go s.writer.start(wg)
+	go func() {
+		defer wg.Done()
+		s.writer.start()
+	}()
 
 	// start the sender
 	wg.Add(1)
-	go s.sender.start(wg)
+	go func() {
+		defer wg.Done()
+		s.sender.start()
+	}()
 
 	// start the dispatcher
 	go s.dispatcher.start()
