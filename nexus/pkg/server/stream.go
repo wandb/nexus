@@ -16,6 +16,7 @@ import (
 // handles dispatching responses to the appropriate client responders.
 type Stream struct {
 	ctx        context.Context
+	cancel     context.CancelFunc
 	handler    *Handler
 	dispatcher *Dispatcher
 	writer     *Writer
@@ -23,11 +24,9 @@ type Stream struct {
 	settings   *service.Settings
 	logger     *slog.Logger
 	finished   bool
-	done       chan struct{}
 }
 
-func NewStream(settings *service.Settings, streamId string) *Stream {
-	ctx := context.Background()
+func NewStream(ctx context.Context, settings *service.Settings, streamId string) *Stream {
 	logFile := settings.GetLogInternal().GetValue()
 	logger := SetupStreamLogger(logFile, streamId)
 
@@ -45,21 +44,26 @@ func NewStream(settings *service.Settings, streamId string) *Stream {
 	handler.dispatcherChan = dispatcher
 	sender.dispatcherChan = dispatcher
 
+	ctx, cancel := context.WithCancel(ctx)
 	stream := &Stream{
 		ctx:        ctx,
+		cancel:     cancel,
 		dispatcher: dispatcher,
 		handler:    handler,
 		sender:     sender,
 		writer:     writer,
 		settings:   settings,
 		logger:     logger,
-		done:       make(chan struct{}),
 	}
 	return stream
 }
 
 func (s *Stream) AddResponder(responderId string, responder Responder) {
 	s.dispatcher.AddResponder(responderId, responder)
+}
+
+func (s *Stream) RemoveResponder(responderId string) {
+	s.dispatcher.RemoveResponder(responderId)
 }
 
 // Start starts the stream's handler, writer, sender, and dispatcher.
@@ -90,7 +94,7 @@ func (s *Stream) Start() {
 	go s.dispatcher.start()
 
 	wg.Wait()
-	s.done <- struct{}{}
+	s.cancel()
 }
 
 func (s *Stream) HandleRecord(rec *service.Record) {
@@ -127,7 +131,7 @@ func (s *Stream) Close() {
 	// send exit record to handler
 	record := &service.Record{RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{}}, Control: &service.Control{AlwaysSend: true}}
 	s.HandleRecord(record)
-	<-s.done
+	<-s.ctx.Done()
 
 	settings := s.GetSettings()
 	run := s.GetRun()

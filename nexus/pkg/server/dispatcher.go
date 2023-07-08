@@ -36,6 +36,18 @@ func (d *Dispatcher) AddResponder(responderId string, responder Responder) {
 	}
 }
 
+func (d *Dispatcher) RemoveResponder(responderId string) {
+	if _, ok := d.responders[responderId]; !ok {
+		slog.LogAttrs(
+			d.ctx,
+			slog.LevelError,
+			"Responder does not exist",
+			slog.String("responder", responderId))
+	} else {
+		delete(d.responders, responderId)
+	}
+}
+
 func (d *Dispatcher) Deliver(result *service.Result) {
 	d.inChan <- result
 }

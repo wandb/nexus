@@ -159,7 +159,7 @@ func (nc *Connection) handleServerRequest() {
 
 func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 	slog.Debug("connection: handleInformInit: init")
-	settings := msg.Settings
+	settings := msg.GetSettings()
 
 	func(s *service.Settings) {
 		if s.GetApiKey().GetValue() != "" {
@@ -173,12 +173,16 @@ func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 			LogFatal(slog.Default(), err.Error())
 		}
 		s.ApiKey = &wrapperspb.StringValue{Value: password}
-	}(settings)
+	}(settings) // TODO: this is a hack, we should not be modifying the settings
 
-	slog.Debug("STREAM init")
+	streamId := msg.GetXInfo().GetStreamId()
+	slog.Debug("connection: handleInformInit: init: streamId", slog.String("streamId", streamId))
 
-	streamId := msg.XInfo.StreamId
-	stream := streamMux.addStream(streamId, settings)
+	stream := NewStream(nc.ctx, settings, streamId)
+	if err := streamMux.addStream(streamId, stream); err != nil {
+		slog.Error("handleInformInit: stream already exists")
+		return
+	}
 	stream.AddResponder(nc.id, nc)
 	go stream.Start()
 }
@@ -189,7 +193,9 @@ func (nc *Connection) handleInformStart(_ *service.ServerInformStartRequest) {
 
 func (nc *Connection) handleInformRecord(msg *service.Record) {
 	streamId := msg.XInfo.StreamId
-	if stream, ok := streamMux.getStream(streamId); ok {
+	if stream, err := streamMux.getStream(streamId); err != nil {
+		slog.Error("handleInformRecord: stream not found")
+	} else {
 		ref := msg.ProtoReflect()
 		desc := ref.Descriptor()
 		num := ref.WhichOneof(desc.Oneofs().ByName("record_type")).Number()
@@ -207,18 +213,17 @@ func (nc *Connection) handleInformRecord(msg *service.Record) {
 		}
 		LogRecord(slog.Default(), "handleInformRecord", msg)
 		stream.HandleRecord(msg)
-	} else {
-		slog.Error("handleInformRecord: stream not found")
 	}
 }
 
 func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest) {
 	slog.Debug("handleInformFinish: finish")
 	streamId := msg.XInfo.StreamId
-	if stream, ok := streamMux.getStream(streamId); ok {
-		stream.MarkFinished()
+	if stream, err := streamMux.getStream(streamId); err != nil {
+		slog.Error("handleInformFinish:", err.Error())
 	} else {
-		slog.Error("handleInformFinish: stream not found")
+		stream.MarkFinished()
+		stream.RemoveResponder(nc.id)
 	}
 }
 
