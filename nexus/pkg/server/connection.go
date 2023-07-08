@@ -24,13 +24,13 @@ type Connection struct {
 
 	requestChan  chan *service.ServerRequest
 	respondChan  chan *service.ServerResponse
-	shutdownChan chan<- bool
+	shutdownChan chan struct{}
 }
 
 func NewConnection(
 	ctx context.Context,
 	conn net.Conn,
-	shutdownChan chan<- bool,
+	shutdownChan chan struct{},
 ) *Connection {
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -214,7 +214,7 @@ func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest)
 
 func (nc *Connection) handleInformTeardown(_ *service.ServerInformTeardownRequest) {
 	slog.Debug("handleInformTeardown: teardown")
-	nc.shutdownChan <- true
+	close(nc.shutdownChan)
 	slog.Debug("handleInformTeardown: shutdownChan sent")
 	streamMux.Close()
 	slog.Debug("handleInformTeardown: streamMux closed")
