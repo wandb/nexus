@@ -17,10 +17,18 @@ type UploadTask struct {
 	url  string
 }
 
+type fileCounts struct {
+	wandbCount    int
+	mediaCount    int
+	artifactCount int
+	otherCount    int
+}
+
 type Uploader struct {
 	ctx         context.Context
 	inChan      chan *UploadTask
 	retryClient *retryablehttp.Client
+	fileCounts  fileCounts
 	logger      *slog.Logger
 	wg          *sync.WaitGroup
 }

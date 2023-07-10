@@ -47,7 +47,7 @@ func NewSender(ctx context.Context, settings *service.Settings, logger *slog.Log
 	return sender
 }
 
-// do starts the sender
+// `do` starts the sender
 func (s *Sender) do() {
 	for msg := range s.inChan {
 		LogRecord(s.logger, "sender: got msg", msg)
