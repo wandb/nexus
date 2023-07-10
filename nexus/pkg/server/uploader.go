@@ -2,11 +2,12 @@ package server
 
 import (
 	"context"
-	"golang.org/x/exp/slog"
 	"net/http"
 	"os"
 	"sync"
 	"time"
+
+	"golang.org/x/exp/slog"
 
 	"github.com/hashicorp/go-retryablehttp"
 )
