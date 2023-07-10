@@ -49,7 +49,10 @@ func (u *Uploader) start() {
 	u.logger.Debug("uploader: start")
 	for task := range u.inChan {
 		u.logger.Debug("uploader: got task", task)
-		u.upload(task)
+		err := u.upload(task)
+		if err != nil {
+			u.logger.Error("uploader: failed to upload", err.Error())
+		}
 	}
 }
 
