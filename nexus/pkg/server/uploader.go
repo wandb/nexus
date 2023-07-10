@@ -18,10 +18,10 @@ type UploadTask struct {
 }
 
 type fileCounts struct {
-	wandbCount    int
-	mediaCount    int
-	artifactCount int
-	otherCount    int
+	// wandbCount    int
+	// mediaCount    int
+	// artifactCount int
+	// otherCount    int
 }
 
 type Uploader struct {
