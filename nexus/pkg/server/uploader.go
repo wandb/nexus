@@ -43,6 +43,7 @@ func NewUploader(ctx context.Context, logger *slog.Logger) *Uploader {
 		ctx:         ctx,
 		inChan:      make(chan *UploadTask),
 		retryClient: retryClient,
+		fileCounts:  fileCounts{},
 		logger:      logger,
 		wg:          &sync.WaitGroup{},
 	}

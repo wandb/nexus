@@ -10,10 +10,9 @@ import (
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/wandb/wandb/nexus/pkg/service"
+	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
-
-	"golang.org/x/exp/slog"
 )
 
 const CliVersion string = "0.0.1a1"
@@ -28,9 +27,9 @@ type Sender struct {
 	graphqlClient  graphql.Client
 	fileStream     *FileStream
 	uploader       *Uploader
-	// todo: add watcher that would use https://pkg.go.dev/github.com/fsnotify/fsnotify
-	run    *service.RunRecord
-	logger *slog.Logger
+	watcher        *Watcher
+	run            *service.RunRecord
+	logger         *slog.Logger
 }
 
 // NewSender creates a new Sender instance
@@ -41,9 +40,10 @@ func NewSender(ctx context.Context, settings *service.Settings, logger *slog.Log
 		inChan:   make(chan *service.Record),
 		logger:   logger,
 	}
-	sender.logger.Debug("Sender: do")
+	sender.logger.Debug("Sender: init")
 	url := fmt.Sprintf("%s/graphql", settings.GetBaseUrl().GetValue())
 	sender.graphqlClient = newGraphqlClient(url, settings.GetApiKey().GetValue())
+
 	return sender
 }
 
@@ -95,9 +95,10 @@ func (s *Sender) sendRunStart(_ *service.RunStartRequest) {
 	fsPath := fmt.Sprintf("%s/files/%s/%s/%s/file_stream",
 		s.settings.GetBaseUrl().GetValue(), s.run.Entity, s.run.Project, s.run.RunId)
 	s.fileStream = NewFileStream(fsPath, s.settings, s.logger)
-	s.logger.Debug("Sender: sendRunStart: do file stream")
+	s.logger.Debug("Sender: sendRunStart: started file stream")
 	s.uploader = NewUploader(s.ctx, s.logger)
-	s.logger.Debug("Sender: sendRunStart: do uploader")
+	s.logger.Debug("Sender: sendRunStart: started uploader")
+	s.watcher = NewWatcher(s.ctx, s.settings, s.logger)
 }
 
 func (s *Sender) sendNetworkStatusRequest(_ *service.NetworkStatusRequest) {
@@ -116,7 +117,9 @@ func (s *Sender) sendMetadata(req *service.MetadataRequest) {
 func (s *Sender) sendDefer(req *service.DeferRequest) {
 	switch req.State {
 	case service.DeferRequest_FLUSH_FP:
+		s.watcher.close()
 		s.uploader.close()
+		s.logger.Debug(fmt.Sprintf("Sender: sendDefer: flushed file pusher: %v", req.State))
 		req.State++
 		s.sendRequestDefer(req)
 	case service.DeferRequest_FLUSH_FS:
