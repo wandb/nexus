@@ -48,8 +48,8 @@ func NewSender(ctx context.Context, settings *service.Settings, logger *slog.Log
 	return sender
 }
 
-// send starts the sender
-func (s *Sender) send() error {
+// do starts the sender
+func (s *Sender) do() error {
 	s.logger.Debug("starting sender")
 	for msg := range s.inChan {
 		s.logger.Debug("sending record", slog.String("record", msg.String()))
@@ -245,7 +245,7 @@ func (s *Sender) sendHistory(msg *service.Record, _ *service.HistoryRecord) {
 }
 
 func (s *Sender) sendExit(msg *service.Record, _ *service.RunExitRecord) error {
-	// send exit via filestream
+	// do exit via filestream
 	s.fileStream.stream(msg)
 
 	result := &service.Result{
@@ -270,7 +270,7 @@ func (s *Sender) sendFiles(_ *service.Record, filesRecord *service.FilesRecord) 
 func (s *Sender) sendFile(path string) {
 
 	if s.run == nil {
-		err := errors.New("upsert run not called before send file")
+		err := errors.New("upsert run not called before do file")
 		s.logger.Error(err.Error())
 		panic(err)
 	}

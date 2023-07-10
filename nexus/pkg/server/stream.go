@@ -9,7 +9,7 @@ import (
 )
 
 // Stream is a collection of components that work together to handle incoming
-// data for a W&B run, store it locally, and send it to a W&B server.
+// data for a W&B run, store it locally, and do it to a W&B server.
 // Stream.handler receives incoming data from the client and dispatches it to
 // Stream.writer, which writes it to a local file. Stream.writer then sends the
 // data to Stream.sender, which sends it to the W&B server. Stream.dispatcher
@@ -72,18 +72,30 @@ func (s *Stream) Start() {
 	wg := &sync.WaitGroup{}
 
 	// start the handler
-	go s.handler.start()
+	go s.handler.do()
 
 	// start the writer
 	wg.Add(1)
-	go s.writer.start(wg)
+	go func() {
+		defer wg.Done()
+		err := s.writer.do()
+		if err != nil {
+			panic(err) // TODO: handle error
+		}
+	}()
 
 	// start the sender
 	wg.Add(1)
-	go s.sender.start(wg)
+	go func() {
+		defer wg.Done()
+		err := s.sender.do()
+		if err != nil {
+			panic(err) // TODO: handle error
+		}
+	}()
 
 	// start the dispatcher
-	go s.dispatcher.start()
+	go s.dispatcher.do()
 
 	wg.Wait()
 	s.done <- struct{}{}
@@ -122,7 +134,7 @@ func (s *Stream) Close(wg *sync.WaitGroup) {
 		return
 	}
 
-	// send exit record to handler
+	// do exit record to handler
 	record := &service.Record{RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{}}, Control: &service.Control{AlwaysSend: true}}
 	s.HandleRecord(record)
 	<-s.done

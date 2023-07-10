@@ -37,7 +37,7 @@ func NewHandler(ctx context.Context, settings *service.Settings, logger *slog.Lo
 	return &handler
 }
 
-func (h *Handler) start() {
+func (h *Handler) do() {
 	for msg := range h.inChan {
 		LogRecord(h.logger, "handle: got msg", msg)
 		h.handleRecord(msg)

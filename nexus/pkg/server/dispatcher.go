@@ -40,7 +40,7 @@ func (d *Dispatcher) Deliver(result *service.Result) {
 	d.inChan <- result
 }
 
-func (d *Dispatcher) start() {
+func (d *Dispatcher) do() {
 	// start the dispatcher
 	for msg := range d.inChan {
 		responderId := msg.Control.ConnectionId

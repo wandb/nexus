@@ -192,7 +192,7 @@ func (nc *Connection) handleInformRecord(msg *service.Record) {
 			"PROCESS: COMM/PUBLISH",
 			slog.Int("type", int(num)))
 		// add connection id to control message
-		// so that the stream can send back a response
+		// so that the stream can do back a response
 		// to the correct connection
 		if msg.Control != nil {
 			msg.Control.ConnectionId = nc.id
