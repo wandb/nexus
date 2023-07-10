@@ -2,10 +2,11 @@ package server
 
 import (
 	"context"
+	"sync"
+
 	"github.com/fsnotify/fsnotify"
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"golang.org/x/exp/slog"
-	"sync"
 )
 
 type Watcher struct {
@@ -30,7 +31,12 @@ func NewWatcher(ctx context.Context, settings *service.Settings, logger *slog.Lo
 		logger:   logger,
 		wg:       &sync.WaitGroup{},
 	}
+
 	w.Add(settings.GetRootDir().GetValue())
+
+	w.wg.Add(1)
+	go w.do()
+
 	return w
 }
 
@@ -70,6 +76,7 @@ func (w *Watcher) do() {
 }
 
 func (w *Watcher) close() {
+	w.wg.Wait()
 	err := w.watcher.Close()
 	if err != nil {
 		w.logger.Error("watcher: error closing watcher", err)
