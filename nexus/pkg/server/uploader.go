@@ -38,14 +38,14 @@ func NewUploader(ctx context.Context, logger *slog.Logger) *Uploader {
 		wg:          &sync.WaitGroup{},
 	}
 	uploader.wg.Add(1)
-	go uploader.start()
+	go uploader.do()
 	return uploader
 }
 
-func (u *Uploader) start() {
+func (u *Uploader) do() {
 	defer u.wg.Done()
 
-	u.logger.Debug("uploader: start")
+	u.logger.Debug("uploader: do")
 	for task := range u.inChan {
 		u.logger.Debug("uploader: got task", task)
 		u.upload(task)

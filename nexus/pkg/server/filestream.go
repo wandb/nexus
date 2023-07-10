@@ -50,14 +50,14 @@ func NewFileStream(path string, settings *service.Settings, logger *slog.Logger)
 		logger:   logger,
 		inChan:   make(chan *service.Record)}
 	fs.wg.Add(1)
-	go fs.start()
+	go fs.do()
 	return &fs
 }
 
-func (fs *FileStream) start() {
+func (fs *FileStream) do() {
 	defer fs.wg.Done()
 
-	fs.logger.Debug("FileStream: start")
+	fs.logger.Debug("FileStream: do")
 
 	if fs.settings.GetXOffline().GetValue() {
 		return

@@ -52,8 +52,8 @@ func (d *Dispatcher) Deliver(result *service.Result) {
 	d.inChan <- result
 }
 
-func (d *Dispatcher) start() {
-	// start the dispatcher
+func (d *Dispatcher) do() {
+	// do the dispatcher
 	for msg := range d.inChan {
 		responderId := msg.Control.ConnectionId
 		LogResult(d.logger, "dispatch: got msg", msg)

@@ -73,25 +73,25 @@ func (s *Stream) Start() {
 
 	wg := &sync.WaitGroup{}
 
-	// start the handler
-	go s.handler.start()
+	// do the handler
+	go s.handler.do()
 
-	// start the writer
+	// do the writer
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		s.writer.start()
+		s.writer.do()
 	}()
 
-	// start the sender
+	// do the sender
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		s.sender.start()
+		s.sender.do()
 	}()
 
-	// start the dispatcher
-	go s.dispatcher.start()
+	// do the dispatcher
+	go s.dispatcher.do()
 
 	wg.Wait()
 	s.cancel()

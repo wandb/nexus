@@ -34,8 +34,8 @@ func (w *Writer) Deliver(msg *service.Record) {
 	w.inChan <- msg
 }
 
-// start Starting the writer.
-func (w *Writer) start() {
+// do Starting the writer.
+func (w *Writer) do() {
 	for msg := range w.inChan {
 		LogRecord(w.logger, "write: got msg", msg)
 		w.writeRecord(msg)

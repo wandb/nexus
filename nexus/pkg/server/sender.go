@@ -40,14 +40,14 @@ func NewSender(ctx context.Context, settings *service.Settings, logger *slog.Log
 		inChan:   make(chan *service.Record),
 		logger:   logger,
 	}
-	sender.logger.Debug("Sender: start")
+	sender.logger.Debug("Sender: do")
 	url := fmt.Sprintf("%s/graphql", settings.GetBaseUrl().GetValue())
 	sender.graphqlClient = newGraphqlClient(url, settings.GetApiKey().GetValue())
 	return sender
 }
 
-// start starts the sender
-func (s *Sender) start() {
+// do starts the sender
+func (s *Sender) do() {
 	for msg := range s.inChan {
 		LogRecord(s.logger, "sender: got msg", msg)
 		s.sendRecord(msg)
@@ -94,9 +94,9 @@ func (s *Sender) sendRunStart(_ *service.RunStartRequest) {
 	fsPath := fmt.Sprintf("%s/files/%s/%s/%s/file_stream",
 		s.settings.GetBaseUrl().GetValue(), s.run.Entity, s.run.Project, s.run.RunId)
 	s.fileStream = NewFileStream(fsPath, s.settings, s.logger)
-	s.logger.Debug("Sender: sendRunStart: start file stream")
+	s.logger.Debug("Sender: sendRunStart: do file stream")
 	s.uploader = NewUploader(s.ctx, s.logger)
-	s.logger.Debug("Sender: sendRunStart: start uploader")
+	s.logger.Debug("Sender: sendRunStart: do uploader")
 }
 
 func (s *Sender) sendNetworkStatusRequest(_ *service.NetworkStatusRequest) {

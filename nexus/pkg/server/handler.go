@@ -37,7 +37,7 @@ func NewHandler(ctx context.Context, settings *service.Settings, logger *slog.Lo
 	return &handler
 }
 
-func (h *Handler) start() {
+func (h *Handler) do() {
 	for msg := range h.inChan {
 		LogRecord(h.logger, "handle: got msg", msg)
 		h.handleRecord(msg)
@@ -122,7 +122,7 @@ func (h *Handler) handleRequest(rec *service.Record) {
 		return
 	case *service.Request_PollExit:
 	case *service.Request_RunStart:
-		LogRecord(h.logger, "PROCESS: got start", rec)
+		LogRecord(h.logger, "PROCESS: got do", rec)
 		h.handleRunStart(rec, x.RunStart)
 	case *service.Request_SampledHistory:
 	case *service.Request_ServerInfo:
