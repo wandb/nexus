@@ -2,11 +2,12 @@ package server
 
 import (
 	"context"
-	"golang.org/x/exp/slog"
 	"net/http"
 	"os"
 	"sync"
 	"time"
+
+	"golang.org/x/exp/slog"
 
 	"github.com/hashicorp/go-retryablehttp"
 )
@@ -48,7 +49,10 @@ func (u *Uploader) do() {
 	u.logger.Debug("uploader: do")
 	for task := range u.inChan {
 		u.logger.Debug("uploader: got task", task)
-		u.upload(task)
+		err := u.upload(task)
+		if err != nil {
+			u.logger.Error("uploader: error uploading", err)
+		}
 	}
 }
 
