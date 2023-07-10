@@ -63,7 +63,7 @@ func (w *Watcher) do() {
 			w.logger.Debug("watcher: event", event)
 			if event.Op&fsnotify.Write == fsnotify.Write {
 				w.logger.Debug("watcher: modified file:", event.Name)
-				//w.outChan <- &...
+				// w.outChan <- &...
 			}
 		case err, ok := <-w.watcher.Errors:
 			if !ok {
