@@ -18,7 +18,7 @@ type Watcher struct {
 	wg       *sync.WaitGroup
 }
 
-func NewWatcher(ctx context.Context, settings *service.Settings, logger *slog.Logger) *Watcher {
+func NewWatcher(ctx context.Context, settings *service.Settings, logger *slog.Logger, outChan chan<- *service.Record) *Watcher {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		panic(err)
@@ -26,13 +26,14 @@ func NewWatcher(ctx context.Context, settings *service.Settings, logger *slog.Lo
 	w := &Watcher{
 		ctx:      ctx,
 		watcher:  watcher,
-		outChan:  make(chan *service.Record),
+		outChan:  outChan,
 		settings: settings,
 		logger:   logger,
 		wg:       &sync.WaitGroup{},
 	}
 
-	w.Add(settings.GetRootDir().GetValue())
+	w.Add(settings.GetSyncDir().GetValue())
+	w.logger.Debug("watcher: added wandb dir", "sync_dir", settings.GetSyncDir().GetValue())
 
 	w.wg.Add(1)
 	go w.do()
@@ -60,9 +61,9 @@ func (w *Watcher) do() {
 				w.logger.Debug("watcher: events channel closed")
 				return
 			}
-			w.logger.Debug("watcher: event", event)
+			w.logger.Debug("watcher: event", "event", event)
 			if event.Op&fsnotify.Write == fsnotify.Write {
-				w.logger.Debug("watcher: modified file:", event.Name)
+				w.logger.Debug("watcher: modified file:", "file", event.Name)
 				// w.outChan <- &...
 			}
 		case err, ok := <-w.watcher.Errors:

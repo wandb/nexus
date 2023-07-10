@@ -98,7 +98,8 @@ func (s *Sender) sendRunStart(_ *service.RunStartRequest) {
 	s.logger.Debug("Sender: sendRunStart: started file stream")
 	s.uploader = NewUploader(s.ctx, s.logger)
 	s.logger.Debug("Sender: sendRunStart: started uploader")
-	s.watcher = NewWatcher(s.ctx, s.settings, s.logger)
+	s.watcher = NewWatcher(s.ctx, s.settings, s.logger, s.inChan)
+	s.logger.Debug("Sender: sendRunStart: started watcher")
 }
 
 func (s *Sender) sendNetworkStatusRequest(_ *service.NetworkStatusRequest) {
