@@ -21,9 +21,9 @@ type Connection struct {
 	wg   sync.WaitGroup
 	id   string
 
-	requestChan chan *service.ServerRequest
-	respondChan chan *service.ServerResponse
-	teardown    chan struct{}
+	inChan   chan *service.ServerRequest
+	outChan  chan *service.ServerResponse
+	teardown chan struct{}
 }
 
 func NewConnection(
@@ -33,13 +33,13 @@ func NewConnection(
 ) *Connection {
 
 	nc := &Connection{
-		ctx:         ctx,
-		wg:          sync.WaitGroup{},
-		conn:        conn,
-		id:          conn.RemoteAddr().String(), // check if this is properly unique
-		requestChan: make(chan *service.ServerRequest),
-		respondChan: make(chan *service.ServerResponse),
-		teardown:    teardown, //TODO: eventually remove this, we should be able to handle shutdown outside of the connection
+		ctx:      ctx,
+		wg:       sync.WaitGroup{},
+		conn:     conn,
+		id:       conn.RemoteAddr().String(), // check if this is properly unique
+		inChan:   make(chan *service.ServerRequest),
+		outChan:  make(chan *service.ServerResponse),
+		teardown: teardown, //TODO: eventually remove this, we should be able to handle shutdown outside of the connection
 	}
 	nc.wg.Add(1)
 	go nc.handle()
@@ -68,17 +68,17 @@ func (nc *Connection) Close() {
 	if err := nc.conn.Close(); err != nil {
 		slog.Error("error closing connection", "err", err.Error(), "id", nc.id)
 	}
-	slog.Debug("handleInformTeardown: teardown closed")
 	nc.wg.Wait()
+	slog.Debug("handleInformTeardown: teardown closed")
 }
 
 func (nc *Connection) Respond(resp *service.ServerResponse) {
-	nc.respondChan <- resp
+	nc.outChan <- resp
 }
 
 func (nc *Connection) handleServerResponse() {
 	slog.Debug("starting handleServerResponse", "id", nc.id)
-	for msg := range nc.respondChan {
+	for msg := range nc.outChan {
 		out, err := proto.Marshal(msg)
 		if err != nil {
 			LogError(slog.Default(), "error marshalling msg", err)
@@ -105,9 +105,9 @@ func (nc *Connection) handleServerResponse() {
 }
 
 func (nc *Connection) handleServerRequest() {
-	defer close(nc.respondChan)
+	defer close(nc.outChan)
 	slog.Debug("starting handleServerRequest", "id", nc.id)
-	for msg := range nc.requestChan {
+	for msg := range nc.inChan {
 		slog.Debug("handling server request", "id", nc.id, "msg", msg.String())
 		switch x := msg.ServerRequestType.(type) {
 		case *service.ServerRequest_InformInit:
@@ -192,7 +192,7 @@ func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest)
 }
 
 func (nc *Connection) handleInformTeardown(_ *service.ServerInformTeardownRequest) {
-	slog.Debug("handleInformTeardown: teardown")
+	slog.Debug("handleInformTeardown: starting..", "id", nc.id)
 	close(nc.teardown)
 	streamMux.Close()
 	nc.Close()

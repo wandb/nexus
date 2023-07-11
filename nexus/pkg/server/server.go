@@ -88,7 +88,7 @@ func (s *Server) serve(ctx context.Context) {
 			slog.Info("accepted connection", "addr", conn.RemoteAddr())
 			s.wg.Add(1)
 			go func() {
-				handleConnection(ctx, conn, s.teardown)
+				s.handleConnection(ctx, conn)
 				s.wg.Done()
 			}()
 		}
@@ -105,23 +105,22 @@ func (s *Server) Close() {
 	slog.Debug("server closed")
 }
 
-func handleConnection(ctx context.Context, conn net.Conn, teardown chan struct{}) {
-	nexusConn := NewConnection(ctx, conn, teardown)
+func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
+	nexusConn := NewConnection(ctx, conn, s.teardown)
 
-	defer close(nexusConn.requestChan)
+	defer close(nexusConn.inChan)
 
 	scanner := bufio.NewScanner(conn)
 	tokenizer := &Tokenizer{}
 	scanner.Split(tokenizer.split)
 	for scanner.Scan() {
 		msg := &service.ServerRequest{}
-		err := proto.Unmarshal(scanner.Bytes(), msg)
-		if err != nil {
+		if err := proto.Unmarshal(scanner.Bytes(), msg); err != nil {
 			slog.Error(
 				"unmarshalling error",
 				slog.String("err", err.Error()))
 		} else {
-			nexusConn.requestChan <- msg
+			nexusConn.inChan <- msg
 		}
 	}
 }

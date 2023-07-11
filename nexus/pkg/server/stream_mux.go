@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"golang.org/x/exp/slog"
 	"sync"
 )
 
@@ -58,12 +59,12 @@ func (sm *StreamMux) Close() {
 	for _, stream := range sm.mux {
 		wg.Add(1)
 		go func(stream *Stream) {
-			defer wg.Done()
-			stream.Close() // test this
+			stream.Close()
+			wg.Done()
 		}(stream)
-
 	}
 	wg.Wait()
+	slog.Debug("all streams were closed")
 }
 
 // StreamMux is a singleton.
