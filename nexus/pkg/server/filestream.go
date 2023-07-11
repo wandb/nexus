@@ -19,6 +19,7 @@ const HistoryFileName = "wandb-history.jsonl"
 const maxItemsPerPush = 5_000
 const delayProcess = 20 * time.Millisecond
 const heartbeatTime = 2 * time.Second
+
 var exitcodeZero int = 0
 var completeTrue bool = true
 
@@ -204,9 +205,9 @@ type FsChunkData struct {
 }
 
 type FsData struct {
-	Files map[string]FsChunkData `json:"files,omitempty"`
-	Complete *bool `json:"complete,omitempty"`
-	Exitcode *int  `json:"exitcode,omitempty"`
+	Files    map[string]FsChunkData `json:"files,omitempty"`
+	Complete *bool                  `json:"complete,omitempty"`
+	Exitcode *int                   `json:"exitcode,omitempty"`
 }
 
 func (fs *FileStream) sendChunkList(chunks []chunkData) {
