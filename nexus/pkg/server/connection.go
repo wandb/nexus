@@ -150,13 +150,11 @@ func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 
 	streamId := msg.GetXInfo().GetStreamId()
 	slog.Debug("connection init received", slog.String("streamId", streamId))
-
 	stream := NewStream(nc.ctx, settings, streamId, ResponderEntry{nc, nc.id})
-	if err := streamMux.addStream(streamId, stream); err != nil {
+	if err := streamMux.AddStream(streamId, stream); err != nil {
 		slog.Error("handleInformInit: stream already exists", slog.String("streamId", streamId))
 		return
 	}
-	//stream.Start()
 }
 
 func (nc *Connection) handleInformStart(_ *service.ServerInformStartRequest) {
@@ -164,7 +162,7 @@ func (nc *Connection) handleInformStart(_ *service.ServerInformStartRequest) {
 
 func (nc *Connection) handleInformRecord(msg *service.Record) {
 	streamId := msg.XInfo.StreamId
-	if stream, err := streamMux.getStream(streamId); err != nil {
+	if stream, err := streamMux.GetStream(streamId); err != nil {
 		slog.Error("handleInformRecord: stream not found", slog.String("streamId", streamId))
 	} else {
 		// add connection id to control message
@@ -182,14 +180,16 @@ func (nc *Connection) handleInformRecord(msg *service.Record) {
 func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest) {
 	streamId := msg.XInfo.StreamId
 	slog.Debug("handleInformFinish", slog.String("streamId", streamId))
-	if err := streamMux.CloseStream(streamId, false); err != nil {
+	if stream, err := streamMux.RemoveStream(streamId); err != nil {
 		slog.Error("handleInformFinish:", "err", err.Error(), "streamId", streamId)
+	} else {
+		stream.Close(false)
 	}
 }
 
 func (nc *Connection) handleInformTeardown(_ *service.ServerInformTeardownRequest) {
 	slog.Debug("handleInformTeardown: starting..", "id", nc.id)
 	close(nc.teardown)
-	streamMux.Close(true)
+	streamMux.CloseAllStreams(true) // TODO: this seems wrong to close all streams from a single connection
 	nc.Close()
 }

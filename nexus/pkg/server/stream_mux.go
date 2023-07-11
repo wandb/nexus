@@ -21,8 +21,8 @@ func NewStreamMux() *StreamMux {
 	}
 }
 
-// addStream adds a stream to the mux if it doesn't already exist.
-func (sm *StreamMux) addStream(streamId string, stream *Stream) error {
+// AddStream adds a stream to the mux if it doesn't already exist.
+func (sm *StreamMux) AddStream(streamId string, stream *Stream) error {
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
 	if _, ok := sm.mux[streamId]; !ok {
@@ -33,7 +33,7 @@ func (sm *StreamMux) addStream(streamId string, stream *Stream) error {
 	}
 }
 
-func (sm *StreamMux) getStream(streamId string) (*Stream, error) {
+func (sm *StreamMux) GetStream(streamId string) (*Stream, error) {
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
 	if stream, ok := sm.mux[streamId]; !ok {
@@ -43,28 +43,20 @@ func (sm *StreamMux) getStream(streamId string) (*Stream, error) {
 	}
 }
 
-// todo: add this when we have a way to remove mux
-// func (sm *StreamMux) removeStream(streamId string) {
-//  	sm.mutex.Lock()
-//  	defer sm.mutex.Unlock()
-//  	delete(sm.mux, streamId)
-// }
-
-// CloseStream closes a stream in the mux.
-func (sm *StreamMux) CloseStream(streamId string, force bool) error {
-	sm.mutex.RLock()
-	defer sm.mutex.RUnlock()
+// RemoveStream removes a stream from the mux.
+func (sm *StreamMux) RemoveStream(streamId string) (*Stream, error) {
+	sm.mutex.Lock()
+	defer sm.mutex.Unlock()
 	if stream, ok := sm.mux[streamId]; !ok {
-		return fmt.Errorf("stream not found %s", streamId)
+		return nil, fmt.Errorf("stream not found %s", streamId)
 	} else {
-		stream.Close(force)
 		delete(sm.mux, streamId)
+		return stream, nil
 	}
-	return nil
 }
 
-// Close closes all streams in the mux.
-func (sm *StreamMux) Close(force bool) {
+// CloseAllStreams closes all streams in the mux.
+func (sm *StreamMux) CloseAllStreams(force bool) {
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
 
@@ -75,12 +67,10 @@ func (sm *StreamMux) Close(force bool) {
 			stream.Close(force)
 			wg.Done()
 		}(stream)
+		//delete all streams from mux
 		delete(sm.mux, streamId)
 	}
 	wg.Wait()
-
-	//delete all streams from mux
-
 	slog.Debug("all streams were closed")
 }
 
