@@ -5,11 +5,12 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"github.com/wandb/wandb/nexus/pkg/auth"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 	"net"
 	"strings"
 	"sync"
+
+	"github.com/wandb/wandb/nexus/pkg/auth"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"golang.org/x/exp/slog"

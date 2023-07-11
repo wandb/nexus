@@ -100,7 +100,10 @@ func (h apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(sc)
-	json.NewEncoder(w).Encode(m)
+	err = json.NewEncoder(w).Encode(m)
+	if err != nil {
+		panic(fmt.Sprintf("ERROR: %v", err))
+	}
 }
 
 type testServer struct {
