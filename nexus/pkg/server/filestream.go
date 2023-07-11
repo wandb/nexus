@@ -10,17 +10,37 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
 
 	"golang.org/x/exp/slog"
 )
 
-const historyFileName = "wandb-history.jsonl"
+const HistoryFileName = "wandb-history.jsonl"
+const maxItemsPerPush = 5_000
+const delayProcess = 20 * time.Millisecond
+const heartbeatTime = 2 * time.Second
+
+type chunkFile int8
+const (
+	historyChunk chunkFile = iota
+	outputChunk
+)
+
+type chunkLine struct {
+	chunkType chunkFile
+	line string
+}
 
 type FileStream struct {
-	wg     *sync.WaitGroup
-	inChan chan *service.Record
+	recordChan chan *service.Record
+	recordWait *sync.WaitGroup
+	chunkChan  chan chunkLine
+	chunkWait  *sync.WaitGroup
+	replyChan  chan map[string]interface{}
+	replyWait  *sync.WaitGroup
+
 	path   string
 
 	// FIXME this should be per db
@@ -28,37 +48,114 @@ type FileStream struct {
 
 	settings   *service.Settings
 	logger     *slog.Logger
-	httpClient http.Client
+	httpClient *http.Client
 }
 
 func NewFileStream(path string, settings *service.Settings, logger *slog.Logger) *FileStream {
+	httpClient := newHttpClient(settings.GetApiKey().GetValue())
 	fs := FileStream{
-		wg:       &sync.WaitGroup{},
 		path:     path,
 		settings: settings,
 		logger:   logger,
-		inChan:   make(chan *service.Record)}
-	fs.wg.Add(1)
-	go fs.start()
+		httpClient: &httpClient,
+		recordChan: make(chan *service.Record),
+		recordWait: &sync.WaitGroup{},
+		chunkChan:  make(chan chunkLine),
+		chunkWait:  &sync.WaitGroup{},
+		replyChan:  make(chan map[string]interface{}),
+		replyWait:  &sync.WaitGroup{},
+	}
 	return &fs
 }
 
-func (fs *FileStream) start() {
-	defer fs.wg.Done()
+func (fs *FileStream) Start() {
+	fs.recordWait.Add(1)
+	go fs.recordProcess()
+	fs.chunkWait.Add(1)
+	go fs.chunkProcess()
+	fs.replyWait.Add(1)
+	go fs.replyProcess()
+}
 
-	slog.Debug("FileStream: OPEN")
+func (fs *FileStream) pushRecord(rec *service.Record) {
+	fs.recordChan <- rec
+}
+
+func (fs *FileStream) pushChunk(chunk chunkLine) {
+	fs.chunkChan <- chunk
+}
+
+func (fs *FileStream) pushReply(reply map[string]interface{}) {
+	fs.replyChan <- reply
+}
+
+func (fs *FileStream) recordProcess() {
+	defer fs.recordWait.Done()
+
+	fs.logger.Debug("FileStream: OPEN")
 
 	if fs.settings.GetXOffline().GetValue() {
 		return
 	}
 
-	fs.httpClient = newHttpClient(fs.settings.GetApiKey().GetValue())
-	for msg := range fs.inChan {
-		slog.Debug("FileStream *******")
+	for msg := range fs.recordChan {
+		fs.logger.Debug("FileStream *******")
 		LogRecord(fs.logger, "FileStream: got record", msg)
 		fs.streamRecord(msg)
 	}
-	slog.Debug("FileStream: finished")
+	fs.logger.Debug("FileStream: finished")
+}
+
+func (fs *FileStream) chunkProcess() {
+	defer fs.chunkWait.Done()
+	overflow := false
+
+	for active := true; active; {
+		var chunkList []chunkLine
+		select {
+		case chunk, ok := <-fs.chunkChan:
+			if !ok {
+				active = false
+				break
+			}
+			chunkList = append(chunkList, chunk)
+
+			delayTime := delayProcess
+			if overflow {
+				delayTime = 0
+			}
+			delayChan := time.After(delayTime)
+			overflow = false
+
+			for ready := true; ready;{
+				select {
+				case chunk, ok := <-fs.chunkChan:
+					if !ok {
+						ready = false
+						active = false
+						break
+					}
+					chunkList = append(chunkList, chunk)
+					if len(chunkList) >= maxItemsPerPush {
+						ready = false
+						overflow = true
+					}
+				case <-delayChan:
+					ready = false
+				}
+			}
+			fs.sendChunkList(chunkList)
+		case <-time.After(heartbeatTime):
+			fmt.Println("timeout")
+			fs.sendChunkList(chunkList)
+		}
+	}
+}
+
+func (fs *FileStream) replyProcess() {
+	defer fs.replyWait.Done()
+	for _ = range fs.replyChan {
+	}
 }
 
 func (fs *FileStream) streamRecord(msg *service.Record) {
@@ -76,25 +173,7 @@ func (fs *FileStream) streamRecord(msg *service.Record) {
 }
 
 func (fs *FileStream) streamHistory(msg *service.HistoryRecord) {
-
-	type FsChunkData struct {
-		Offset  int      `json:"offset"`
-		Content []string `json:"content"`
-	}
-
-	type FsFilesData struct {
-		Files map[string]FsChunkData `json:"files"`
-	}
-
-	chunk := FsChunkData{
-		Offset:  fs.offset,
-		Content: []string{jsonify(msg, fs.logger)}}
-	fs.offset += 1
-	files := map[string]FsChunkData{
-		historyFileName: chunk,
-	}
-	data := FsFilesData{Files: files}
-	fs.send(data)
+	fs.pushChunk(chunkLine{chunkType: historyChunk, line: jsonifyHistory(msg, fs.logger)})
 }
 
 func (fs *FileStream) streamFinish() {
@@ -107,12 +186,39 @@ func (fs *FileStream) streamFinish() {
 	fs.send(data)
 }
 
-func (fs *FileStream) stream(rec *service.Record) {
+func (fs *FileStream) StreamRecord(rec *service.Record) {
 	if fs.settings.GetXOffline().GetValue() {
 		return
 	}
 	LogRecord(fs.logger, "+++++FileStream: stream", rec)
-	fs.inChan <- rec
+	fs.pushRecord(rec)
+}
+
+type FsChunkData struct {
+	Offset  int      `json:"offset"`
+	Content []string `json:"content"`
+}
+
+type FsFilesData struct {
+	Files map[string]FsChunkData `json:"files"`
+}
+
+func (fs *FileStream) sendChunkList(chunks []chunkLine) {
+	var lines []string
+	for i := range chunks {
+		lines = append(lines, chunks[i].line)
+	}
+
+	fsChunk := FsChunkData{
+		Offset:  fs.offset,
+		Content: lines}
+	fs.offset += len(lines)
+	chunkFileName := HistoryFileName
+	files := map[string]FsChunkData{
+		chunkFileName: fsChunk,
+	}
+	data := FsFilesData{Files: files}
+	fs.send(data)
 }
 
 func (fs *FileStream) send(data interface{}) {
@@ -143,10 +249,15 @@ func (fs *FileStream) send(data interface{}) {
 	if err != nil {
 		LogError(fs.logger, "json decode error", err)
 	}
-	slog.Debug(fmt.Sprintf("FileStream: post response: %v", res))
+	fs.pushReply(res)
+
+	/*
+	{"time":"2023-07-07T00:54:18.788638-04:00","level":"DEBUG","msg":"FileStream: post response: map[exitcode:0 limits:map[code_saving_enabled:true gpu_enabled:1.560566754e+09 hub_settings:map[disk:20Gi docker_enabled:false expiration:2.592e+06 image:<nil> redis_enabled:false repo:wandb/simpsons] name:default private_projects:false rate_limit:400/s restricted:false sweeps_enabled:false system_metrics:2/m teams_enabled:false]]"}
+	*/
+	fs.logger.Debug(fmt.Sprintf("FileStream: post response: %v", res))
 }
 
-func jsonify(msg *service.HistoryRecord, logger *slog.Logger) string {
+func jsonifyHistory(msg *service.HistoryRecord, logger *slog.Logger) string {
 	data := make(map[string]interface{})
 
 	for _, item := range msg.Item {
@@ -164,8 +275,12 @@ func jsonify(msg *service.HistoryRecord, logger *slog.Logger) string {
 	return string(jsonData)
 }
 
-func (fs *FileStream) close() {
-	slog.Debug("FileStream: CLOSE")
-	close(fs.inChan)
-	fs.wg.Wait()
+func (fs *FileStream) Close() {
+	fs.logger.Debug("FileStream: CLOSE")
+	close(fs.recordChan)
+	fs.recordWait.Wait()
+	close(fs.chunkChan)
+	fs.chunkWait.Wait()
+	close(fs.replyChan)
+	fs.replyWait.Wait()
 }
