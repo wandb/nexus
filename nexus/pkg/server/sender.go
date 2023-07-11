@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"encoding/json"
+
 	"github.com/Khan/genqlient/graphql"
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -118,7 +119,7 @@ func (s *Sender) sendMetadata(req *service.MetadataRequest) {
 func (s *Sender) sendDefer(req *service.DeferRequest) {
 	switch req.State {
 	case service.DeferRequest_FLUSH_FP:
-		//s.uploader.close()
+		s.uploader.close()
 		s.logger.Debug(fmt.Sprintf("Sender: sendDefer: flushed file pusher: %v", req.State))
 		req.State++
 		s.sendRequestDefer(req)
