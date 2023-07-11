@@ -20,6 +20,7 @@ const delayProcess = 20 * time.Millisecond
 const heartbeatTime = 2 * time.Second
 
 type chunkFile int8
+
 const (
 	historyChunk chunkFile = iota
 	outputChunk
@@ -27,7 +28,7 @@ const (
 
 type chunkLine struct {
 	chunkType chunkFile
-	line string
+	line      string
 }
 
 type FileStream struct {
@@ -38,7 +39,7 @@ type FileStream struct {
 	replyChan  chan map[string]interface{}
 	replyWait  *sync.WaitGroup
 
-	path   string
+	path string
 
 	// FIXME this should be per db
 	offset int
@@ -51,9 +52,9 @@ type FileStream struct {
 func NewFileStream(path string, settings *service.Settings, logger *slog.Logger) *FileStream {
 	httpClient := newHttpClient(settings.GetApiKey().GetValue())
 	fs := FileStream{
-		path:     path,
-		settings: settings,
-		logger:   logger,
+		path:       path,
+		settings:   settings,
+		logger:     logger,
 		httpClient: &httpClient,
 		recordChan: make(chan *service.Record),
 		recordWait: &sync.WaitGroup{},
@@ -124,7 +125,7 @@ func (fs *FileStream) chunkProcess() {
 			delayChan := time.After(delayTime)
 			overflow = false
 
-			for ready := true; ready;{
+			for ready := true; ready; {
 				select {
 				case chunk, ok := <-fs.chunkChan:
 					if !ok {
@@ -151,7 +152,7 @@ func (fs *FileStream) chunkProcess() {
 
 func (fs *FileStream) replyProcess() {
 	defer fs.replyWait.Done()
-	for _ = range fs.replyChan {
+	for range fs.replyChan {
 	}
 }
 
@@ -249,7 +250,7 @@ func (fs *FileStream) send(data interface{}) {
 	fs.pushReply(res)
 
 	/*
-	{"time":"2023-07-07T00:54:18.788638-04:00","level":"DEBUG","msg":"FileStream: post response: map[exitcode:0 limits:map[code_saving_enabled:true gpu_enabled:1.560566754e+09 hub_settings:map[disk:20Gi docker_enabled:false expiration:2.592e+06 image:<nil> redis_enabled:false repo:wandb/simpsons] name:default private_projects:false rate_limit:400/s restricted:false sweeps_enabled:false system_metrics:2/m teams_enabled:false]]"}
+		{"time":"2023-07-07T00:54:18.788638-04:00","level":"DEBUG","msg":"FileStream: post response: map[exitcode:0 limits:map[code_saving_enabled:true gpu_enabled:1.560566754e+09 hub_settings:map[disk:20Gi docker_enabled:false expiration:2.592e+06 image:<nil> redis_enabled:false repo:wandb/simpsons] name:default private_projects:false rate_limit:400/s restricted:false sweeps_enabled:false system_metrics:2/m teams_enabled:false]]"}
 	*/
 	fs.logger.Debug(fmt.Sprintf("FileStream: post response: %v", res))
 }

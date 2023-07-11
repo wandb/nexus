@@ -1,25 +1,29 @@
 package server_test
 
 import (
-	"github.com/wandb/wandb/nexus/pkg/server"
-    "fmt"
+	"fmt"
 	"time"
+
+	"github.com/wandb/wandb/nexus/pkg/server"
+
 	// "os"
-    "encoding/json"
+	"encoding/json"
 	// "strings"
-    "net/http"
-    "net/http/httptest"
-    "testing"
-    // "time"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	// "time"
+	"sync"
+
+	"github.com/stretchr/testify/assert"
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"golang.org/x/exp/slog"
-	"sync"
-	"github.com/stretchr/testify/assert"
 )
 
 type captureState struct {
 	lock sync.RWMutex
-	m map[string]interface{}
+	m    map[string]interface{}
 }
 
 func (hs *captureState) inc(s string) {
@@ -35,6 +39,7 @@ func (hs *captureState) inc(s string) {
 	hs.m[s] = data + 1
 }
 
+/*
 func (hs *captureState) get(s string) interface{} {
 	if hs.m == nil {
 		return nil
@@ -47,6 +52,7 @@ func (hs *captureState) get(s string) interface{} {
 	}
 	return v
 }
+*/
 
 func (hs *captureState) set(s string, n interface{}) {
 	if hs.m == nil {
@@ -62,13 +68,13 @@ type apiHandler struct {
 }
 
 func (h apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-    sc := http.StatusOK
-    m := make(map[string]interface{})
-    m["id"] = "mock"
-    m["name"] = "mock"
+	sc := http.StatusOK
+	m := make(map[string]interface{})
+	m["id"] = "mock"
+	m["name"] = "mock"
 
 	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
-    dec := json.NewDecoder(r.Body)
+	dec := json.NewDecoder(r.Body)
 	var msg server.FsFilesData
 	err := dec.Decode(&msg)
 	if err != nil {
@@ -76,14 +82,14 @@ func (h apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	/*
-	tm := time.Now()
-	tmOld, ok := h.get("time").(time.Time)
-	diff := time.Duration(0)
-	if ok {
-		diff = tm.Sub(tmOld)
-	}
-	fmt.Printf("GOT %v %v %v\n", tm, diff, msg)
-	h.set("time", tm)
+		tm := time.Now()
+		tmOld, ok := h.get("time").(time.Time)
+		diff := time.Duration(0)
+		if ok {
+			diff = tm.Sub(tmOld)
+		}
+		fmt.Printf("GOT %v %v %v\n", tm, diff, msg)
+		h.set("time", tm)
 	*/
 
 	f := msg.Files[server.HistoryFileName]
@@ -92,16 +98,16 @@ func (h apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.set("total", total)
 	h.inc("records")
 
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(sc)
-    json.NewEncoder(w).Encode(m)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(sc)
+	json.NewEncoder(w).Encode(m)
 }
 
 type testServer struct {
-	hserver *httptest.Server
+	hserver  *httptest.Server
 	settings service.Settings
-	logger *slog.Logger
-	mux *http.ServeMux
+	logger   *slog.Logger
+	mux      *http.ServeMux
 }
 
 func NewTestServer() *testServer {
@@ -119,10 +125,10 @@ func (ts *testServer) close() {
 }
 
 type filestreamTest struct {
-	fs *server.FileStream
+	fs      *server.FileStream
 	capture *captureState
-	path string
-	mux *http.ServeMux
+	path    string
+	mux     *http.ServeMux
 	tserver *testServer
 }
 
@@ -132,8 +138,8 @@ func NewFilestreamTest(tName string, fn func(fs *server.FileStream)) *filestream
 	capture := captureState{m: m}
 	fstreamPath := "/test/" + tName
 	tserver.mux.Handle(fstreamPath, apiHandler{&capture})
-	fs := server.NewFileStream(tserver.hserver.URL + fstreamPath, &tserver.settings, tserver.logger)
-	fsTest := filestreamTest{capture: &capture, path: fstreamPath, mux: tserver.mux, fs:fs, tserver:tserver}
+	fs := server.NewFileStream(tserver.hserver.URL+fstreamPath, &tserver.settings, tserver.logger)
+	fsTest := filestreamTest{capture: &capture, path: fstreamPath, mux: tserver.mux, fs: fs, tserver: tserver}
 	defer fsTest.finish()
 	fs.Start()
 	fn(fsTest.fs)
