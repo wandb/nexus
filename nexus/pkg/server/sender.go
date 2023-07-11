@@ -79,6 +79,7 @@ func (s *Sender) sendRecord(msg *service.Record) {
 }
 
 func (s *Sender) sendRequest(_ *service.Record, req *service.Request) {
+	s.logger.Debug("Sender: sendRequest BITCH", "req", req.RequestType)
 	switch x := req.RequestType.(type) {
 	case *service.Request_RunStart:
 		s.sendRunStart(x.RunStart)
@@ -117,7 +118,7 @@ func (s *Sender) sendMetadata(req *service.MetadataRequest) {
 func (s *Sender) sendDefer(req *service.DeferRequest) {
 	switch req.State {
 	case service.DeferRequest_FLUSH_FP:
-		s.uploader.close()
+		//s.uploader.close()
 		s.logger.Debug(fmt.Sprintf("Sender: sendDefer: flushed file pusher: %v", req.State))
 		req.State++
 		s.sendRequestDefer(req)
@@ -275,7 +276,6 @@ func (s *Sender) sendFiles(_ *service.Record, filesRecord *service.FilesRecord) 
 
 func (s *Sender) sendFile(path string) {
 
-	fullPath := filepath.Join(s.settings.GetFilesDir().GetValue(), path)
 	if s.run == nil {
 		LogFatal(s.logger, "upsert run not called before send db")
 	}
@@ -294,10 +294,13 @@ func (s *Sender) sendFile(path string) {
 		LogError(s.logger, "error getting upload urls", err)
 	}
 
+	fullPath := filepath.Join(s.settings.GetFilesDir().GetValue(), path)
 	edges := resp.GetModel().GetBucket().GetFiles().GetEdges()
 	for _, e := range edges {
 		task := &UploadTask{fullPath, *e.GetNode().GetUrl()}
 		s.logger.Debug("sending file", "path", task.path, "url", task.url)
+		s.logger.Info("AAAAA")
 		s.uploader.addTask(task)
+		s.logger.Info("BBBBB")
 	}
 }
