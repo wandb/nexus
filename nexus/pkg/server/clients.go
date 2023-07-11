@@ -35,6 +35,7 @@ func newRetryClient(apiKey string) *retryablehttp.Client {
 	}
 	retryClient := retryablehttp.NewClient()
 	retryClient.HTTPClient.Transport = tr
+	retryClient.Logger = nil
 	return retryClient
 }
 
