@@ -36,18 +36,16 @@ func NewStream(ctx context.Context, settings *service.Settings, streamId string,
 	handler := NewHandler(ctx, settings, logger)
 
 	// connect the components
-	handler.outChan = writer.inChan
 	writer.outChan = sender.inChan
+	handler.outChan = writer.inChan
 	sender.outChan = handler.inChan
 
 	// connect the dispatcher to the handler and sender
 	handler.dispatcherChan = dispatcher.inChan
 	sender.dispatcherChan = dispatcher.inChan
 
-	//ctx, cancel := context.WithCancel(ctx)
 	stream := &Stream{
-		ctx: ctx,
-		//cancel:     cancel,
+		ctx:        ctx,
 		wg:         sync.WaitGroup{},
 		dispatcher: dispatcher,
 		handler:    handler,
@@ -121,13 +119,24 @@ func (s *Stream) GetRun() *service.RunRecord {
 }
 
 // Close closes the stream's handler, writer, sender, and dispatcher.
-// We first mark the Stream's context as done, which signals to the
-// components that they should Close. Each of the components will
-// call Done() on the Stream's wait group when they are finished closing.
+// This can be triggered by the client (force=False) or by the server (force=True).
+// We need the ExitRecord to initiate the shutdown procedure (which we
+// either get from the client, or generate ourselves if the server is shutting us down).
+// This will trigger the defer state machines (SM) in the stream's components:
+//   - when the sender's SM gets to the final state, it will close the handler
+//   - this will trigger the handler to close the writer
+//   - this will trigger the writer to close the sender
+//   - this will trigger the sender to close the dispatcher
+//
+// This will finish the Stream's wait group, which will allow the stream to be
+// garbage collected.
 func (s *Stream) Close(force bool) {
 	// send exit record to handler
 	if force {
-		record := &service.Record{RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{}}, Control: &service.Control{AlwaysSend: true}}
+		record := &service.Record{
+			RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{}},
+			Control:    &service.Control{AlwaysSend: true},
+		}
 		s.HandleRecord(record)
 	}
 	s.wg.Wait()

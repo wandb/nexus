@@ -50,7 +50,12 @@ func NewSender(ctx context.Context, settings *service.Settings, logger *slog.Log
 
 // `do` starts the sender
 func (s *Sender) do() {
-	defer s.logger.Debug("sender: closed")
+	defer func() {
+		s.logger.Debug("sender: closed")
+		close(s.dispatcherChan)
+		s.logger.Debug("sender: dispatcherChan closed")
+	}()
+
 	s.logger.Debug("sender: started", "stream_id", s.settings.GetRunId())
 	for msg := range s.inChan {
 		LogRecord(s.logger, "sender: got msg", msg)
@@ -131,7 +136,6 @@ func (s *Sender) sendDefer(req *service.DeferRequest) {
 	case service.DeferRequest_END:
 		s.logger.Debug(fmt.Sprintf("Sender: sendDefer: end = %v", req.State))
 		close(s.outChan)
-		close(s.dispatcherChan)
 		s.logger.Debug(fmt.Sprintf("Sender: sendDefer: end = %v", req.State))
 	default:
 		s.logger.Debug(fmt.Sprintf("Sender: sendDefer: unknown state = %v", req.State))

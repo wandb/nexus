@@ -38,6 +38,10 @@ func (d *Dispatcher) AddResponder(entry ResponderEntry) {
 }
 
 func (d *Dispatcher) do() {
+	defer func() {
+		slog.Debug("dispatch: started and closed")
+	}()
+
 	// start the dispatcher
 	for msg := range d.inChan {
 		responderId := msg.Control.ConnectionId
@@ -51,5 +55,4 @@ func (d *Dispatcher) do() {
 		}
 		d.responders[responderId].Respond(response)
 	}
-	slog.Debug("dispatch: started and closed")
 }

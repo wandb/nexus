@@ -225,7 +225,6 @@ func (h *Handler) handleDefer(rec *service.Record) {
 	switch req.State {
 	case service.DeferRequest_END:
 		h.sendRecord(rec)
-		//h.close()
 	default:
 		h.sendRecord(rec)
 	}
