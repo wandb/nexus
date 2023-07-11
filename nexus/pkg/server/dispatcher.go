@@ -37,7 +37,7 @@ func (d *Dispatcher) AddResponder(entry ResponderEntry) {
 	}
 }
 
-func (d *Dispatcher) start() {
+func (d *Dispatcher) do() {
 	// start the dispatcher
 	for msg := range d.inChan {
 		responderId := msg.Control.ConnectionId

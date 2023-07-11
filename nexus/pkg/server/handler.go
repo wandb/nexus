@@ -37,19 +37,22 @@ func NewHandler(ctx context.Context, settings *service.Settings, logger *slog.Lo
 	return &handler
 }
 
-func (h *Handler) start() {
-	slog.Debug("handler: started!!!!", "id", h.settings.GetRunId())
+func (h *Handler) do() {
+	h.logger.Debug("handler: started", "stream_id", h.settings.GetRunId())
+
+	defer func() {
+		h.close()
+		slog.Debug("handle: closed")
+	}()
+
 	for msg := range h.inChan {
 		LogRecord(h.logger, "handle: got msg", msg)
 		h.handleRecord(msg)
 	}
-	h.close()
-	slog.Debug("handler: started and closed")
 }
 
 func (h *Handler) close() {
 	close(h.outChan)
-	slog.Debug("handle: closed")
 }
 
 //gocyclo:ignore

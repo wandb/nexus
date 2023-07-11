@@ -32,14 +32,17 @@ func (w *Writer) Deliver(msg *service.Record) {
 	w.inChan <- msg
 }
 
-func (w *Writer) start() {
-	slog.Debug("writer: started!!!!", "id", w.settings.GetRunId())
+func (w *Writer) do() {
+	defer func() {
+		w.close()
+		slog.Debug("writer: closed")
+	}()
+
+	slog.Debug("writer: started", "stream_id", w.settings.GetRunId())
 	for msg := range w.inChan {
 		LogRecord(w.logger, "write: got msg", msg)
 		w.writeRecord(msg)
 	}
-	w.close()
-	slog.Debug("writer: started and closed!!!!")
 }
 
 func (w *Writer) close() {

@@ -24,7 +24,6 @@ type Stream struct {
 	sender     *Sender
 	settings   *service.Settings
 	logger     *slog.Logger
-	finished   bool
 }
 
 func NewStream(ctx context.Context, settings *service.Settings, streamId string, responders ...ResponderEntry) *Stream {
@@ -82,30 +81,26 @@ func (s *Stream) Start() {
 	// start the handler
 	s.wg.Add(1)
 	go func() {
-		s.handler.start()
-		s.wg.Done()
+		defer s.wg.Done()
+		s.handler.do()
 	}()
 
 	// do the writer
 	s.wg.Add(1)
 	go func() {
-		s.writer.start()
-		s.wg.Done()
+		defer s.wg.Done()
+		s.writer.do()
 	}()
 
 	// do the sender
 	s.wg.Add(1)
 	go func() {
-		s.sender.start()
-		s.wg.Done()
+		defer s.wg.Done()
+		s.sender.do()
 	}()
 
 	// do the dispatcher
-	s.wg.Add(1)
-	go func() {
-		s.dispatcher.start()
-		s.wg.Done()
-	}()
+	s.dispatcher.do()
 }
 
 func (s *Stream) HandleRecord(rec *service.Record) {

@@ -66,7 +66,7 @@ func (u *Uploader) do() {
 }
 
 func (u *Uploader) addTask(task *UploadTask) {
-	u.logger.Debug("uploader: adding task, %v", task)
+	u.logger.Debug("uploader: adding task", "path", task.path, "url", task.url)
 	u.inChan <- task
 }
 
