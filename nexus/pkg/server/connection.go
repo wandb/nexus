@@ -156,7 +156,7 @@ func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 		slog.Error("handleInformInit: stream already exists", slog.String("streamId", streamId))
 		return
 	}
-	go stream.Start()
+	//stream.Start()
 }
 
 func (nc *Connection) handleInformStart(_ *service.ServerInformStartRequest) {
@@ -182,17 +182,14 @@ func (nc *Connection) handleInformRecord(msg *service.Record) {
 func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest) {
 	streamId := msg.XInfo.StreamId
 	slog.Debug("handleInformFinish", slog.String("streamId", streamId))
-	if stream, err := streamMux.getStream(streamId); err != nil {
+	if err := streamMux.CloseStream(streamId, false); err != nil {
 		slog.Error("handleInformFinish:", "err", err.Error(), "streamId", streamId)
-	} else {
-		stream.MarkFinished()
-		//stream.RemoveResponder(nc.id)
 	}
 }
 
 func (nc *Connection) handleInformTeardown(_ *service.ServerInformTeardownRequest) {
 	slog.Debug("handleInformTeardown: starting..", "id", nc.id)
 	close(nc.teardown)
-	streamMux.Close()
+	streamMux.Close(true)
 	nc.Close()
 }

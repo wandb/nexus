@@ -37,9 +37,17 @@ func (d *Dispatcher) AddResponder(entry ResponderEntry) {
 	}
 }
 
-func (d *Dispatcher) Deliver(result *service.Result) {
-	d.inChan <- result
-}
+//func (d *Dispatcher) RemoveResponder(responderId string) {
+//	if _, ok := d.responders[responderId]; ok {
+//		delete(d.responders, responderId)
+//	} else {
+//		slog.LogAttrs(
+//			d.ctx,
+//			slog.LevelError,
+//			"Responder does not exist",
+//			slog.String("responder", responderId))
+//	}
+//}
 
 func (d *Dispatcher) start() {
 	// start the dispatcher
@@ -55,4 +63,5 @@ func (d *Dispatcher) start() {
 		}
 		d.responders[responderId].Respond(response)
 	}
+	slog.Debug("dispatch: started and closed")
 }

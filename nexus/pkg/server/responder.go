@@ -10,7 +10,3 @@ type ResponderEntry struct {
 	Responder Responder
 	ID        string
 }
-
-type dispatchChannel interface {
-	Deliver(data *service.Result)
-}

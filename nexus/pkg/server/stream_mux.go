@@ -50,20 +50,37 @@ func (sm *StreamMux) getStream(streamId string) (*Stream, error) {
 //  	delete(sm.mux, streamId)
 // }
 
+// CloseStream closes a stream in the mux.
+func (sm *StreamMux) CloseStream(streamId string, force bool) error {
+	sm.mutex.RLock()
+	defer sm.mutex.RUnlock()
+	if stream, ok := sm.mux[streamId]; !ok {
+		return fmt.Errorf("stream not found %s", streamId)
+	} else {
+		stream.Close(force)
+		delete(sm.mux, streamId)
+	}
+	return nil
+}
+
 // Close closes all streams in the mux.
-func (sm *StreamMux) Close() {
+func (sm *StreamMux) Close(force bool) {
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
 
 	wg := sync.WaitGroup{}
-	for _, stream := range sm.mux {
+	for streamId, stream := range sm.mux {
 		wg.Add(1)
 		go func(stream *Stream) {
-			stream.Close()
+			stream.Close(force)
 			wg.Done()
 		}(stream)
+		delete(sm.mux, streamId)
 	}
 	wg.Wait()
+
+	//delete all streams from mux
+
 	slog.Debug("all streams were closed")
 }
 

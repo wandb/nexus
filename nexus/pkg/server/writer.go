@@ -32,12 +32,13 @@ func (w *Writer) Deliver(msg *service.Record) {
 }
 
 func (w *Writer) start() {
+	slog.Debug("writer: started!!!!", "id", w.settings.GetRunId())
 	for msg := range w.inChan {
 		LogRecord(w.logger, "write: got msg", msg)
 		w.writeRecord(msg)
 	}
 	w.close()
-	slog.Debug("writer: started and closed")
+	slog.Debug("writer: started and closed!!!!")
 }
 
 func (w *Writer) close() {
@@ -73,8 +74,3 @@ func (w *Writer) sendRecord(rec *service.Record) {
 	slog.Debug("WRITER: sendRecord: send")
 	w.outChan <- rec
 }
-
-// func (w *Writer) Flush() {
-// 	log.Debug("WRITER: close")
-// 	close(w.inChan)
-// }

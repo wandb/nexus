@@ -15,8 +15,9 @@ import (
 // data to Stream.sender, which sends it to the W&B server. Stream.dispatcher
 // handles dispatching responses to the appropriate client responders.
 type Stream struct {
-	ctx        context.Context
-	cancel     context.CancelFunc
+	ctx context.Context
+	//cancel     context.CancelFunc
+	wg         sync.WaitGroup
 	handler    *Handler
 	dispatcher *Dispatcher
 	writer     *Writer
@@ -41,13 +42,14 @@ func NewStream(ctx context.Context, settings *service.Settings, streamId string,
 	sender.outChan = handler.inChan
 
 	// connect the dispatcher to the handler and sender
-	handler.dispatcherChan = dispatcher
-	sender.dispatcherChan = dispatcher
+	handler.dispatcherChan = dispatcher.inChan
+	sender.dispatcherChan = dispatcher.inChan
 
-	ctx, cancel := context.WithCancel(ctx)
+	//ctx, cancel := context.WithCancel(ctx)
 	stream := &Stream{
-		ctx:        ctx,
-		cancel:     cancel,
+		ctx: ctx,
+		//cancel:     cancel,
+		wg:         sync.WaitGroup{},
 		dispatcher: dispatcher,
 		handler:    handler,
 		sender:     sender,
@@ -56,6 +58,8 @@ func NewStream(ctx context.Context, settings *service.Settings, streamId string,
 		logger:     logger,
 	}
 	stream.AddResponders(responders...)
+	stream.wg.Add(1)
+	go stream.Start()
 	return stream
 }
 
@@ -73,43 +77,40 @@ func (s *Stream) AddResponders(entries ...ResponderEntry) {
 // We use Stream's wait group to ensure that all of these components are cleanly
 // finalized and closed when the stream is closed in Stream.Close().
 func (s *Stream) Start() {
-
-	wg := &sync.WaitGroup{}
+	defer s.wg.Done()
 
 	// start the handler
-	go s.handler.start()
+	s.wg.Add(1)
+	go func() {
+		s.handler.start()
+		s.wg.Done()
+	}()
 
 	// do the writer
-	wg.Add(1)
+	s.wg.Add(1)
 	go func() {
-		defer wg.Done()
 		s.writer.start()
+		s.wg.Done()
 	}()
 
 	// do the sender
-	wg.Add(1)
+	s.wg.Add(1)
 	go func() {
-		defer wg.Done()
 		s.sender.start()
+		s.wg.Done()
 	}()
 
 	// do the dispatcher
-	go s.dispatcher.start()
-
-	wg.Wait()
-	s.cancel()
+	s.wg.Add(1)
+	go func() {
+		s.dispatcher.start()
+		s.wg.Done()
+	}()
 }
 
 func (s *Stream) HandleRecord(rec *service.Record) {
+	slog.Debug("Stream.HandleRecord", "record", rec.String())
 	s.handler.inChan <- rec
-}
-
-func (s *Stream) MarkFinished() {
-	s.finished = true
-}
-
-func (s *Stream) IsFinished() bool {
-	return s.finished
 }
 
 func (s *Stream) GetSettings() *service.Settings {
@@ -124,19 +125,20 @@ func (s *Stream) GetRun() *service.RunRecord {
 // We first mark the Stream's context as done, which signals to the
 // components that they should Close. Each of the components will
 // call Done() on the Stream's wait group when they are finished closing.
-func (s *Stream) Close() {
-	// todo: is this the best way to handle this?
-	if s.IsFinished() {
-		return
-	}
-
+func (s *Stream) Close(force bool) {
 	// send exit record to handler
-	record := &service.Record{RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{}}, Control: &service.Control{AlwaysSend: true}}
-	s.HandleRecord(record)
-	<-s.ctx.Done()
+	if force {
+		record := &service.Record{RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{}}, Control: &service.Control{AlwaysSend: true}}
+		s.HandleRecord(record)
+	}
+	s.wg.Wait()
+	if force {
+		s.PrintFooter()
+	}
+}
 
+func (s *Stream) PrintFooter() {
 	settings := s.GetSettings()
 	run := s.GetRun()
 	PrintHeadFoot(run, settings)
-	s.MarkFinished()
 }

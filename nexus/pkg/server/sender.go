@@ -29,7 +29,7 @@ type Sender struct {
 	settings       *service.Settings
 	inChan         chan *service.Record
 	outChan        chan<- *service.Record
-	dispatcherChan dispatchChannel
+	dispatcherChan chan<- *service.Result
 	graphqlClient  graphql.Client
 	fileStream     *FileStream
 	run            *service.RunRecord
@@ -117,7 +117,6 @@ func (s *Sender) sendMetadata(req *service.MetadataRequest) {
 	}
 	jsonBytes, _ := mo.Marshal(req)
 	_ = os.WriteFile(filepath.Join(s.settings.GetFilesDir().GetValue(), MetaFilename), jsonBytes, 0644)
-
 	s.sendFile(MetaFilename)
 }
 
@@ -129,6 +128,9 @@ func (s *Sender) sendDefer(req *service.DeferRequest) {
 		req.State++
 		s.sendRequestDefer(req)
 	case service.DeferRequest_END:
+		slog.Debug(fmt.Sprintf("Sender: sendDefer: end = %v", req.State))
+		close(s.outChan)
+		close(s.dispatcherChan)
 		slog.Debug(fmt.Sprintf("Sender: sendDefer: end = %v", req.State))
 	default:
 		slog.Debug(fmt.Sprintf("Sender: sendDefer: unknown state = %v", req.State))
@@ -238,7 +240,7 @@ func (s *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 		Uuid:       msg.Uuid,
 	}
 	LogResult(s.logger, "sending run result ", result)
-	s.dispatcherChan.Deliver(result)
+	s.dispatcherChan <- result
 }
 
 func (s *Sender) sendHistory(msg *service.Record, _ *service.HistoryRecord) {
@@ -258,7 +260,7 @@ func (s *Sender) sendExit(msg *service.Record, _ *service.RunExitRecord) {
 		Control:    msg.Control,
 		Uuid:       msg.Uuid,
 	}
-	s.dispatcherChan.Deliver(result)
+	s.dispatcherChan <- result
 	//RequestType: &service.Request_Defer{Defer: &service.DeferRequest{State: service.DeferRequest_BEGIN}}
 	req := &service.Request{RequestType: &service.Request_Defer{Defer: &service.DeferRequest{State: service.DeferRequest_BEGIN}}}
 	rec := &service.Record{RecordType: &service.Record_Request{Request: req}, Control: msg.Control, Uuid: msg.Uuid}

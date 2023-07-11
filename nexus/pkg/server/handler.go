@@ -17,7 +17,7 @@ type Handler struct {
 	inChan   chan *service.Record
 	outChan  chan<- *service.Record
 
-	dispatcherChan dispatchChannel
+	dispatcherChan chan<- *service.Result
 
 	currentStep int64
 	startTime   float64
@@ -38,14 +38,18 @@ func NewHandler(ctx context.Context, settings *service.Settings, logger *slog.Lo
 }
 
 func (h *Handler) start() {
+	slog.Debug("handler: started!!!!", "id", h.settings.GetRunId())
 	for msg := range h.inChan {
 		LogRecord(h.logger, "handle: got msg", msg)
 		h.handleRecord(msg)
 	}
+	h.close()
+	slog.Debug("handler: started and closed")
 }
 
 func (h *Handler) close() {
 	close(h.outChan)
+	slog.Debug("handle: closed")
 }
 
 //gocyclo:ignore
@@ -138,7 +142,7 @@ func (h *Handler) handleRequest(rec *service.Record) {
 		Control:    rec.Control,
 		Uuid:       rec.Uuid,
 	}
-	h.dispatcherChan.Deliver(result)
+	h.dispatcherChan <- result
 }
 
 func (h *Handler) sendRecord(rec *service.Record) {
@@ -210,9 +214,10 @@ func (h *Handler) handleGetSummary(_ *service.Record, _ *service.GetSummaryReque
 func (h *Handler) handleDefer(rec *service.Record) {
 	// TODO: add defer state machine
 	req := rec.GetRequest().GetDefer()
+	slog.Debug("handler: Defer request", "reg", req.String())
 	switch req.State {
 	case service.DeferRequest_END:
-		h.close()
+		h.sendRecord(rec)
 	default:
 		h.sendRecord(rec)
 	}
