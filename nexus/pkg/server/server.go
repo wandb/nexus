@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"github.com/wandb/wandb/nexus/pkg/service"
-	"golang.org/x/exp/slog"
-	"google.golang.org/protobuf/proto"
 	"net"
 	"os"
 	"sync"
+
+	"github.com/wandb/wandb/nexus/pkg/service"
+	"golang.org/x/exp/slog"
+	"google.golang.org/protobuf/proto"
 )
 
 func writePortFile(portFile string, port int) {
