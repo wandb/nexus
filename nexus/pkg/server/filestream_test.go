@@ -105,7 +105,7 @@ func (h apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 type testServer struct {
 	hserver  *httptest.Server
-	settings service.Settings
+	settings *service.Settings
 	logger   *slog.Logger
 	mux      *http.ServeMux
 }
@@ -116,7 +116,7 @@ func NewTestServer() *testServer {
 
 	mux := http.NewServeMux()
 	hserver := httptest.NewServer(mux)
-	ts := &testServer{hserver: hserver, logger: logger, settings: settings, mux: mux}
+	ts := &testServer{hserver: hserver, logger: logger, settings: &settings, mux: mux}
 	return ts
 }
 
@@ -138,7 +138,7 @@ func NewFilestreamTest(tName string, fn func(fs *server.FileStream)) *filestream
 	capture := captureState{m: m}
 	fstreamPath := "/test/" + tName
 	tserver.mux.Handle(fstreamPath, apiHandler{&capture})
-	fs := server.NewFileStream(tserver.hserver.URL+fstreamPath, &tserver.settings, tserver.logger)
+	fs := server.NewFileStream(tserver.hserver.URL+fstreamPath, tserver.settings, tserver.logger)
 	fsTest := filestreamTest{capture: &capture, path: fstreamPath, mux: tserver.mux, fs: fs, tserver: tserver}
 	defer fsTest.finish()
 	fs.Start()
