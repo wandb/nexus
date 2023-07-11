@@ -19,6 +19,8 @@ const HistoryFileName = "wandb-history.jsonl"
 const maxItemsPerPush = 5_000
 const delayProcess = 20 * time.Millisecond
 const heartbeatTime = 2 * time.Second
+var exitcodeZero int = 0
+var completeTrue bool = true
 
 type chunkFile int8
 
@@ -26,6 +28,12 @@ const (
 	historyChunk chunkFile = iota
 	outputChunk
 )
+
+type chunkData struct {
+	fileData *chunkLine
+	Exitcode *int
+	Complete *bool
+}
 
 type chunkLine struct {
 	chunkType chunkFile
@@ -35,7 +43,7 @@ type chunkLine struct {
 type FileStream struct {
 	recordChan chan *service.Record
 	recordWait *sync.WaitGroup
-	chunkChan  chan chunkLine
+	chunkChan  chan chunkData
 	chunkWait  *sync.WaitGroup
 	replyChan  chan map[string]interface{}
 	replyWait  *sync.WaitGroup
@@ -59,7 +67,7 @@ func NewFileStream(path string, settings *service.Settings, logger *slog.Logger)
 		httpClient: retryClient,
 		recordChan: make(chan *service.Record),
 		recordWait: &sync.WaitGroup{},
-		chunkChan:  make(chan chunkLine),
+		chunkChan:  make(chan chunkData),
 		chunkWait:  &sync.WaitGroup{},
 		replyChan:  make(chan map[string]interface{}),
 		replyWait:  &sync.WaitGroup{},
@@ -80,7 +88,7 @@ func (fs *FileStream) pushRecord(rec *service.Record) {
 	fs.recordChan <- rec
 }
 
-func (fs *FileStream) pushChunk(chunk chunkLine) {
+func (fs *FileStream) pushChunk(chunk chunkData) {
 	fs.chunkChan <- chunk
 }
 
@@ -110,7 +118,7 @@ func (fs *FileStream) chunkProcess() {
 	overflow := false
 
 	for active := true; active; {
-		var chunkList []chunkLine
+		var chunkList []chunkData
 		select {
 		case chunk, ok := <-fs.chunkChan:
 			if !ok {
@@ -172,17 +180,11 @@ func (fs *FileStream) streamRecord(msg *service.Record) {
 }
 
 func (fs *FileStream) streamHistory(msg *service.HistoryRecord) {
-	fs.pushChunk(chunkLine{chunkType: historyChunk, line: jsonifyHistory(msg, fs.logger)})
+	fs.pushChunk(chunkData{fileData: &chunkLine{chunkType: historyChunk, line: jsonifyHistory(msg, fs.logger)}})
 }
 
 func (fs *FileStream) streamFinish() {
-	type FsFinishedData struct {
-		Complete bool `json:"complete"`
-		Exitcode int  `json:"exitcode"`
-	}
-
-	data := FsFinishedData{Complete: true, Exitcode: 0}
-	fs.send(data)
+	fs.pushChunk(chunkData{Complete: &completeTrue, Exitcode: &exitcodeZero})
 }
 
 func (fs *FileStream) StreamRecord(rec *service.Record) {
@@ -193,19 +195,35 @@ func (fs *FileStream) StreamRecord(rec *service.Record) {
 	fs.pushRecord(rec)
 }
 
+/*
+ * Data to serialize over filestream
+ */
 type FsChunkData struct {
 	Offset  int      `json:"offset"`
 	Content []string `json:"content"`
 }
 
-type FsFilesData struct {
-	Files map[string]FsChunkData `json:"files"`
+type FsData struct {
+	Files map[string]FsChunkData `json:"files,omitempty"`
+	Complete *bool `json:"complete,omitempty"`
+	Exitcode *int  `json:"exitcode,omitempty"`
 }
 
-func (fs *FileStream) sendChunkList(chunks []chunkLine) {
+func (fs *FileStream) sendChunkList(chunks []chunkData) {
 	var lines []string
+	var complete *bool
+	var exitcode *int
+
 	for i := range chunks {
-		lines = append(lines, chunks[i].line)
+		if chunks[i].fileData != nil {
+			lines = append(lines, chunks[i].fileData.line)
+		}
+		if chunks[i].Complete != nil {
+			complete = chunks[i].Complete
+		}
+		if chunks[i].Exitcode != nil {
+			exitcode = chunks[i].Exitcode
+		}
 	}
 
 	fsChunk := FsChunkData{
@@ -213,10 +231,13 @@ func (fs *FileStream) sendChunkList(chunks []chunkLine) {
 		Content: lines}
 	fs.offset += len(lines)
 	chunkFileName := HistoryFileName
-	files := map[string]FsChunkData{
-		chunkFileName: fsChunk,
+	var files map[string]FsChunkData
+	if len(lines) > 0 {
+		files = map[string]FsChunkData{
+			chunkFileName: fsChunk,
+		}
 	}
-	data := FsFilesData{Files: files}
+	data := FsData{Files: files, Complete: complete, Exitcode: exitcode}
 	fs.send(data)
 }
 
@@ -250,9 +271,6 @@ func (fs *FileStream) send(data interface{}) {
 	}
 	fs.pushReply(res)
 
-	/*
-		{"time":"2023-07-07T00:54:18.788638-04:00","level":"DEBUG","msg":"FileStream: post response: map[exitcode:0 limits:map[code_saving_enabled:true gpu_enabled:1.560566754e+09 hub_settings:map[disk:20Gi docker_enabled:false expiration:2.592e+06 image:<nil> redis_enabled:false repo:wandb/simpsons] name:default private_projects:false rate_limit:400/s restricted:false sweeps_enabled:false system_metrics:2/m teams_enabled:false]]"}
-	*/
 	fs.logger.Debug(fmt.Sprintf("FileStream: post response: %v", res))
 }
 
