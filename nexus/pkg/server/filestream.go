@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/wandb/wandb/nexus/pkg/service"
 
 	"golang.org/x/exp/slog"
@@ -46,16 +47,16 @@ type FileStream struct {
 
 	settings   *service.Settings
 	logger     *slog.Logger
-	httpClient *http.Client
+	httpClient *retryablehttp.Client
 }
 
 func NewFileStream(path string, settings *service.Settings, logger *slog.Logger) *FileStream {
-	httpClient := newHttpClient(settings.GetApiKey().GetValue())
+	retryClient := newRetryClient(settings.GetApiKey().GetValue())
 	fs := FileStream{
 		path:       path,
 		settings:   settings,
 		logger:     logger,
-		httpClient: &httpClient,
+		httpClient: retryClient,
 		recordChan: make(chan *service.Record),
 		recordWait: &sync.WaitGroup{},
 		chunkChan:  make(chan chunkLine),
@@ -226,7 +227,7 @@ func (fs *FileStream) send(data interface{}) {
 	}
 
 	buffer := bytes.NewBuffer(jsonData)
-	req, err := http.NewRequest(http.MethodPost, fs.path, buffer)
+	req, err := retryablehttp.NewRequest(http.MethodPost, fs.path, buffer)
 	if err != nil {
 		LogFatalError(fs.logger, "FileStream: could not create request", err)
 	}
