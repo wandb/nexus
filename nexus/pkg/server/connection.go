@@ -151,12 +151,11 @@ func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 	streamId := msg.GetXInfo().GetStreamId()
 	slog.Debug("connection init received", slog.String("streamId", streamId))
 
-	stream := NewStream(nc.ctx, settings, streamId)
+	stream := NewStream(nc.ctx, settings, streamId, ResponderEntry{nc, nc.id})
 	if err := streamMux.addStream(streamId, stream); err != nil {
 		slog.Error("handleInformInit: stream already exists", slog.String("streamId", streamId))
 		return
 	}
-	stream.AddResponder(nc.id, nc)
 	go stream.Start()
 }
 

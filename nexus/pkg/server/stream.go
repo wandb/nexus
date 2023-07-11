@@ -26,7 +26,7 @@ type Stream struct {
 	finished   bool
 }
 
-func NewStream(ctx context.Context, settings *service.Settings, streamId string) *Stream {
+func NewStream(ctx context.Context, settings *service.Settings, streamId string, responders ...ResponderEntry) *Stream {
 	logFile := settings.GetLogInternal().GetValue()
 	logger := SetupStreamLogger(logFile, streamId)
 
@@ -55,11 +55,14 @@ func NewStream(ctx context.Context, settings *service.Settings, streamId string)
 		settings:   settings,
 		logger:     logger,
 	}
+	stream.AddResponders(responders...)
 	return stream
 }
 
-func (s *Stream) AddResponder(responderId string, responder Responder) {
-	s.dispatcher.AddResponder(responderId, responder)
+func (s *Stream) AddResponders(entries ...ResponderEntry) {
+	for _, entry := range entries {
+		s.dispatcher.AddResponder(entry)
+	}
 }
 
 //func (s *Stream) RemoveResponder(responderId string) {

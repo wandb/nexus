@@ -24,9 +24,10 @@ func NewDispatcher(ctx context.Context, logger *slog.Logger) *Dispatcher {
 	return dispatcher
 }
 
-func (d *Dispatcher) AddResponder(responderId string, responder Responder) {
+func (d *Dispatcher) AddResponder(entry ResponderEntry) {
+	responderId := entry.ID
 	if _, ok := d.responders[responderId]; !ok {
-		d.responders[responderId] = responder
+		d.responders[responderId] = entry.Responder
 	} else {
 		slog.LogAttrs(
 			d.ctx,
