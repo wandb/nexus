@@ -1,7 +1,6 @@
 package server
 
 import (
-	"sync"
 	"time"
 
 	"bytes"
@@ -52,9 +51,7 @@ func NewSender(ctx context.Context, settings *service.Settings, logger *slog.Log
 }
 
 // start starts the sender
-func (s *Sender) start(wg *sync.WaitGroup) {
-	defer wg.Done()
-
+func (s *Sender) start() {
 	for msg := range s.inChan {
 		LogRecord(s.logger, "sender: got msg", msg)
 		s.sendRecord(msg)

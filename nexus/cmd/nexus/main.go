@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-
 	"github.com/wandb/wandb/nexus/pkg/server"
 	"golang.org/x/exp/slog"
 )
@@ -19,9 +18,10 @@ func main() {
 	flag.Parse()
 
 	server.SetupDefaultLogger()
+	ctx := context.Background()
 
 	slog.LogAttrs(
-		context.Background(),
+		ctx,
 		slog.LevelDebug,
 		"Flags",
 		slog.String("fname", *portFilename),
@@ -30,5 +30,8 @@ func main() {
 		slog.Bool("serveSock", *serveSock),
 		slog.Bool("serveGrpc", *serveGrpc))
 
-	server.WandbService(*portFilename)
+	slog.Info("starting server...")
+
+	nexus := server.NewServer(ctx, "127.0.0.1:0", *portFilename)
+	nexus.Close()
 }

@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/wandb/wandb/nexus/pkg/service"
+	"fmt"
 	"sync"
 )
 
@@ -21,22 +21,25 @@ func NewStreamMux() *StreamMux {
 }
 
 // addStream adds a stream to the mux if it doesn't already exist.
-func (sm *StreamMux) addStream(streamId string, settings *service.Settings) *Stream {
+func (sm *StreamMux) addStream(streamId string, stream *Stream) error {
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
-	stream, ok := sm.mux[streamId]
-	if !ok {
-		stream = NewStream(settings, streamId)
+	if _, ok := sm.mux[streamId]; !ok {
 		sm.mux[streamId] = stream
+		return nil
+	} else {
+		return fmt.Errorf("stream already exists")
 	}
-	return stream
 }
 
-func (sm *StreamMux) getStream(streamId string) (*Stream, bool) {
+func (sm *StreamMux) getStream(streamId string) (*Stream, error) {
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
-	stream, ok := sm.mux[streamId]
-	return stream, ok
+	if stream, ok := sm.mux[streamId]; !ok {
+		return nil, fmt.Errorf("stream not found")
+	} else {
+		return stream, nil
+	}
 }
 
 // todo: add this when we have a way to remove mux
@@ -54,7 +57,11 @@ func (sm *StreamMux) Close() {
 	wg := sync.WaitGroup{}
 	for _, stream := range sm.mux {
 		wg.Add(1)
-		go stream.Close(&wg) // test this
+		go func(stream *Stream) {
+			defer wg.Done()
+			stream.Close() // test this
+		}(stream)
+
 	}
 	wg.Wait()
 }

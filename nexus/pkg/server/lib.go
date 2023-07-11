@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	"os"
@@ -65,7 +66,7 @@ func LibStartSettings(settings *service.Settings, runId string) int {
 	}
 
 	num := 42
-	s := NewStream(settings, "junk")
+	s := NewStream(context.Background(), settings, "junk")
 	s.Start()
 
 	c := make(chan *service.Record, 1000)

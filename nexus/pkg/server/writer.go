@@ -2,8 +2,6 @@ package server
 
 import (
 	"context"
-	"sync"
-
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"golang.org/x/exp/slog"
 )
@@ -33,8 +31,7 @@ func (w *Writer) Deliver(msg *service.Record) {
 	w.inChan <- msg
 }
 
-func (w *Writer) start(wg *sync.WaitGroup) {
-	defer wg.Done()
+func (w *Writer) start() {
 	for msg := range w.inChan {
 		LogRecord(w.logger, "write: got msg", msg)
 		w.writeRecord(msg)
