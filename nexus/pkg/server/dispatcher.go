@@ -37,6 +37,7 @@ func (d *Dispatcher) AddResponder(entry ResponderEntry) {
 	}
 }
 
+// RemoveResponder removes a responder from the dispatcher
 //func (d *Dispatcher) RemoveResponder(responderId string) {
 //	if _, ok := d.responders[responderId]; ok {
 //		delete(d.responders, responderId)
@@ -49,7 +50,11 @@ func (d *Dispatcher) AddResponder(entry ResponderEntry) {
 //	}
 //}
 
-func (d *Dispatcher) start() {
+func (d *Dispatcher) do() {
+	defer func() {
+		slog.Debug("dispatch: started and closed")
+	}()
+
 	// start the dispatcher
 	for msg := range d.inChan {
 		responderId := msg.Control.ConnectionId

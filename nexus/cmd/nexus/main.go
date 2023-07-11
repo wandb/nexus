@@ -28,9 +28,8 @@ func main() {
 		slog.Int("pid", *pid),
 		slog.Bool("debug", *debug),
 		slog.Bool("serveSock", *serveSock),
-		slog.Bool("serveGrpc", *serveGrpc))
-
-	slog.Info("starting server...")
+		slog.Bool("serveGrpc", *serveGrpc),
+	)
 
 	nexus := server.NewServer(ctx, "127.0.0.1:0", *portFilename)
 	nexus.Close()

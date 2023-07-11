@@ -2,8 +2,9 @@ package server
 
 import (
 	"fmt"
-	"golang.org/x/exp/slog"
 	"sync"
+
+	"golang.org/x/exp/slog"
 )
 
 // StreamMux is a multiplexer for streams.
@@ -67,7 +68,7 @@ func (sm *StreamMux) CloseAllStreams(force bool) {
 			stream.Close(force)
 			wg.Done()
 		}(stream)
-		//delete all streams from mux
+		// delete all streams from mux
 		delete(sm.mux, streamId)
 	}
 	wg.Wait()

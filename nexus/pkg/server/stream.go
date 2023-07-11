@@ -15,8 +15,7 @@ import (
 // data to Stream.sender, which sends it to the W&B server. Stream.dispatcher
 // handles dispatching responses to the appropriate client responders.
 type Stream struct {
-	ctx context.Context
-	//cancel     context.CancelFunc
+	ctx        context.Context
 	wg         sync.WaitGroup
 	handler    *Handler
 	dispatcher *Dispatcher
@@ -24,7 +23,6 @@ type Stream struct {
 	sender     *Sender
 	settings   *service.Settings
 	logger     *slog.Logger
-	finished   bool
 }
 
 func NewStream(ctx context.Context, settings *service.Settings, streamId string, responders ...ResponderEntry) *Stream {
@@ -37,18 +35,16 @@ func NewStream(ctx context.Context, settings *service.Settings, streamId string,
 	handler := NewHandler(ctx, settings, logger)
 
 	// connect the components
-	handler.outChan = writer.inChan
 	writer.outChan = sender.inChan
+	handler.outChan = writer.inChan
 	sender.outChan = handler.inChan
 
 	// connect the dispatcher to the handler and sender
 	handler.dispatcherChan = dispatcher.inChan
 	sender.dispatcherChan = dispatcher.inChan
 
-	//ctx, cancel := context.WithCancel(ctx)
 	stream := &Stream{
-		ctx: ctx,
-		//cancel:     cancel,
+		ctx:        ctx,
 		wg:         sync.WaitGroup{},
 		dispatcher: dispatcher,
 		handler:    handler,
@@ -60,15 +56,18 @@ func NewStream(ctx context.Context, settings *service.Settings, streamId string,
 	stream.AddResponders(responders...)
 	stream.wg.Add(1)
 	go stream.Start()
+	slog.Info("created new stream", "id", settings.GetRunId().GetValue())
 	return stream
 }
 
+// AddResponders adds the given responders to the stream's dispatcher.
 func (s *Stream) AddResponders(entries ...ResponderEntry) {
 	for _, entry := range entries {
 		s.dispatcher.AddResponder(entry)
 	}
 }
 
+// RemoveResponder removes the responder with the given id from the stream's
 //func (s *Stream) RemoveResponder(responderId string) {
 //	s.dispatcher.RemoveResponder(responderId)
 //}
@@ -79,31 +78,31 @@ func (s *Stream) AddResponders(entries ...ResponderEntry) {
 func (s *Stream) Start() {
 	defer s.wg.Done()
 
-	// start the handler
+	// handle the client requests
 	s.wg.Add(1)
 	go func() {
-		s.handler.start()
+		s.handler.do()
 		s.wg.Done()
 	}()
 
-	// do the writer
+	// write the data to a transaction log
 	s.wg.Add(1)
 	go func() {
-		s.writer.start()
+		s.writer.do()
 		s.wg.Done()
 	}()
 
-	// do the sender
+	// send the data to the server
 	s.wg.Add(1)
 	go func() {
-		s.sender.start()
+		s.sender.do()
 		s.wg.Done()
 	}()
 
-	// do the dispatcher
+	// dispatch responses to the client
 	s.wg.Add(1)
 	go func() {
-		s.dispatcher.start()
+		s.dispatcher.do()
 		s.wg.Done()
 	}()
 }
@@ -113,22 +112,29 @@ func (s *Stream) HandleRecord(rec *service.Record) {
 	s.handler.inChan <- rec
 }
 
-func (s *Stream) GetSettings() *service.Settings {
-	return s.settings
-}
-
 func (s *Stream) GetRun() *service.RunRecord {
 	return s.handler.GetRun()
 }
 
 // Close closes the stream's handler, writer, sender, and dispatcher.
-// We first mark the Stream's context as done, which signals to the
-// components that they should Close. Each of the components will
-// call Done() on the Stream's wait group when they are finished closing.
+// This can be triggered by the client (force=False) or by the server (force=True).
+// We need the ExitRecord to initiate the shutdown procedure (which we
+// either get from the client, or generate ourselves if the server is shutting us down).
+// This will trigger the defer state machines (SM) in the stream's components:
+//   - when the sender's SM gets to the final state, it will close the handler
+//   - this will trigger the handler to close the writer
+//   - this will trigger the writer to close the sender
+//   - this will trigger the sender to close the dispatcher
+//
+// This will finish the Stream's wait group, which will allow the stream to be
+// garbage collected.
 func (s *Stream) Close(force bool) {
 	// send exit record to handler
 	if force {
-		record := &service.Record{RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{}}, Control: &service.Control{AlwaysSend: true}}
+		record := &service.Record{
+			RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{}},
+			Control:    &service.Control{AlwaysSend: true},
+		}
 		s.HandleRecord(record)
 	}
 	s.wg.Wait()
@@ -138,7 +144,6 @@ func (s *Stream) Close(force bool) {
 }
 
 func (s *Stream) PrintFooter() {
-	settings := s.GetSettings()
 	run := s.GetRun()
-	PrintHeadFoot(run, settings)
+	PrintHeadFoot(run, s.settings)
 }

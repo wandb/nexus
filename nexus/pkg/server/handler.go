@@ -37,8 +37,9 @@ func NewHandler(ctx context.Context, settings *service.Settings, logger *slog.Lo
 	return &handler
 }
 
-func (h *Handler) start() {
-	slog.Debug("handler: started!!!!", "id", h.settings.GetRunId())
+func (h *Handler) do() {
+	h.logger.Debug("handler: started", "stream_id", h.settings.GetRunId())
+
 	for msg := range h.inChan {
 		LogRecord(h.logger, "handle: got msg", msg)
 		h.handleRecord(msg)
@@ -154,9 +155,29 @@ func (h *Handler) sendRecord(rec *service.Record) {
 }
 
 func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartRequest) {
+	h.logger.Debug("PROCESS: run start")
 	var ok bool
 	run := req.Run
 
+	h.startTime = float64(run.StartTime.AsTime().UnixMicro()) / 1e6
+	h.run, ok = proto.Clone(run).(*service.RunRecord)
+	if !ok {
+		LogFatal(h.logger, "handleRunStart: failed to clone run")
+	}
+	h.sendRecord(rec)
+
+	// NOTE: once this request arrives in the sender,
+	// the latter will start its filestream and uploader
+
+	// TODO: this is a hack, we should not be sending metadata from here,
+	//  it should arrive as a proper request from the client.
+	//  attempting to do this before the run start request arrives in the sender
+	//  will cause a segfault because the sender's uploader is not initialized yet.
+	h.handleMetadata(rec, req)
+}
+
+func (h *Handler) handleMetadata(_ *service.Record, req *service.RunStartRequest) {
+	run := req.Run
 	// Sending metadata as a request for now, eventually this should be turned into
 	// a record and stored in the transaction log
 	meta := service.Record{
@@ -171,22 +192,6 @@ func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartReque
 					StartedAt: run.StartTime}}}}}
 
 	h.sendRecord(&meta)
-
-	/*
-		files := service.Record{
-			RecordType: &service.Record_Files{Files: &service.FilesRecord{Files: []*service.FilesItem{
-				&service.FilesItem{Path: MetaFilename},
-			}}},
-		}
-		h.sendRecord(&files)
-	*/
-
-	h.startTime = float64(run.StartTime.AsTime().UnixMicro()) / 1e6
-	h.run, ok = proto.Clone(run).(*service.RunRecord)
-	if !ok {
-		LogFatal(h.logger, "handleRunStart: failed to clone run")
-	}
-	h.sendRecord(rec)
 }
 
 func (h *Handler) handleRun(rec *service.Record, _ *service.RunRecord) {

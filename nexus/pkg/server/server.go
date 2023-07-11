@@ -41,45 +41,45 @@ func writePortFile(portFile string, port int) {
 }
 
 type Server struct {
-	listener net.Listener
-	teardown chan struct{}
-	shutdown chan struct{}
-	wg       sync.WaitGroup
+	listener     net.Listener
+	teardownChan chan struct{}
+	shutdownChan chan struct{}
+	wg           sync.WaitGroup
 }
 
 func NewServer(ctx context.Context, addr string, portFile string) *Server {
-	s := &Server{
-		teardown: make(chan struct{}),
-		shutdown: make(chan struct{}),
-		wg:       sync.WaitGroup{},
-	}
-
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		LogError(slog.Default(), "failed to listen", err)
+		LogError(slog.Default(), "cant listen", err)
 	}
-	s.listener = listener
 
-	slog.Info("server is running on:", "addr", addr)
+	s := &Server{
+		listener:     listener,
+		teardownChan: make(chan struct{}),
+		shutdownChan: make(chan struct{}),
+		wg:           sync.WaitGroup{},
+	}
+
 	port := s.listener.Addr().(*net.TCPAddr).Port
 	writePortFile(portFile, port)
 
 	s.wg.Add(1)
 	go s.serve(ctx)
+	slog.Info("server is running", "addr", addr)
 	return s
 }
 
 func (s *Server) serve(ctx context.Context) {
 	defer s.wg.Done()
 
-	slog.Info("server started")
+	slog.Debug("server started")
 	// Run a separate goroutine to handle incoming connections
 	for {
 		conn, err := s.listener.Accept()
 		if err != nil {
 			select {
-			case <-s.shutdown:
-				slog.Info("server shutting down...")
+			case <-s.shutdownChan:
+				slog.Debug("server shutting down...")
 				return
 			default:
 				LogError(slog.Default(), "failed to accept conn.", err)
@@ -96,17 +96,17 @@ func (s *Server) serve(ctx context.Context) {
 }
 
 func (s *Server) Close() {
-	<-s.teardown
-	close(s.shutdown)
+	<-s.teardownChan
+	close(s.shutdownChan)
 	if err := s.listener.Close(); err != nil {
 		slog.Error("failed to close listener", err)
 	}
 	s.wg.Wait()
-	slog.Debug("server closed")
+	slog.Info("server is closed")
 }
 
 func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
-	nexusConn := NewConnection(ctx, conn, s.teardown)
+	nexusConn := NewConnection(ctx, conn, s.teardownChan)
 
 	defer close(nexusConn.inChan)
 
@@ -118,8 +118,10 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 		if err := proto.Unmarshal(scanner.Bytes(), msg); err != nil {
 			slog.Error(
 				"unmarshalling error",
-				slog.String("err", err.Error()))
+				slog.String("err", err.Error()),
+				slog.String("conn", conn.RemoteAddr().String()))
 		} else {
+			slog.Debug("received message", "msg", msg.String(), "conn", conn.RemoteAddr().String())
 			nexusConn.inChan <- msg
 		}
 	}

@@ -21,9 +21,9 @@ type Connection struct {
 	wg   sync.WaitGroup
 	id   string
 
-	inChan   chan *service.ServerRequest
-	outChan  chan *service.ServerResponse
-	teardown chan struct{}
+	inChan       chan *service.ServerRequest
+	outChan      chan *service.ServerResponse
+	teardownChan chan struct{}
 }
 
 func NewConnection(
@@ -33,33 +33,33 @@ func NewConnection(
 ) *Connection {
 
 	nc := &Connection{
-		ctx:      ctx,
-		wg:       sync.WaitGroup{},
-		conn:     conn,
-		id:       conn.RemoteAddr().String(), // check if this is properly unique
-		inChan:   make(chan *service.ServerRequest),
-		outChan:  make(chan *service.ServerResponse),
-		teardown: teardown, //TODO: eventually remove this, we should be able to handle shutdown outside of the connection
+		ctx:          ctx,
+		wg:           sync.WaitGroup{},
+		conn:         conn,
+		id:           conn.RemoteAddr().String(), // TODO: check if this is properly unique
+		inChan:       make(chan *service.ServerRequest),
+		outChan:      make(chan *service.ServerResponse),
+		teardownChan: teardown, //TODO: should we trigger teardown from a connection?
 	}
 	nc.wg.Add(1)
 	go nc.handle()
+	slog.Info("created new connection", "id", nc.id)
 	return nc
 }
 
 func (nc *Connection) handle() {
-	slog.Debug("creating new connection", "id", nc.id)
 	defer nc.wg.Done()
 
 	nc.wg.Add(1)
 	go func() {
-		defer nc.wg.Done()
 		nc.handleServerRequest()
+		nc.wg.Done()
 	}()
 
 	nc.wg.Add(1)
 	go func() {
-		defer nc.wg.Done()
 		nc.handleServerResponse()
+		nc.wg.Done()
 	}()
 }
 
@@ -69,7 +69,7 @@ func (nc *Connection) Close() {
 		slog.Error("error closing connection", "err", err.Error(), "id", nc.id)
 	}
 	nc.wg.Wait()
-	slog.Debug("handleInformTeardown: teardown closed")
+	slog.Info("closed connection", "id", nc.id)
 }
 
 func (nc *Connection) Respond(resp *service.ServerResponse) {
@@ -108,7 +108,7 @@ func (nc *Connection) handleServerRequest() {
 	defer close(nc.outChan)
 	slog.Debug("starting handleServerRequest", "id", nc.id)
 	for msg := range nc.inChan {
-		slog.Debug("handling server request", "id", nc.id, "msg", msg.String())
+		slog.Debug("handling server request", "msg", msg.String(), "id", nc.id)
 		switch x := msg.ServerRequestType.(type) {
 		case *service.ServerRequest_InformInit:
 			nc.handleInformInit(x.InformInit)
@@ -149,10 +149,11 @@ func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 	}(settings) // TODO: this is a hack, we should not be modifying the settings
 
 	streamId := msg.GetXInfo().GetStreamId()
-	slog.Debug("connection init received", slog.String("streamId", streamId))
+	slog.Info("connection init received", slog.String("streamId", streamId), "id", nc.id)
 	stream := NewStream(nc.ctx, settings, streamId, ResponderEntry{nc, nc.id})
 	if err := streamMux.AddStream(streamId, stream); err != nil {
-		slog.Error("handleInformInit: stream already exists", slog.String("streamId", streamId))
+		slog.Error("connection init failed, stream already exists", slog.String("streamId", streamId))
+		// TODO: should we close the stream?
 		return
 	}
 }
@@ -161,7 +162,8 @@ func (nc *Connection) handleInformStart(_ *service.ServerInformStartRequest) {
 }
 
 func (nc *Connection) handleInformRecord(msg *service.Record) {
-	streamId := msg.XInfo.StreamId
+	streamId := msg.GetXInfo().GetStreamId()
+	slog.Debug("handle record received", slog.String("streamId", streamId), "id", nc.id)
 	if stream, err := streamMux.GetStream(streamId); err != nil {
 		slog.Error("handleInformRecord: stream not found", slog.String("streamId", streamId))
 	} else {
@@ -179,7 +181,7 @@ func (nc *Connection) handleInformRecord(msg *service.Record) {
 
 func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest) {
 	streamId := msg.XInfo.StreamId
-	slog.Debug("handleInformFinish", slog.String("streamId", streamId))
+	slog.Info("handle finish received", slog.String("streamId", streamId), "id", nc.id)
 	if stream, err := streamMux.RemoveStream(streamId); err != nil {
 		slog.Error("handleInformFinish:", "err", err.Error(), "streamId", streamId)
 	} else {
@@ -188,8 +190,8 @@ func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest)
 }
 
 func (nc *Connection) handleInformTeardown(_ *service.ServerInformTeardownRequest) {
-	slog.Debug("handleInformTeardown: starting..", "id", nc.id)
-	close(nc.teardown)
+	slog.Debug("handle teardown received", "id", nc.id)
+	close(nc.teardownChan)
 	streamMux.CloseAllStreams(true) // TODO: this seems wrong to close all streams from a single connection
 	nc.Close()
 }
