@@ -68,7 +68,7 @@ func (sm *StreamMux) CloseAllStreams(force bool) {
 			stream.Close(force)
 			wg.Done()
 		}(stream)
-		//delete all streams from mux
+		// delete all streams from mux
 		delete(sm.mux, streamId)
 	}
 	wg.Wait()

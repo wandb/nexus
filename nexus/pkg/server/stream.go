@@ -15,8 +15,7 @@ import (
 // data to Stream.sender, which sends it to the W&B server. Stream.dispatcher
 // handles dispatching responses to the appropriate client responders.
 type Stream struct {
-	ctx context.Context
-	//cancel     context.CancelFunc
+	ctx        context.Context
 	wg         sync.WaitGroup
 	handler    *Handler
 	dispatcher *Dispatcher
