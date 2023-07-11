@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/base64"
 	"net/http"
+
 	"github.com/hashicorp/go-retryablehttp"
 
 	"github.com/Khan/genqlient/graphql"
@@ -29,9 +30,9 @@ func (t *authedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 // newRetryClient creates a new http client
 func newRetryClient(apiKey string) *retryablehttp.Client {
 	tr := &authedTransport{
-			key:     apiKey,
-			wrapped: http.DefaultTransport,
-		}
+		key:     apiKey,
+		wrapped: http.DefaultTransport,
+	}
 	retryClient := retryablehttp.NewClient()
 	retryClient.HTTPClient.Transport = tr
 	return retryClient
