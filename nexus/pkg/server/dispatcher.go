@@ -24,9 +24,10 @@ func NewDispatcher(ctx context.Context, logger *slog.Logger) *Dispatcher {
 	return dispatcher
 }
 
-func (d *Dispatcher) AddResponder(responderId string, responder Responder) {
+func (d *Dispatcher) AddResponder(entry ResponderEntry) {
+	responderId := entry.ID
 	if _, ok := d.responders[responderId]; !ok {
-		d.responders[responderId] = responder
+		d.responders[responderId] = entry.Responder
 	} else {
 		slog.LogAttrs(
 			d.ctx,
@@ -36,24 +37,8 @@ func (d *Dispatcher) AddResponder(responderId string, responder Responder) {
 	}
 }
 
-func (d *Dispatcher) RemoveResponder(responderId string) {
-	if _, ok := d.responders[responderId]; !ok {
-		slog.LogAttrs(
-			d.ctx,
-			slog.LevelError,
-			"Responder does not exist",
-			slog.String("responder", responderId))
-	} else {
-		delete(d.responders, responderId)
-	}
-}
-
-func (d *Dispatcher) Deliver(result *service.Result) {
-	d.inChan <- result
-}
-
-func (d *Dispatcher) do() {
-	// do the dispatcher
+func (d *Dispatcher) start() {
+	// start the dispatcher
 	for msg := range d.inChan {
 		responderId := msg.Control.ConnectionId
 		LogResult(d.logger, "dispatch: got msg", msg)
@@ -66,4 +51,5 @@ func (d *Dispatcher) do() {
 		}
 		d.responders[responderId].Respond(response)
 	}
+	slog.Debug("dispatch: started and closed")
 }

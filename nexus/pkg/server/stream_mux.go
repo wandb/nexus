@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"golang.org/x/exp/slog"
 	"sync"
 )
 
@@ -20,8 +21,8 @@ func NewStreamMux() *StreamMux {
 	}
 }
 
-// addStream adds a stream to the mux if it doesn't already exist.
-func (sm *StreamMux) addStream(streamId string, stream *Stream) error {
+// AddStream adds a stream to the mux if it doesn't already exist.
+func (sm *StreamMux) AddStream(streamId string, stream *Stream) error {
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
 	if _, ok := sm.mux[streamId]; !ok {
@@ -32,7 +33,7 @@ func (sm *StreamMux) addStream(streamId string, stream *Stream) error {
 	}
 }
 
-func (sm *StreamMux) getStream(streamId string) (*Stream, error) {
+func (sm *StreamMux) GetStream(streamId string) (*Stream, error) {
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
 	if stream, ok := sm.mux[streamId]; !ok {
@@ -42,28 +43,35 @@ func (sm *StreamMux) getStream(streamId string) (*Stream, error) {
 	}
 }
 
-// todo: add this when we have a way to remove mux
-// func (sm *StreamMux) removeStream(streamId string) {
-//  	sm.mutex.Lock()
-//  	defer sm.mutex.Unlock()
-//  	delete(sm.mux, streamId)
-// }
+// RemoveStream removes a stream from the mux.
+func (sm *StreamMux) RemoveStream(streamId string) (*Stream, error) {
+	sm.mutex.Lock()
+	defer sm.mutex.Unlock()
+	if stream, ok := sm.mux[streamId]; !ok {
+		return nil, fmt.Errorf("stream not found %s", streamId)
+	} else {
+		delete(sm.mux, streamId)
+		return stream, nil
+	}
+}
 
-// Close closes all streams in the mux.
-func (sm *StreamMux) Close() {
+// CloseAllStreams closes all streams in the mux.
+func (sm *StreamMux) CloseAllStreams(force bool) {
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
 
 	wg := sync.WaitGroup{}
-	for _, stream := range sm.mux {
+	for streamId, stream := range sm.mux {
 		wg.Add(1)
 		go func(stream *Stream) {
-			defer wg.Done()
-			stream.Close() // test this
+			stream.Close(force)
+			wg.Done()
 		}(stream)
-
+		//delete all streams from mux
+		delete(sm.mux, streamId)
 	}
 	wg.Wait()
+	slog.Debug("all streams were closed")
 }
 
 // StreamMux is a singleton.

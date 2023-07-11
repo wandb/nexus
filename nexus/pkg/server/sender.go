@@ -1,18 +1,24 @@
 package server
 
 import (
+	"time"
+
+	"bytes"
+	"os"
+
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"encoding/json"
+	"net/http"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/wandb/wandb/nexus/pkg/service"
-	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+
+	"golang.org/x/exp/slog"
 )
 
 const CliVersion string = "0.0.1a1"
@@ -23,11 +29,9 @@ type Sender struct {
 	settings       *service.Settings
 	inChan         chan *service.Record
 	outChan        chan<- *service.Record
-	dispatcherChan dispatchChannel
+	dispatcherChan chan<- *service.Result
 	graphqlClient  graphql.Client
 	fileStream     *FileStream
-	uploader       *Uploader
-	watcher        *Watcher
 	run            *service.RunRecord
 	logger         *slog.Logger
 }
@@ -40,21 +44,26 @@ func NewSender(ctx context.Context, settings *service.Settings, logger *slog.Log
 		inChan:   make(chan *service.Record),
 		logger:   logger,
 	}
-	sender.logger.Debug("Sender: init")
+	slog.Debug("Sender: start")
 	url := fmt.Sprintf("%s/graphql", settings.GetBaseUrl().GetValue())
 	sender.graphqlClient = newGraphqlClient(url, settings.GetApiKey().GetValue())
-
 	return sender
 }
 
-// `do` starts the sender
-func (s *Sender) do() {
+// start starts the sender
+func (s *Sender) start() {
 	for msg := range s.inChan {
 		LogRecord(s.logger, "sender: got msg", msg)
 		s.sendRecord(msg)
 	}
-	s.logger.Debug("sender: started and closed")
+	slog.Debug("sender: started and closed")
 }
+
+// close closes the sender's resources
+// func (s *Sender) close() {
+// 	log.Debug("Sender: close")
+// 	//close(s.fileStream.inChan)
+// }
 
 // sendRecord sends a record
 func (s *Sender) sendRecord(msg *service.Record) {
@@ -95,11 +104,7 @@ func (s *Sender) sendRunStart(_ *service.RunStartRequest) {
 	fsPath := fmt.Sprintf("%s/files/%s/%s/%s/file_stream",
 		s.settings.GetBaseUrl().GetValue(), s.run.Entity, s.run.Project, s.run.RunId)
 	s.fileStream = NewFileStream(fsPath, s.settings, s.logger)
-	s.logger.Debug("Sender: sendRunStart: started file stream")
-	s.uploader = NewUploader(s.ctx, s.logger)
-	s.logger.Debug("Sender: sendRunStart: started uploader")
-	s.watcher = NewWatcher(s.ctx, s.settings, s.logger, s.inChan)
-	s.logger.Debug("Sender: sendRunStart: started watcher")
+	slog.Debug("Sender: sendRunStart: start file stream")
 }
 
 func (s *Sender) sendNetworkStatusRequest(_ *service.NetworkStatusRequest) {
@@ -117,21 +122,18 @@ func (s *Sender) sendMetadata(req *service.MetadataRequest) {
 
 func (s *Sender) sendDefer(req *service.DeferRequest) {
 	switch req.State {
-	case service.DeferRequest_FLUSH_FP:
-		s.watcher.close()
-		s.uploader.close()
-		s.logger.Debug(fmt.Sprintf("Sender: sendDefer: flushed file pusher: %v", req.State))
-		req.State++
-		s.sendRequestDefer(req)
 	case service.DeferRequest_FLUSH_FS:
-		s.logger.Debug(fmt.Sprintf("Sender: sendDefer: flush file stream: %v", req.State))
+		slog.Debug(fmt.Sprintf("Sender: sendDefer: flush file stream: %v", req.State))
 		s.fileStream.close()
 		req.State++
 		s.sendRequestDefer(req)
 	case service.DeferRequest_END:
-		s.logger.Debug(fmt.Sprintf("Sender: sendDefer: end = %v", req.State))
+		slog.Debug(fmt.Sprintf("Sender: sendDefer: end = %v", req.State))
+		close(s.outChan)
+		close(s.dispatcherChan)
+		slog.Debug(fmt.Sprintf("Sender: sendDefer: end = %v", req.State))
 	default:
-		s.logger.Debug(fmt.Sprintf("Sender: sendDefer: unknown state = %v", req.State))
+		slog.Debug(fmt.Sprintf("Sender: sendDefer: unknown state = %v", req.State))
 		req.State++
 		s.sendRequestDefer(req)
 	}
@@ -238,7 +240,7 @@ func (s *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 		Uuid:       msg.Uuid,
 	}
 	LogResult(s.logger, "sending run result ", result)
-	s.dispatcherChan.Deliver(result)
+	s.dispatcherChan <- result
 }
 
 func (s *Sender) sendHistory(msg *service.Record, _ *service.HistoryRecord) {
@@ -258,22 +260,47 @@ func (s *Sender) sendExit(msg *service.Record, _ *service.RunExitRecord) {
 		Control:    msg.Control,
 		Uuid:       msg.Uuid,
 	}
-	s.dispatcherChan.Deliver(result)
+	s.dispatcherChan <- result
 	//RequestType: &service.Request_Defer{Defer: &service.DeferRequest{State: service.DeferRequest_BEGIN}}
 	req := &service.Request{RequestType: &service.Request_Defer{Defer: &service.DeferRequest{State: service.DeferRequest_BEGIN}}}
 	rec := &service.Record{RecordType: &service.Record_Request{Request: req}, Control: msg.Control, Uuid: msg.Uuid}
 	s.sendRecord(rec)
 }
 
-func (s *Sender) sendFiles(_ *service.Record, filesRecord *service.FilesRecord) {
+func (s *Sender) sendFiles(msg *service.Record, filesRecord *service.FilesRecord) {
 	files := filesRecord.GetFiles()
 	for _, file := range files {
 		s.sendFile(file.GetPath())
 	}
 }
 
+func sendData(fileName, urlPath string, logger *slog.Logger) error {
+	client := &http.Client{
+		Timeout: time.Second * 10,
+	}
+
+	b, err := os.ReadFile(fileName)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, urlPath, bytes.NewReader(b))
+	if err != nil {
+		return err
+	}
+	rsp, err := client.Do(req)
+	if rsp.StatusCode != http.StatusOK {
+		LogFatal(logger, fmt.Sprintf("Request failed with response code: %d", rsp.StatusCode))
+	}
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *Sender) sendFile(path string) {
 
+	fullPath := filepath.Join(s.settings.GetFilesDir().GetValue(), path)
 	if s.run == nil {
 		LogFatal(s.logger, "upsert run not called before send db")
 	}
@@ -292,11 +319,11 @@ func (s *Sender) sendFile(path string) {
 		LogError(s.logger, "error getting upload urls", err)
 	}
 
-	fullPath := filepath.Join(s.settings.GetFilesDir().GetValue(), path)
 	edges := resp.GetModel().GetBucket().GetFiles().GetEdges()
 	for _, e := range edges {
-		task := &UploadTask{fullPath, *e.GetNode().GetUrl()}
-		s.logger.Debug("sending file", task)
-		s.uploader.addTask(task)
+		url := e.GetNode().GetUrl()
+		if err = sendData(fullPath, *url, s.logger); err != nil {
+			LogError(s.logger, "error sending data", err)
+		}
 	}
 }
