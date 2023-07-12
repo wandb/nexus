@@ -1,9 +1,10 @@
 package analytics
 
 import (
+	"time"
+
 	"github.com/getsentry/sentry-go"
 	"golang.org/x/exp/slog"
-	"time"
 )
 
 type SentryClient struct {

@@ -63,14 +63,14 @@ func (h *Handler) do() {
 	defer analytics.Reraise()
 
 	// create a dummy error:
-	//err := fmt.Errorf("dummy error")
-	//tags := map[string]string{
-	//	"component": "handler",
-	//	"stream_id": h.settings.RunId.GetValue(),
-	//}
-	//analytics.CaptureException(err, tags)
+	// err := fmt.Errorf("dummy error")
+	// tags := map[string]string{
+	//  	"component": "handler",
+	//  	"stream_id": h.settings.RunId.GetValue(),
+	// }
+	// analytics.CaptureException(err, tags)
 
-	//panic("KARAUL!")
+	// panic("KARAUL!")
 
 	h.logger.Info("handler: started", "stream_id", h.settings.RunId)
 
