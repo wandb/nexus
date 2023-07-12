@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/wandb/wandb/nexus/pkg/analytics"
 	"github.com/wandb/wandb/nexus/pkg/server"
 	"golang.org/x/exp/slog"
 )
@@ -16,10 +17,14 @@ func main() {
 
 	flag.Parse()
 
-	server.SetupDefaultLogger()
+	logger := server.SetupDefaultLogger()
 	ctx := context.Background()
 
-	slog.LogAttrs(
+	// set up sentry client and start listening for errors on the errChan channel
+	sentryClient := analytics.NewSentryClient()
+	go sentryClient.Do()
+
+	logger.LogAttrs(
 		ctx,
 		slog.LevelDebug,
 		"Flags",
@@ -30,6 +35,6 @@ func main() {
 		slog.Bool("serveGrpc", *serveGrpc),
 	)
 
-	nexus := server.NewServer(ctx, "127.0.0.1:0", *portFilename)
+	nexus := server.NewServer(ctx, "127.0.0.1:0", *portFilename, sentryClient.ErrChan)
 	nexus.Close()
 }

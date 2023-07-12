@@ -21,6 +21,9 @@ type Server struct {
 	// wg is the WaitGroup for the server
 	wg sync.WaitGroup
 
+	// errChan is the channel for errors to capture with Sentry
+	errChan chan error
+
 	// teardownChan is the channel for signaling and waiting for teardown
 	teardownChan chan struct{}
 
@@ -29,7 +32,7 @@ type Server struct {
 }
 
 // NewServer creates a new server
-func NewServer(ctx context.Context, addr string, portFile string) *Server {
+func NewServer(ctx context.Context, addr string, portFile string, errChan chan error) *Server {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		LogError(slog.Default(), "can not listen", err)
@@ -39,6 +42,7 @@ func NewServer(ctx context.Context, addr string, portFile string) *Server {
 		ctx:          ctx,
 		listener:     listener,
 		wg:           sync.WaitGroup{},
+		errChan:      errChan,
 		teardownChan: make(chan struct{}),
 		shutdownChan: make(chan struct{}),
 	}
