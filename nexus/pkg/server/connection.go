@@ -179,7 +179,7 @@ func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 	stream := NewStream(nc.ctx, settings, streamId, ResponderEntry{nc, nc.id})
 	if err := streamMux.AddStream(streamId, stream); err != nil {
 		slog.Error("connection init failed, stream already exists", "streamId", streamId, "id", nc.id)
-		// TODO: should we close the stream?
+		// TODO: should we Close the stream?
 		return
 	}
 }
@@ -206,7 +206,7 @@ func (nc *Connection) handleInformRecord(msg *service.Record) {
 	}
 }
 
-// handleInformFinish is called when the client sends a close message
+// handleInformFinish is called when the client sends a Close message
 // for a stream
 func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest) {
 	streamId := msg.XInfo.StreamId
@@ -223,6 +223,6 @@ func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest)
 func (nc *Connection) handleInformTeardown(_ *service.ServerInformTeardownRequest) {
 	slog.Debug("handle teardown received", "id", nc.id)
 	close(nc.teardownChan)
-	streamMux.CloseAllStreams(true) // TODO: this seems wrong to close all streams from a single connection
+	streamMux.CloseAllStreams(true) // TODO: this seems wrong to Close all streams from a single connection
 	nc.Close()
 }
