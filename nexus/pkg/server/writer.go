@@ -30,7 +30,7 @@ type Writer struct {
 	logger *slog.Logger
 }
 
-// NewWriter creates a new writer
+// NewWriter returns a new Writer
 func NewWriter(ctx context.Context, settings *service.Settings, logger *slog.Logger) *Writer {
 
 	store, err := NewStore(ctx, settings.GetSyncFile().GetValue(), logger)
@@ -49,7 +49,7 @@ func NewWriter(ctx context.Context, settings *service.Settings, logger *slog.Log
 	return writer
 }
 
-// do this starts the writer
+// do is the main loop of the writer to process incoming messages
 func (w *Writer) do() {
 	slog.Info("writer: started", "stream_id", w.settings.RunId)
 	for msg := range w.inChan {
