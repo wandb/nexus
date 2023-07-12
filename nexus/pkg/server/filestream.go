@@ -78,11 +78,11 @@ func NewFileStream(path string, settings *service.Settings, logger *slog.Logger)
 
 func (fs *FileStream) Start() {
 	fs.recordWait.Add(1)
-	go fs.recordProcess()
+	go fs.doRecordProcess()
 	fs.chunkWait.Add(1)
-	go fs.chunkProcess()
+	go fs.doChunkProcess()
 	fs.replyWait.Add(1)
-	go fs.replyProcess()
+	go fs.doReplyProcess()
 }
 
 func (fs *FileStream) pushRecord(rec *service.Record) {
@@ -97,7 +97,7 @@ func (fs *FileStream) pushReply(reply map[string]interface{}) {
 	fs.replyChan <- reply
 }
 
-func (fs *FileStream) recordProcess() {
+func (fs *FileStream) doRecordProcess() {
 	defer fs.recordWait.Done()
 
 	fs.logger.Debug("FileStream: OPEN")
@@ -114,7 +114,7 @@ func (fs *FileStream) recordProcess() {
 	fs.logger.Debug("FileStream: finished")
 }
 
-func (fs *FileStream) chunkProcess() {
+func (fs *FileStream) doChunkProcess() {
 	defer fs.chunkWait.Done()
 	overflow := false
 
@@ -160,7 +160,7 @@ func (fs *FileStream) chunkProcess() {
 	}
 }
 
-func (fs *FileStream) replyProcess() {
+func (fs *FileStream) doReplyProcess() {
 	defer fs.replyWait.Done()
 	for range fs.replyChan {
 	}
