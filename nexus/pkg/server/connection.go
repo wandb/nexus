@@ -201,7 +201,7 @@ func (nc *Connection) handleInformAttach(msg *service.ServerInformAttachRequest)
 	if stream, err := streamMux.GetStream(streamId); err != nil {
 		slog.Error("handleInformAttach: stream not found", "streamId", streamId, "id", nc.id)
 	} else {
-		stream.HandleAttach(ResponderEntry{nc, nc.id})
+		stream.AddResponders(ResponderEntry{nc, nc.id})
 		resp := &service.ServerResponse{
 			ServerResponseType: &service.ServerResponse_InformAttachResponse{
 				InformAttachResponse: &service.ServerInformAttachResponse{
