@@ -131,6 +131,7 @@ func (s *Sender) sendRunStart(_ *service.RunStartRequest) {
 	fsPath := fmt.Sprintf("%s/files/%s/%s/%s/file_stream",
 		s.settings.GetBaseUrl().GetValue(), s.run.Entity, s.run.Project, s.run.RunId)
 	s.fileStream = NewFileStream(fsPath, s.settings, s.logger)
+	s.fileStream.Start()
 	s.uploader = NewUploader(s.ctx, s.logger)
 }
 
@@ -154,7 +155,7 @@ func (s *Sender) sendDefer(req *service.DeferRequest) {
 		req.State++
 		s.sendRequestDefer(req)
 	case service.DeferRequest_FLUSH_FS:
-		s.fileStream.close()
+		s.fileStream.Close()
 		req.State++
 		s.sendRequestDefer(req)
 	case service.DeferRequest_END:
@@ -280,14 +281,14 @@ func (s *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 // which will then send it to the server
 func (s *Sender) sendHistory(msg *service.Record, _ *service.HistoryRecord) {
 	if s.fileStream != nil {
-		s.fileStream.stream(msg)
+		s.fileStream.StreamRecord(msg)
 	}
 }
 
 // sendExit sends an exit record to the server and triggers the shutdown of the stream
 func (s *Sender) sendExit(msg *service.Record, _ *service.RunExitRecord) {
-	s.fileStream.stream(msg)
 
+	s.fileStream.StreamRecord(msg)
 	result := &service.Result{
 		ResultType: &service.Result_ExitResult{ExitResult: &service.RunExitResult{}},
 		Control:    msg.Control,
