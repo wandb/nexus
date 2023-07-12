@@ -42,19 +42,6 @@ func (d *Dispatcher) AddResponder(entry ResponderEntry) {
 	}
 }
 
-// RemoveResponder removes a responder from the dispatcher
-//func (d *Dispatcher) RemoveResponder(responderId string) {
-//	if _, ok := d.responders[responderId]; ok {
-//		delete(d.responders, responderId)
-//	} else {
-//		slog.LogAttrs(
-//			d.ctx,
-//			slog.LevelError,
-//			"Responder does not exist",
-//			slog.String("responder", responderId))
-//	}
-//}
-
 // do start the dispatcher and dispatches messages
 func (d *Dispatcher) do() {
 
