@@ -3,11 +3,11 @@ package server
 import (
 	"context"
 	"fmt"
-	"strconv"
-
+	"github.com/wandb/wandb/nexus/pkg/analytics"
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
+	"strconv"
 	// "time"
 )
 
@@ -60,6 +60,18 @@ func NewHandler(ctx context.Context, settings *service.Settings, logger *slog.Lo
 
 // do this starts the handler
 func (h *Handler) do() {
+	defer analytics.Reraise()
+
+	// create a dummy error:
+	//err := fmt.Errorf("dummy error")
+	//tags := map[string]string{
+	//	"component": "handler",
+	//	"stream_id": h.settings.RunId.GetValue(),
+	//}
+	//analytics.CaptureException(err, tags)
+
+	//panic("KARAUL!")
+
 	h.logger.Info("handler: started", "stream_id", h.settings.RunId)
 
 	for msg := range h.inChan {
@@ -261,6 +273,7 @@ func (h *Handler) handlePartialHistory(_ *service.Record, req *service.PartialHi
 			val, err := strconv.ParseFloat(items[i].ValueJson, 64)
 			if err != nil {
 				h.logger.Error("error parsing timestamp", "err", err, "stream_id", h.settings.RunId)
+				analytics.CaptureException(err, map[string]string{"stream_id": h.settings.RunId.GetValue()})
 			}
 			runTime = val - h.startTime
 		}
