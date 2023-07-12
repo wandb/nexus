@@ -202,6 +202,8 @@ func (nc *Connection) handleInformAttach(msg *service.ServerInformAttachRequest)
 		slog.Error("handleInformAttach: stream not found", "streamId", streamId, "id", nc.id)
 	} else {
 		stream.AddResponders(ResponderEntry{nc, nc.id})
+		// TODO: we should redo this attach logic, so that the stream handles
+		//       the attach logic
 		resp := &service.ServerResponse{
 			ServerResponseType: &service.ServerResponse_InformAttachResponse{
 				InformAttachResponse: &service.ServerInformAttachResponse{
