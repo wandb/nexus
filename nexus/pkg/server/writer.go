@@ -6,9 +6,10 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-// Writer is a writer for the server
-// It receives messages from the handler, writes them to the append-only log,
-// and passes them to the sender.
+// Writer is responsible for writing messages to the append-only log.
+// It receives messages from the handler, processes them,
+// if the message is to be persisted it writes them to the log.
+// It also sends the messages to the sender.
 type Writer struct {
 	// ctx is the context for the writer
 	ctx context.Context
