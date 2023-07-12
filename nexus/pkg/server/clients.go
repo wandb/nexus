@@ -4,9 +4,9 @@ import (
 	"encoding/base64"
 	"net/http"
 
-	"golang.org/x/exp/slog"
-	"github.com/hashicorp/go-retryablehttp"
 	"github.com/Khan/genqlient/graphql"
+	"github.com/hashicorp/go-retryablehttp"
+	"golang.org/x/exp/slog"
 )
 
 func basicAuth(username, password string) string {
