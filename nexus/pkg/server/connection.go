@@ -43,7 +43,7 @@ type Connection struct {
 	teardownChan chan struct{}
 
 	// logger is the logger for the connection
-	// logger slog.Logger
+	// logger *analytics.NexusLogger
 }
 
 // NewConnection creates a new connection

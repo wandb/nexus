@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/wandb/wandb/nexus/pkg/analytics"
 	"os"
 	"path/filepath"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/wandb/wandb/nexus/pkg/service"
-	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
@@ -47,14 +47,14 @@ type Sender struct {
 	run *service.RunRecord
 
 	// logger is the logger for the sender
-	logger *slog.Logger
+	logger *analytics.NexusLogger
 
 	// settings is the settings for the sender
 	settings *service.Settings
 }
 
 // NewSender creates a new Sender with the given settings
-func NewSender(ctx context.Context, settings *service.Settings, logger *slog.Logger) *Sender {
+func NewSender(ctx context.Context, settings *service.Settings, logger *analytics.NexusLogger) *Sender {
 	url := fmt.Sprintf("%s/graphql", settings.GetBaseUrl().GetValue())
 	apiKey := settings.GetApiKey().GetValue()
 	return &Sender{

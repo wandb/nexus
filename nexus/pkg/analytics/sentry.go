@@ -46,6 +46,16 @@ func CaptureException(err error, tags map[string]string) {
 	localHub.CaptureException(err)
 }
 
+func CaptureMessage(msg string, tags map[string]string) {
+	localHub := sentry.CurrentHub().Clone()
+	localHub.ConfigureScope(func(scope *sentry.Scope) {
+		for k, v := range tags {
+			scope.SetTag(k, v)
+		}
+	})
+	localHub.CaptureMessage(msg)
+}
+
 func Reraise() {
 	err := recover()
 

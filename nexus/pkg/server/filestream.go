@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/wandb/wandb/nexus/pkg/analytics"
 	"io"
 	"net/http"
 	"sync"
@@ -59,11 +60,11 @@ type FileStream struct {
 	offset int
 
 	settings   *service.Settings
-	logger     *slog.Logger
+	logger     *analytics.NexusLogger
 	httpClient *retryablehttp.Client
 }
 
-func NewFileStream(path string, settings *service.Settings, logger *slog.Logger) *FileStream {
+func NewFileStream(path string, settings *service.Settings, logger *analytics.NexusLogger) *FileStream {
 	retryClient := newRetryClient(settings.GetApiKey().GetValue(), logger)
 	fs := FileStream{
 		path:       path,
@@ -81,7 +82,7 @@ func NewFileStream(path string, settings *service.Settings, logger *slog.Logger)
 }
 
 func (fs *FileStream) Start() {
-	fs.logger.Debug("FileStream: Start")
+	fs.logger.Logger.Debug("FileStream: Start")
 
 	fs.recordWait.Add(1)
 	go fs.doRecordProcess()
@@ -106,18 +107,18 @@ func (fs *FileStream) pushReply(reply map[string]interface{}) {
 func (fs *FileStream) doRecordProcess() {
 	defer fs.recordWait.Done()
 
-	fs.logger.Debug("FileStream: OPEN")
+	fs.logger.Logger.Debug("FileStream: OPEN")
 
 	if fs.settings.GetXOffline().GetValue() {
 		return
 	}
 
 	for msg := range fs.recordChan {
-		fs.logger.Debug("FileStream *******")
-		LogRecord(fs.logger, "FileStream: got record", msg)
+		fs.logger.Logger.Debug("FileStream *******")
+		LogRecord(fs.logger.Logger, "FileStream: got record", msg)
 		fs.streamRecord(msg)
 	}
-	fs.logger.Debug("FileStream: finished")
+	fs.logger.Logger.Debug("FileStream: finished")
 }
 
 func (fs *FileStream) doChunkProcess() {
@@ -180,14 +181,14 @@ func (fs *FileStream) streamRecord(msg *service.Record) {
 		fs.streamFinish()
 	case nil:
 		// The field is not set.
-		LogFatal(fs.logger, "FileStream: RecordType is nil")
+		LogFatal(fs.logger.Logger, "FileStream: RecordType is nil")
 	default:
-		LogFatal(fs.logger, fmt.Sprintf("FileStream: Unknown type %T", x))
+		LogFatal(fs.logger.Logger, fmt.Sprintf("FileStream: Unknown type %T", x))
 	}
 }
 
 func (fs *FileStream) streamHistory(msg *service.HistoryRecord) {
-	fs.pushChunk(chunkData{fileData: &chunkLine{chunkType: historyChunk, line: jsonifyHistory(msg, fs.logger)}})
+	fs.pushChunk(chunkData{fileData: &chunkLine{chunkType: historyChunk, line: jsonifyHistory(msg, fs.logger.Logger)}})
 }
 
 func (fs *FileStream) streamFinish() {
@@ -198,7 +199,7 @@ func (fs *FileStream) StreamRecord(rec *service.Record) {
 	if fs.settings.GetXOffline().GetValue() {
 		return
 	}
-	LogRecord(fs.logger, "+++++FileStream: stream", rec)
+	LogRecord(fs.logger.Logger, "+++++FileStream: stream", rec)
 	fs.pushRecord(rec)
 }
 
@@ -251,34 +252,34 @@ func (fs *FileStream) sendChunkList(chunks []chunkData) {
 func (fs *FileStream) send(data interface{}) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		LogFatalError(fs.logger, "json marshal error", err)
+		LogFatalError(fs.logger.Logger, "json marshal error", err)
 	}
 
 	buffer := bytes.NewBuffer(jsonData)
 	req, err := retryablehttp.NewRequest(http.MethodPost, fs.path, buffer)
 	if err != nil {
-		LogFatalError(fs.logger, "FileStream: could not create request", err)
+		LogFatalError(fs.logger.Logger, "FileStream: could not create request", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := fs.httpClient.Do(req)
 	if err != nil {
-		LogFatalError(fs.logger, "FileStream: error making HTTP request", err)
+		LogFatalError(fs.logger.Logger, "FileStream: error making HTTP request", err)
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
-			LogError(fs.logger, "FileStream: error closing response body", err)
+			LogError(fs.logger.Logger, "FileStream: error closing response body", err)
 		}
 	}(resp.Body)
 
 	var res map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&res)
 	if err != nil {
-		LogError(fs.logger, "json decode error", err)
+		LogError(fs.logger.Logger, "json decode error", err)
 	}
 	fs.pushReply(res)
 
-	fs.logger.Debug(fmt.Sprintf("FileStream: post response: %v", res))
+	fs.logger.Logger.Debug(fmt.Sprintf("FileStream: post response: %v", res))
 }
 
 func jsonifyHistory(msg *service.HistoryRecord, logger *slog.Logger) string {
@@ -300,7 +301,7 @@ func jsonifyHistory(msg *service.HistoryRecord, logger *slog.Logger) string {
 }
 
 func (fs *FileStream) Close() {
-	fs.logger.Debug("FileStream: CLOSE")
+	fs.logger.Logger.Debug("FileStream: CLOSE")
 	close(fs.recordChan)
 	fs.recordWait.Wait()
 	close(fs.chunkChan)

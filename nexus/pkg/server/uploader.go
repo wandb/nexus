@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"github.com/wandb/wandb/nexus/pkg/analytics"
 	"net/http"
 	"os"
 	"sync"
@@ -44,16 +45,16 @@ type Uploader struct {
 	fileCounts fileCounts
 
 	// logger is the logger for the uploader
-	logger *slog.Logger
+	logger *analytics.NexusLogger
 
 	// wg is the wait group
 	wg *sync.WaitGroup
 }
 
 // NewUploader creates a new uploader
-func NewUploader(ctx context.Context, logger *slog.Logger) *Uploader {
+func NewUploader(ctx context.Context, logger *analytics.NexusLogger) *Uploader {
 	retryClient := retryablehttp.NewClient()
-	retryClient.Logger = slog.NewLogLogger(logger.Handler(), slog.LevelDebug)
+	retryClient.Logger = slog.NewLogLogger(logger.Logger.Handler(), slog.LevelDebug)
 	retryClient.RetryMax = 10
 	retryClient.RetryWaitMin = 1 * time.Second
 	retryClient.RetryWaitMax = 60 * time.Second

@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"github.com/wandb/wandb/nexus/pkg/analytics"
 	"os"
 
 	"github.com/wandb/wandb/nexus/pkg/leveldb"
 	"github.com/wandb/wandb/nexus/pkg/service"
-	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -24,11 +24,11 @@ type Store struct {
 	db *os.File
 
 	// logger is the logger for the store
-	logger *slog.Logger
+	logger *analytics.NexusLogger
 }
 
 // NewStore creates a new store
-func NewStore(ctx context.Context, fileName string, logger *slog.Logger) (*Store, error) {
+func NewStore(ctx context.Context, fileName string, logger *analytics.NexusLogger) (*Store, error) {
 	f, err := os.Create(fileName)
 	if err != nil {
 		logger.Error("cant create file", "error", err)

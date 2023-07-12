@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"github.com/wandb/wandb/nexus/pkg/analytics"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"golang.org/x/exp/slog"
@@ -19,11 +20,11 @@ type Dispatcher struct {
 	responders map[string]Responder
 
 	// logger is the logger for the dispatcher
-	logger *slog.Logger
+	logger *analytics.NexusLogger
 }
 
 // NewDispatcher creates a new dispatcher
-func NewDispatcher(ctx context.Context, logger *slog.Logger) *Dispatcher {
+func NewDispatcher(ctx context.Context, logger *analytics.NexusLogger) *Dispatcher {
 	dispatcher := &Dispatcher{
 		ctx:        ctx,
 		inChan:     make(chan *service.Result),

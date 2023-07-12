@@ -32,7 +32,7 @@ type Handler struct {
 	settings *service.Settings
 
 	// logger is the logger for the handler
-	logger *slog.Logger
+	logger *analytics.NexusLogger
 
 	// currentStep is the current step
 	currentStep int64
@@ -48,7 +48,7 @@ type Handler struct {
 }
 
 // NewHandler creates a new handler
-func NewHandler(ctx context.Context, settings *service.Settings, logger *slog.Logger) *Handler {
+func NewHandler(ctx context.Context, settings *service.Settings, logger *analytics.NexusLogger) *Handler {
 	h := &Handler{
 		ctx:      ctx,
 		inChan:   make(chan *service.Record),
