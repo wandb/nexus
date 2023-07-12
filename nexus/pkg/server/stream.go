@@ -69,7 +69,6 @@ func NewStream(ctx context.Context, settings *service.Settings, streamId string,
 		settings:   settings,
 		logger:     logger,
 	}
-	stream.AddResponders(responders...)
 	stream.wg.Add(1)
 	go stream.Start()
 	return stream
