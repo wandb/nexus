@@ -8,8 +8,7 @@ import (
 )
 
 func main() {
-	portFilename := flag.String("port-filename", "portfile.txt", "filename")
-
+	portFilename := flag.String("port-filename", "port_file.txt", "filename")
 	pid := flag.Int("pid", 0, "pid")
 	debug := flag.Bool("debug", false, "debug")
 	serveSock := flag.Bool("serve-sock", false, "debug")

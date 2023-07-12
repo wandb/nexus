@@ -15,16 +15,32 @@ import (
 // data to Stream.sender, which sends it to the W&B server. Stream.dispatcher
 // handles dispatching responses to the appropriate client responders.
 type Stream struct {
-	ctx        context.Context
-	wg         sync.WaitGroup
-	handler    *Handler
+	// ctx is the context for the stream
+	ctx context.Context
+
+	// wg is the WaitGroup for the stream
+	wg sync.WaitGroup
+
+	// handler is the handler for the stream
+	handler *Handler
+
+	// dispatcher is the dispatcher for the stream
 	dispatcher *Dispatcher
-	writer     *Writer
-	sender     *Sender
-	settings   *service.Settings
-	logger     *slog.Logger
+
+	// writer is the writer for the stream
+	writer *Writer
+
+	// sender is the sender for the stream
+	sender *Sender
+
+	// settings is the settings for the stream
+	settings *service.Settings
+
+	// logger is the logger for the stream
+	logger *slog.Logger
 }
 
+// NewStream creates a new stream with the given settings and responders.
 func NewStream(ctx context.Context, settings *service.Settings, streamId string, responders ...ResponderEntry) *Stream {
 	logFile := settings.GetLogInternal().GetValue()
 	logger := SetupStreamLogger(logFile, streamId)
@@ -56,7 +72,6 @@ func NewStream(ctx context.Context, settings *service.Settings, streamId string,
 	stream.AddResponders(responders...)
 	stream.wg.Add(1)
 	go stream.Start()
-	slog.Info("created new stream", "id", settings.GetRunId().GetValue())
 	return stream
 }
 
@@ -77,6 +92,7 @@ func (s *Stream) AddResponders(entries ...ResponderEntry) {
 // finalized and closed when the stream is closed in Stream.Close().
 func (s *Stream) Start() {
 	defer s.wg.Done()
+	s.logger.Info("created new stream", "id", s.settings.RunId)
 
 	// handle the client requests
 	s.wg.Add(1)
@@ -108,7 +124,7 @@ func (s *Stream) Start() {
 }
 
 func (s *Stream) HandleRecord(rec *service.Record) {
-	slog.Debug("Stream.HandleRecord", "record", rec.String())
+	s.logger.Debug("handling record", "record", rec)
 	s.handler.inChan <- rec
 }
 
@@ -141,6 +157,7 @@ func (s *Stream) Close(force bool) {
 	if force {
 		s.PrintFooter()
 	}
+	s.logger.Info("closed stream", "id", s.settings.RunId)
 }
 
 func (s *Stream) PrintFooter() {
