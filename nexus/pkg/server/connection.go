@@ -179,6 +179,8 @@ func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 
 	streamId := msg.GetXInfo().GetStreamId()
 	slog.Info("connection init received", "streamId", streamId, "id", nc.id)
+	// TODO: redo this function, to only init the stream and have the stream
+	//       handle the rest of the startup
 	stream := NewStream(nc.ctx, settings, streamId, ResponderEntry{nc, nc.id})
 	if err := streamMux.AddStream(streamId, stream); err != nil {
 		slog.Error("connection init failed, stream already exists", "streamId", streamId, "id", nc.id)
@@ -188,7 +190,6 @@ func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 }
 
 func (nc *Connection) handleInformStart(_ *service.ServerInformStartRequest) {
-
 }
 
 // handleInformAttach is called when the client sends an InformAttach message
@@ -196,7 +197,7 @@ func (nc *Connection) handleInformAttach(msg *service.ServerInformAttachRequest)
 	streamId := msg.GetXInfo().GetStreamId()
 	slog.Debug("handle record received", "streamId", streamId, "id", nc.id)
 	if stream, err := streamMux.GetStream(streamId); err != nil {
-		slog.Error("handleInformRecord: stream not found", "streamId", streamId, "id", nc.id)
+		slog.Error("handleInformAttach: stream not found", "streamId", streamId, "id", nc.id)
 	} else {
 		stream.HandleAttach(ResponderEntry{nc, nc.id})
 		resp := &service.ServerResponse{
