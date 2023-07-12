@@ -62,7 +62,7 @@ func NewSender(ctx context.Context, settings *service.Settings, logger *slog.Log
 		settings:      settings,
 		inChan:        make(chan *service.Record),
 		logger:        logger,
-		graphqlClient: newGraphqlClient(url, apiKey),
+		graphqlClient: newGraphqlClient(url, apiKey, logger),
 	}
 }
 
