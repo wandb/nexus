@@ -64,7 +64,7 @@ func NewSender(ctx context.Context, settings *service.Settings, logger *slog.Log
 	}
 
 	url := fmt.Sprintf("%s/graphql", settings.GetBaseUrl().GetValue())
-	s.graphqlClient = newGraphqlClient(url, settings.GetApiKey().GetValue())
+	s.graphqlClient = newGraphqlClient(url, settings.GetApiKey().GetValue(), logger)
 
 	return s
 }
