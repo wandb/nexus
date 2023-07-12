@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	CliVersion   string = "0.0.1a1"
-	MetaFilename string = "wandb-metadata.json"
+	CliVersion   = "0.0.1a1"
+	MetaFilename = "wandb-metadata.json"
 )
 
 // Sender is the sender for a stream

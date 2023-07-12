@@ -71,7 +71,7 @@ func NewUploader(ctx context.Context, logger *slog.Logger) *Uploader {
 	return uploader
 }
 
-// do does the work of the uploader
+// do is the main loop for the uploader
 func (u *Uploader) do() {
 	defer u.wg.Done()
 
