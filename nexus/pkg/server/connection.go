@@ -16,7 +16,10 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-// Connection is the connection for a stream
+// Connection is the connection for a stream.
+// It is a wrapper around the underlying connection
+// It handles the incoming messages from the client
+// and passes them to the stream
 type Connection struct {
 	// ctx is the context for the connection
 	ctx context.Context
