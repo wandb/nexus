@@ -128,6 +128,10 @@ func (s *Stream) HandleRecord(rec *service.Record) {
 	s.handler.inChan <- rec
 }
 
+func (s *Stream) HandleAttach(responders ...ResponderEntry) {
+	s.AddResponders(responders...)
+}
+
 func (s *Stream) GetRun() *service.RunRecord {
 	return s.handler.GetRun()
 }

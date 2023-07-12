@@ -136,6 +136,8 @@ func (nc *Connection) handleServerRequest() {
 			nc.handleInformInit(x.InformInit)
 		case *service.ServerRequest_InformStart:
 			nc.handleInformStart(x.InformStart)
+		case *service.ServerRequest_InformAttach:
+			nc.handleInformAttach(x.InformAttach)
 		case *service.ServerRequest_RecordPublish:
 			nc.handleInformRecord(x.RecordPublish)
 		case *service.ServerRequest_RecordCommunicate:
@@ -186,6 +188,27 @@ func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 }
 
 func (nc *Connection) handleInformStart(_ *service.ServerInformStartRequest) {
+
+}
+
+// handleInformAttach is called when the client sends an InformAttach message
+func (nc *Connection) handleInformAttach(msg *service.ServerInformAttachRequest) {
+	streamId := msg.GetXInfo().GetStreamId()
+	slog.Debug("handle record received", "streamId", streamId, "id", nc.id)
+	if stream, err := streamMux.GetStream(streamId); err != nil {
+		slog.Error("handleInformRecord: stream not found", "streamId", streamId, "id", nc.id)
+	} else {
+		stream.HandleAttach(ResponderEntry{nc, nc.id})
+		resp := &service.ServerResponse{
+			ServerResponseType: &service.ServerResponse_InformAttachResponse{
+				InformAttachResponse: &service.ServerInformAttachResponse{
+					XInfo:    msg.XInfo,
+					Settings: stream.settings,
+				},
+			},
+		}
+		nc.Respond(resp)
+	}
 }
 
 // handleInformRecord is called when the client sends a record message
