@@ -58,6 +58,8 @@ func (w *Writer) do() {
 	w.close()
 }
 
+// close closes the writer and all its resources
+// which includes the store
 func (w *Writer) close() {
 	close(w.outChan)
 	if err := w.store.Close(); err != nil {
