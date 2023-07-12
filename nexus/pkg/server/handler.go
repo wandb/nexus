@@ -166,6 +166,8 @@ func (h *Handler) handleRequest(rec *service.Record) {
 	case *service.Request_Shutdown:
 	case *service.Request_StopStatus:
 	case *service.Request_JobInfo:
+	case *service.Request_Attach:
+		h.handleAttach(rec, x.Attach, response)
 	default:
 		err := fmt.Errorf("handleRequest: unknown request type %T", x)
 		h.logger.Error("error handling request", "err", err, "stream_id", h.settings.RunId)
@@ -211,6 +213,15 @@ func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartReque
 	h.handleMetadata(rec, req)
 }
 
+func (h *Handler) handleAttach(_ *service.Record, _ *service.AttachRequest, resp *service.Response) {
+
+	resp.ResponseType = &service.Response_AttachResponse{
+		AttachResponse: &service.AttachResponse{
+			Run: h.run,
+		},
+	}
+}
+
 func (h *Handler) handleMetadata(_ *service.Record, req *service.RunStartRequest) {
 	run := req.Run
 	// Sending metadata as a request for now, eventually this should be turned into
@@ -247,7 +258,11 @@ func (h *Handler) handleGetSummary(_ *service.Record, _ *service.GetSummaryReque
 	for key, element := range h.summary {
 		items = append(items, &service.SummaryItem{Key: key, ValueJson: element})
 	}
-	response.ResponseType = &service.Response_GetSummaryResponse{GetSummaryResponse: &service.GetSummaryResponse{Item: items}}
+	response.ResponseType = &service.Response_GetSummaryResponse{
+		GetSummaryResponse: &service.GetSummaryResponse{
+			Item: items,
+		},
+	}
 }
 
 func (h *Handler) handleDefer(rec *service.Record) {
