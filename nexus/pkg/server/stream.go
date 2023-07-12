@@ -122,6 +122,7 @@ func (s *Stream) Start() {
 	}()
 }
 
+// HandleRecord handles the given record by sending it to the stream's handler.
 func (s *Stream) HandleRecord(rec *service.Record) {
 	s.logger.Debug("handling record", "record", rec)
 	s.handler.inChan <- rec
