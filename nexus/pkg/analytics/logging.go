@@ -2,6 +2,7 @@ package analytics
 
 import (
 	"context"
+
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"golang.org/x/exp/slog"
 )
