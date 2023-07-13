@@ -62,7 +62,6 @@ func ShortID(length int) string {
 	b := make([]byte, length)
 	_, err := rand.Read(b) // generates len(b) random bytes
 	if err != nil {
-		LogFatalError(slog.Default(), "rand error", err)
 		err = fmt.Errorf("rand error: %s", err.Error())
 		slog.LogAttrs(context.Background(),
 			slog.LevelError,

@@ -158,8 +158,7 @@ func (h *Handler) handleRequest(rec *service.Record) {
 		h.handleAttach(rec, x.Attach, response)
 	default:
 		err := fmt.Errorf("handleRequest: unknown request type %T", x)
-		h.logger.CaptureError("error handling request", err)
-		panic(err)
+		h.logger.CaptureFatalAndPanic("error handling request", err)
 	}
 
 	result := &service.Result{
@@ -186,8 +185,7 @@ func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartReque
 	h.run, ok = proto.Clone(run).(*service.RunRecord)
 	if !ok {
 		err := fmt.Errorf("handleRunStart: failed to clone run")
-		h.logger.CaptureError("error handling run start", err)
-		panic(err)
+		h.logger.CaptureFatalAndPanic("error handling run start", err)
 	}
 	h.sendRecord(rec)
 
