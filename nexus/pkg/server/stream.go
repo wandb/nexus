@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/wandb/wandb/nexus/pkg/analytics"
+	"github.com/wandb/wandb/nexus/pkg/observability"
 	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
@@ -37,7 +37,7 @@ type Stream struct {
 	settings *service.Settings
 
 	// logger is the logger for the stream
-	logger *analytics.NexusLogger
+	logger *observability.NexusLogger
 }
 
 // NewStream creates a new stream with the given settings and responders.

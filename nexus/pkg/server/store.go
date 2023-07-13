@@ -6,7 +6,7 @@ import (
 	"encoding/binary"
 	"os"
 
-	"github.com/wandb/wandb/nexus/pkg/analytics"
+	"github.com/wandb/wandb/nexus/pkg/observability"
 
 	"github.com/wandb/wandb/nexus/pkg/leveldb"
 	"github.com/wandb/wandb/nexus/pkg/service"
@@ -25,11 +25,11 @@ type Store struct {
 	db *os.File
 
 	// logger is the logger for the store
-	logger *analytics.NexusLogger
+	logger *observability.NexusLogger
 }
 
 // NewStore creates a new store
-func NewStore(ctx context.Context, fileName string, logger *analytics.NexusLogger) (*Store, error) {
+func NewStore(ctx context.Context, fileName string, logger *observability.NexusLogger) (*Store, error) {
 	f, err := os.Create(fileName)
 	if err != nil {
 		logger.CaptureError("can't write header", err)

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/wandb/wandb/nexus/pkg/analytics"
+	"github.com/wandb/wandb/nexus/pkg/observability"
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
@@ -32,7 +32,7 @@ type Handler struct {
 	settings *service.Settings
 
 	// logger is the logger for the handler
-	logger *analytics.NexusLogger
+	logger *observability.NexusLogger
 
 	// currentStep is the current step
 	currentStep int64
@@ -48,7 +48,7 @@ type Handler struct {
 }
 
 // NewHandler creates a new handler
-func NewHandler(ctx context.Context, settings *service.Settings, logger *analytics.NexusLogger) *Handler {
+func NewHandler(ctx context.Context, settings *service.Settings, logger *observability.NexusLogger) *Handler {
 	h := &Handler{
 		ctx:      ctx,
 		inChan:   make(chan *service.Record),
@@ -61,7 +61,7 @@ func NewHandler(ctx context.Context, settings *service.Settings, logger *analyti
 
 // do this starts the handler
 func (h *Handler) do() {
-	defer analytics.Reraise()
+	defer observability.Reraise()
 
 	h.logger.Info("handler: started")
 

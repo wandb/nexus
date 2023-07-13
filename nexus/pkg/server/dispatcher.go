@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 
-	"github.com/wandb/wandb/nexus/pkg/analytics"
+	"github.com/wandb/wandb/nexus/pkg/observability"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
 )
@@ -20,11 +20,11 @@ type Dispatcher struct {
 	responders map[string]Responder
 
 	// logger is the logger for the dispatcher
-	logger *analytics.NexusLogger
+	logger *observability.NexusLogger
 }
 
 // NewDispatcher creates a new dispatcher
-func NewDispatcher(ctx context.Context, logger *analytics.NexusLogger) *Dispatcher {
+func NewDispatcher(ctx context.Context, logger *observability.NexusLogger) *Dispatcher {
 	dispatcher := &Dispatcher{
 		ctx:        ctx,
 		inChan:     make(chan *service.Result),

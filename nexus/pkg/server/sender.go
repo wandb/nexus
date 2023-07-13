@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/wandb/wandb/nexus/pkg/analytics"
+	"github.com/wandb/wandb/nexus/pkg/observability"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/wandb/wandb/nexus/pkg/service"
@@ -48,14 +48,14 @@ type Sender struct {
 	run *service.RunRecord
 
 	// logger is the logger for the sender
-	logger *analytics.NexusLogger
+	logger *observability.NexusLogger
 
 	// settings is the settings for the sender
 	settings *service.Settings
 }
 
 // NewSender creates a new Sender with the given settings
-func NewSender(ctx context.Context, settings *service.Settings, logger *analytics.NexusLogger) *Sender {
+func NewSender(ctx context.Context, settings *service.Settings, logger *observability.NexusLogger) *Sender {
 	url := fmt.Sprintf("%s/graphql", settings.GetBaseUrl().GetValue())
 	apiKey := settings.GetApiKey().GetValue()
 	return &Sender{

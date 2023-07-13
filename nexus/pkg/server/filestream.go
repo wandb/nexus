@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wandb/wandb/nexus/pkg/analytics"
+	"github.com/wandb/wandb/nexus/pkg/observability"
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/wandb/wandb/nexus/pkg/service"
@@ -59,11 +59,11 @@ type FileStream struct {
 	offset int
 
 	settings   *service.Settings
-	logger     *analytics.NexusLogger
+	logger     *observability.NexusLogger
 	httpClient *retryablehttp.Client
 }
 
-func NewFileStream(path string, settings *service.Settings, logger *analytics.NexusLogger) *FileStream {
+func NewFileStream(path string, settings *service.Settings, logger *observability.NexusLogger) *FileStream {
 	retryClient := newRetryClient(settings.GetApiKey().GetValue(), logger)
 	fs := FileStream{
 		path:       path,

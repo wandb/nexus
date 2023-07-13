@@ -1,4 +1,4 @@
-package analytics
+package observability
 
 import (
 	"context"

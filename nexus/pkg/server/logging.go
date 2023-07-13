@@ -2,7 +2,7 @@ package server
 
 import (
 	"fmt"
-	"github.com/wandb/wandb/nexus/pkg/analytics"
+	"github.com/wandb/wandb/nexus/pkg/observability"
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"golang.org/x/exp/slog"
 	"io"
@@ -41,7 +41,7 @@ func SetupDefaultLogger() *slog.Logger {
 	return logger
 }
 
-func SetupStreamLogger(name string, settings *service.Settings) *analytics.NexusLogger {
+func SetupStreamLogger(name string, settings *service.Settings) *observability.NexusLogger {
 	var writers []io.Writer
 
 	file, err := os.OpenFile(name, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
@@ -56,11 +56,11 @@ func SetupStreamLogger(name string, settings *service.Settings) *analytics.Nexus
 
 	writer := io.MultiWriter(writers...)
 
-	tags := make(analytics.Tags)
+	tags := make(observability.Tags)
 	tags["run_id"] = settings.GetRunId().GetValue()
 	tags["run_url"] = settings.GetRunUrl().GetValue()
 	tags["project"] = settings.GetProject().GetValue()
 	tags["entity"] = settings.GetEntity().GetValue()
 
-	return analytics.NewNexusLogger(setupLogger(nil, writer), tags)
+	return observability.NewNexusLogger(setupLogger(nil, writer), tags)
 }

@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 
-	"github.com/wandb/wandb/nexus/pkg/analytics"
+	"github.com/wandb/wandb/nexus/pkg/observability"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"golang.org/x/exp/slog"
@@ -30,11 +30,11 @@ type Writer struct {
 	settings *service.Settings
 
 	// logger is the logger for the writer
-	logger *analytics.NexusLogger
+	logger *observability.NexusLogger
 }
 
 // NewWriter returns a new Writer
-func NewWriter(ctx context.Context, settings *service.Settings, logger *analytics.NexusLogger) *Writer {
+func NewWriter(ctx context.Context, settings *service.Settings, logger *observability.NexusLogger) *Writer {
 
 	store, err := NewStore(ctx, settings.GetSyncFile().GetValue(), logger)
 	if err != nil {
