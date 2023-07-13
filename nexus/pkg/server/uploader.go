@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"github.com/wandb/wandb/nexus/pkg/analytics"
 	"net/http"
 	"os"
@@ -80,8 +81,17 @@ func (u *Uploader) do() {
 	for task := range u.inChan {
 		u.logger.Debug("uploader: got task", task)
 		err := u.upload(task)
+		err = fmt.Errorf("dummy error")
 		if err != nil {
-			u.logger.Error("uploader: error uploading", err)
+			u.logger.Error(
+				"uploader: error uploading",
+				"err",
+				err,
+				"path",
+				task.path,
+				"url",
+				task.url,
+			)
 		}
 	}
 }

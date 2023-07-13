@@ -15,12 +15,14 @@ func tagsFromArgs(args ...interface{}) map[string]string {
 	tags := make(map[string]string)
 	for i := 0; i < len(args); i += 2 {
 		// skip "err":
-		//if args[i] == "err" {
-		//	continue
-		//}
+		if args[i] == "err" {
+			continue
+		}
 		key := args[i].(string)
-		value := args[i+1].(string)
-		tags[key] = value
+		value, ok := args[i+1].(string)
+		if ok {
+			tags[key] = value
+		}
 	}
 	return tags
 }
@@ -47,9 +49,9 @@ func (nl *NexusLogger) Debug(msg string, args ...interface{}) {
 func (nl *NexusLogger) Error(msg string, args ...interface{}) {
 	nl.Logger.Error(msg, args...)
 	// convert args to tags to pass to sentry:
-	tags := tagsFromArgs(args)
+	tags := tagsFromArgs(args...)
 	// look for an error in the args:
-	err := errFromArgs(args)
+	err := errFromArgs(args...)
 	if err != nil {
 		// send error to sentry:
 		CaptureException(err, tags)
@@ -63,7 +65,7 @@ func (nl *NexusLogger) Info(msg string, args ...interface{}) {
 func (nl *NexusLogger) Warn(msg string, args ...interface{}) {
 	nl.Logger.Warn(msg, args...)
 
-	tags := tagsFromArgs(args)
+	tags := tagsFromArgs(args...)
 	// send message to sentry:
 	CaptureMessage(msg, tags)
 }
