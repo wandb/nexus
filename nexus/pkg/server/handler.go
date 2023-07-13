@@ -124,12 +124,10 @@ func (h *Handler) handleRecord(msg *service.Record) {
 		// TODO: handle this
 	case nil:
 		err := fmt.Errorf("handleRecord: record type is nil")
-		h.logger.Error("error handling record", err)
-		panic(err)
+		h.logger.Fatal("error handling record", err)
 	default:
 		err := fmt.Errorf("handleRecord: unknown record type %T", x)
-		h.logger.Error("error handling record", err)
-		panic(err)
+		h.logger.Fatal("error handling record", err)
 	}
 }
 
@@ -140,8 +138,6 @@ func (h *Handler) handleRequest(rec *service.Record) {
 	case *service.Request_CheckVersion:
 		// TODO: handle this
 	case *service.Request_Defer:
-		err := fmt.Errorf("don't know about you, but I'm a teapot")
-		h.logger.Error("error handling request", err)
 		h.handleDefer(rec)
 	case *service.Request_GetSummary:
 		h.handleGetSummary(rec, x.GetSummary, response)

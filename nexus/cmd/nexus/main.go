@@ -31,7 +31,7 @@ func main() {
 	ctx := context.Background()
 
 	// set up sentry reporting
-	analytics.InitSentry(*noAnalytics, "aaaaaaa")
+	analytics.InitSentry(*noAnalytics, commit)
 	defer sentry.Flush(2)
 
 	logger.LogAttrs(
