@@ -2,8 +2,9 @@ package server_test
 
 import (
 	"fmt"
-	"github.com/wandb/wandb/nexus/pkg/analytics"
 	"time"
+
+	"github.com/wandb/wandb/nexus/pkg/analytics"
 
 	"github.com/wandb/wandb/nexus/pkg/server"
 

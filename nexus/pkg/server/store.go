@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"github.com/wandb/wandb/nexus/pkg/analytics"
 	"os"
+
+	"github.com/wandb/wandb/nexus/pkg/analytics"
 
 	"github.com/wandb/wandb/nexus/pkg/leveldb"
 	"github.com/wandb/wandb/nexus/pkg/service"

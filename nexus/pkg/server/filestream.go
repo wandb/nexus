@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/wandb/wandb/nexus/pkg/analytics"
 	"io"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/wandb/wandb/nexus/pkg/analytics"
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/wandb/wandb/nexus/pkg/service"

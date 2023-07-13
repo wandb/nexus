@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/wandb/wandb/nexus/pkg/analytics"
 	"os"
 	"path/filepath"
+
+	"github.com/wandb/wandb/nexus/pkg/analytics"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/wandb/wandb/nexus/pkg/service"

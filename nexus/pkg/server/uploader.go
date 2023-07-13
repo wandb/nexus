@@ -3,11 +3,12 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/wandb/wandb/nexus/pkg/analytics"
 	"net/http"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/wandb/wandb/nexus/pkg/analytics"
 
 	"golang.org/x/exp/slog"
 

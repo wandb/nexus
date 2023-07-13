@@ -2,8 +2,9 @@ package server
 
 import (
 	"encoding/base64"
-	"github.com/wandb/wandb/nexus/pkg/analytics"
 	"net/http"
+
+	"github.com/wandb/wandb/nexus/pkg/analytics"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/hashicorp/go-retryablehttp"
