@@ -2,52 +2,58 @@ package server
 
 import (
 	"fmt"
+	"github.com/wandb/wandb/nexus/pkg/analytics"
+	"github.com/wandb/wandb/nexus/pkg/service"
+	"golang.org/x/exp/slog"
 	"io"
 	"os"
-
-	"golang.org/x/exp/slog"
 )
 
-func setupLogger(fname string) *slog.Logger {
-	toStderr := os.Getenv("WANDB_NEXUS_DEBUG") != ""
-	file, err := os.OpenFile(fname, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
-	if err != nil {
-		fmt.Println("FATAL Problem", err)
-		panic("problem")
-	}
-	var writer io.Writer
-	if toStderr {
-		writer = io.MultiWriter(os.Stderr, file)
-	} else {
-		writer = file
-	}
+func setupLogger(opts *slog.HandlerOptions, writers ...io.Writer) *slog.Logger {
 
-	opts := &slog.HandlerOptions{
-		Level: slog.LevelDebug,
+	writer := io.MultiWriter(writers...)
+	if opts == nil {
+		opts = &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		}
 	}
 	logger := slog.New(slog.NewJSONHandler(writer, opts))
 	return logger
 }
 
 func SetupDefaultLogger() *slog.Logger {
-	logger := setupLogger("/tmp/logs.txt")
+	var writers []io.Writer
+
+	name := "/tmp/logs.txt"
+	file, err := os.OpenFile(name, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		fmt.Println("FATAL Problem", err)
+	} else {
+		writers = append(writers, file)
+	}
+	if os.Getenv("WANDB_NEXUS_DEBUG") != "" {
+		writers = append(writers, os.Stderr)
+	}
+
+	logger := setupLogger(nil, writers...)
 	slog.SetDefault(logger)
 	slog.Info("started logging")
 	return logger
 }
 
-func SetupStreamLogger(logFile string, streamID string) *slog.Logger {
-	logger := setupLogger(logFile)
-	return logger
-	/*
-		toStderr := os.Getenv("WANDB_NEXUS_DEBUG") != ""
-		opts := &slog.HandlerOptions{
-			Level: slog.LevelDebug,
-		}
-		logger := slog.New(slog.NewJSONHandler(writer, opts))
-		jsonHandler := slog.NewTextHandler(os.Stdout).
-			WithAttrs([]slog.Attr{slog.String("app-version", "v0.0.1-beta")})
-		logger := slog.New(textHandler)
-		return logger
-	*/
+func SetupStreamLogger(name string, settings *service.Settings) *analytics.NexusLogger {
+	var writers []io.Writer
+
+	file, err := os.OpenFile(name, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		fmt.Println("FATAL Problem", err)
+	} else {
+		writers = append(writers, file)
+	}
+	if os.Getenv("WANDB_NEXUS_DEBUG") != "" {
+		writers = append(writers, os.Stderr)
+	}
+
+	writer := io.MultiWriter(writers...)
+	return analytics.NewNexusLogger(setupLogger(nil, writer), settings)
 }
