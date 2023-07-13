@@ -5,4 +5,4 @@
 cd nexus
 FILES=$(go list ./...  | grep -v /vendor/)
 COMMIT=$(git rev-parse HEAD)
-exec go build -X main.commit=$COMMIT $FILES
+exec go build -ldflags "-X main.commit=$COMMIT" $FILES
