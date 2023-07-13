@@ -1,6 +1,9 @@
 package analytics
 
-import "golang.org/x/exp/slog"
+import (
+	"github.com/wandb/wandb/nexus/pkg/service"
+	"golang.org/x/exp/slog"
+)
 
 type NexusLogger struct {
 	Logger *slog.Logger
@@ -24,12 +27,13 @@ func tagsFromArgs(args ...interface{}) map[string]string {
 	tags := make(map[string]string)
 	for i := 0; i < len(args); i += 2 {
 		// skip "err":
-		if args[i] == "err" {
+		if args[i] == "err" || args[i] == "error" {
 			continue
 		}
 		key := args[i].(string)
-		value, ok := args[i+1].(string)
-		if ok {
+		if value, ok := args[i+1].(string); ok {
+			// todo: handle this more gracefully
+			// by splitting the string into multiple numbered tags
 			tags[key] = limitLength(value)
 		}
 	}
@@ -41,7 +45,7 @@ func errFromArgs(args ...interface{}) error {
 	var err error
 	for i := 0; i < len(args)-1; i++ {
 		// check if the current argument is "err" and the next one is of type error
-		if argStr, ok := args[i].(string); ok && argStr == "err" {
+		if argStr, ok := args[i].(string); ok && (argStr == "err" || argStr == "error") {
 			if errVal, ok := args[i+1].(error); ok {
 				err = errVal
 				return err
@@ -49,6 +53,14 @@ func errFromArgs(args ...interface{}) error {
 		}
 	}
 	return nil
+}
+
+func TagsFromSettings(settings *service.Settings) []string {
+	return []string{
+		"run_url", settings.GetRunUrl().GetValue(),
+		"project", settings.GetProject().GetValue(),
+		"entity", settings.GetEntity().GetValue(),
+	}
 }
 
 func (nl *NexusLogger) Debug(msg string, args ...interface{}) {

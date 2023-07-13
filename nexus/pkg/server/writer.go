@@ -38,7 +38,11 @@ func NewWriter(ctx context.Context, settings *service.Settings, logger *analytic
 
 	store, err := NewStore(ctx, settings.GetSyncFile().GetValue(), logger)
 	if err != nil {
-		logger.Error("writer: error creating store", "error", err, "stream_id", settings.RunId)
+		logger.Error(
+			"writer: error creating store",
+			"err", err,
+			analytics.TagsFromSettings(settings),
+		)
 		panic(err)
 	}
 
@@ -66,7 +70,11 @@ func (w *Writer) do() {
 func (w *Writer) close() {
 	close(w.outChan)
 	if err := w.store.Close(); err != nil {
-		w.logger.Error("writer: error closing store", "error", err, "stream_id", w.settings.RunId)
+		w.logger.Error(
+			"writer: error closing store",
+			"err", err,
+			analytics.TagsFromSettings(w.settings),
+		)
 		return
 	}
 	w.logger.Info("writer: closed", "stream_id", w.settings.RunId)
@@ -85,7 +93,11 @@ func (w *Writer) handleRecord(msg *service.Record) {
 		slog.Error("nil record type")
 	default:
 		if err := w.store.storeRecord(msg); err != nil {
-			w.logger.Error("writer: error storing record", "error", err, "stream_id", w.settings.RunId)
+			w.logger.Error(
+				"writer: error storing record",
+				"err", err,
+				analytics.TagsFromSettings(w.settings),
+			)
 			return
 		}
 		w.sendRecord(msg)
