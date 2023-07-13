@@ -54,7 +54,14 @@ func (nl *NexusLogger) tagsFromArgs(args ...any) map[string]string {
 	return tags
 }
 
+// Error logs an error and appends it to the args.
 func (nl *NexusLogger) Error(msg string, err error, args ...interface{}) {
+	args = append(args, "error", err)
+	nl.Logger.Error(msg, args...)
+}
+
+// CaptureError logs an error and sends it to sentry.
+func (nl *NexusLogger) CaptureError(msg string, err error, args ...interface{}) {
 	nl.Logger.Error(msg, args...)
 	if err != nil {
 		// convert args to tags to pass to sentry:
@@ -64,8 +71,17 @@ func (nl *NexusLogger) Error(msg string, err error, args ...interface{}) {
 	}
 }
 
-// Fatal is like Error but panics after logging.
+// Fatal logs an error and panics.
 func (nl *NexusLogger) Fatal(msg string, err error, args ...interface{}) {
+	args = append(args, "error", err)
+	nl.Logger.Log(context.TODO(), LevelFatal, msg, args...)
+	if err != nil {
+		panic(err)
+	}
+}
+
+// CaptureFatal is like CaptureError but panics after logging.
+func (nl *NexusLogger) CaptureFatal(msg string, err error, args ...interface{}) {
 	// todo: make sure this level is printed nicely
 	nl.Logger.Log(context.TODO(), LevelFatal, msg, args...)
 
@@ -74,12 +90,12 @@ func (nl *NexusLogger) Fatal(msg string, err error, args ...interface{}) {
 		tags := nl.tagsFromArgs(args...)
 		// send error to sentry:
 		CaptureException(err, tags)
+		panic(err)
 	}
-
-	panic(err)
 }
 
-func (nl *NexusLogger) Warn(msg string, args ...interface{}) {
+// CaptureWarn logs a warning and sends it to sentry.
+func (nl *NexusLogger) CaptureWarn(msg string, args ...interface{}) {
 	nl.Logger.Warn(msg, args...)
 
 	tags := nl.tagsFromArgs(args...)

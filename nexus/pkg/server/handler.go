@@ -124,10 +124,10 @@ func (h *Handler) handleRecord(msg *service.Record) {
 		// TODO: handle this
 	case nil:
 		err := fmt.Errorf("handleRecord: record type is nil")
-		h.logger.Fatal("error handling record", err)
+		h.logger.CaptureFatal("error handling record", err)
 	default:
 		err := fmt.Errorf("handleRecord: unknown record type %T", x)
-		h.logger.Fatal("error handling record", err)
+		h.logger.CaptureFatal("error handling record", err)
 	}
 }
 
@@ -158,7 +158,7 @@ func (h *Handler) handleRequest(rec *service.Record) {
 		h.handleAttach(rec, x.Attach, response)
 	default:
 		err := fmt.Errorf("handleRequest: unknown request type %T", x)
-		h.logger.Error("error handling request", err)
+		h.logger.CaptureError("error handling request", err)
 		panic(err)
 	}
 
@@ -186,7 +186,7 @@ func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartReque
 	h.run, ok = proto.Clone(run).(*service.RunRecord)
 	if !ok {
 		err := fmt.Errorf("handleRunStart: failed to clone run")
-		h.logger.Error("error handling run start", err)
+		h.logger.CaptureError("error handling run start", err)
 		panic(err)
 	}
 	h.sendRecord(rec)
@@ -276,7 +276,7 @@ func (h *Handler) handlePartialHistory(_ *service.Record, req *service.PartialHi
 		if items[i].Key == "_timestamp" {
 			val, err := strconv.ParseFloat(items[i].ValueJson, 64)
 			if err != nil {
-				h.logger.Error("error parsing timestamp", err)
+				h.logger.CaptureError("error parsing timestamp", err)
 			}
 			runTime = val - h.startTime
 		}

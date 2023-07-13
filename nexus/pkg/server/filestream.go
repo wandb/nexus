@@ -180,10 +180,10 @@ func (fs *FileStream) streamRecord(msg *service.Record) {
 	case nil:
 		// The field is not set.
 		err := fmt.Errorf("FileStream: RecordType is nil")
-		fs.logger.Fatal("FileStream error: field not set", err)
+		fs.logger.CaptureFatal("FileStream error: field not set", err)
 	default:
 		err := fmt.Errorf("FileStream: Unknown type %T", x)
-		fs.logger.Fatal("FileStream error: unknown type", err)
+		fs.logger.CaptureFatal("FileStream error: unknown type", err)
 	}
 }
 
@@ -268,14 +268,14 @@ func (fs *FileStream) send(data interface{}) {
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
-			fs.logger.Error("FileStream: error closing response body", err)
+			fs.logger.CaptureError("FileStream: error closing response body", err)
 		}
 	}(resp.Body)
 
 	var res map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&res)
 	if err != nil {
-		fs.logger.Error("json decode error", err)
+		fs.logger.CaptureError("json decode error", err)
 	}
 	fs.pushReply(res)
 
@@ -289,14 +289,14 @@ func (fs *FileStream) jsonifyHistory(msg *service.HistoryRecord) string {
 		var val interface{}
 		if err := json.Unmarshal([]byte(item.ValueJson), &val); err != nil {
 			e := fmt.Errorf("json unmarshal error: %v, items: %v", err, item)
-			fs.logger.Fatal("json unmarshal error", e)
+			fs.logger.CaptureFatal("json unmarshal error", e)
 		}
 		data[item.Key] = val
 	}
 
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		fs.logger.Fatal("json unmarshal error", err)
+		fs.logger.CaptureFatal("json unmarshal error", err)
 	}
 	return string(jsonData)
 }

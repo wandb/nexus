@@ -82,7 +82,7 @@ func (u *Uploader) do() {
 		u.logger.Debug("uploader: got task", task)
 		err := u.upload(task)
 		if err != nil {
-			u.logger.Error(
+			u.logger.CaptureError(
 				"uploader: error uploading",
 				err,
 				"path",

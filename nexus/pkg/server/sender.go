@@ -98,10 +98,10 @@ func (s *Sender) sendRecord(msg *service.Record) {
 		s.sendRequest(msg, x.Request)
 	case nil:
 		err := fmt.Errorf("sender: sendRecord: nil RecordType")
-		s.logger.Fatal("sender: sendRecord: nil RecordType", err)
+		s.logger.CaptureFatal("sender: sendRecord: nil RecordType", err)
 	default:
 		err := fmt.Errorf("sender: sendRecord: unexpected type %T", x)
-		s.logger.Fatal("sender: sendRecord: unexpected type", err)
+		s.logger.CaptureFatal("sender: sendRecord: unexpected type", err)
 	}
 }
 
@@ -117,7 +117,7 @@ func (s *Sender) sendRequest(_ *service.Record, req *service.Request) {
 		s.sendDefer(x.Defer)
 	case *service.Request_Metadata:
 		err := fmt.Errorf("dummy error")
-		s.logger.Error("sender: sendRecord: unexpected type", err)
+		s.logger.CaptureError("sender: sendRecord: unexpected type", err)
 		s.sendMetadata(x.Metadata)
 	default:
 		// TODO: handle errors
@@ -182,7 +182,7 @@ func (s *Sender) parseConfigUpdate(config *service.ConfigRecord) map[string]inte
 		j := d.GetValueJson()
 		var data interface{}
 		if err := json.Unmarshal([]byte(j), &data); err != nil {
-			s.logger.Fatal("unmarshal problem", err)
+			s.logger.CaptureFatal("unmarshal problem", err)
 		}
 		datas[d.GetKey()] = data
 	}
@@ -196,7 +196,7 @@ func (s *Sender) updateConfigTelemetry(config map[string]interface{}) {
 		v["cli_version"] = CliVersion
 	default:
 		err := fmt.Errorf("can not parse config _wandb, saw: %v", v)
-		s.logger.Fatal("sender received error", err)
+		s.logger.CaptureFatal("sender received error", err)
 	}
 }
 
@@ -215,7 +215,7 @@ func (s *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 	run, ok := proto.Clone(record).(*service.RunRecord)
 	if !ok {
 		err := fmt.Errorf("sender: sendRun: failed to clone RunRecord")
-		s.logger.Fatal("sender received error", err)
+		s.logger.CaptureFatal("sender received error", err)
 	}
 
 	config := s.parseConfigUpdate(record.Config)
@@ -224,7 +224,7 @@ func (s *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 	configJson, err := json.Marshal(valueConfig)
 	if err != nil {
 		err = fmt.Errorf("sender: sendRun: failed to marshal config: %s", err)
-		s.logger.Fatal("sender received error", err)
+		s.logger.CaptureFatal("sender received error", err)
 	}
 	configString := string(configJson)
 
@@ -254,7 +254,7 @@ func (s *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 	)
 	if err != nil {
 		err = fmt.Errorf("sender: sendRun: failed to upsert bucket: %s", err)
-		s.logger.Fatal("sender received error", err)
+		s.logger.CaptureFatal("sender received error", err)
 	}
 
 	run.DisplayName = *resp.UpsertBucket.Bucket.DisplayName
@@ -305,7 +305,7 @@ func (s *Sender) sendFiles(_ *service.Record, filesRecord *service.FilesRecord) 
 func (s *Sender) sendFile(path string) {
 	if s.run == nil {
 		err := fmt.Errorf("sender: sendFile: run not set")
-		s.logger.Fatal("sender received error", err)
+		s.logger.CaptureFatal("sender received error", err)
 	}
 
 	entity := s.run.Entity
@@ -320,7 +320,7 @@ func (s *Sender) sendFile(path string) {
 	)
 	if err != nil {
 		err = fmt.Errorf("sender: sendFile: failed to get upload urls: %s", err)
-		s.logger.Fatal("sender received error", err)
+		s.logger.CaptureFatal("sender received error", err)
 	}
 
 	fullPath := filepath.Join(s.settings.GetFilesDir().GetValue(), path)

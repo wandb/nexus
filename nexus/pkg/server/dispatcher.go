@@ -40,7 +40,7 @@ func (d *Dispatcher) AddResponder(entry ResponderEntry) {
 	if _, ok := d.responders[responderId]; !ok {
 		d.responders[responderId] = entry.Responder
 	} else {
-		d.logger.Warn("Responder already exists", "responder", responderId)
+		d.logger.CaptureWarn("Responder already exists", "responder", responderId)
 	}
 }
 
