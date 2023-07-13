@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
 	"sync"
@@ -82,7 +81,6 @@ func (u *Uploader) do() {
 	for task := range u.inChan {
 		u.logger.Debug("uploader: got task", task)
 		err := u.upload(task)
-		err = fmt.Errorf("dummy error")
 		if err != nil {
 			u.logger.Error(
 				"uploader: error uploading",
