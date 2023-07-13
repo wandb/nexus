@@ -2,11 +2,12 @@ package server
 
 import (
 	"fmt"
+	"io"
+	"os"
+
 	"github.com/wandb/wandb/nexus/pkg/observability"
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"golang.org/x/exp/slog"
-	"io"
-	"os"
 )
 
 func setupLogger(opts *slog.HandlerOptions, writers ...io.Writer) *slog.Logger {
@@ -55,7 +56,6 @@ func SetupStreamLogger(name string, settings *service.Settings) *observability.N
 	}
 
 	writer := io.MultiWriter(writers...)
-
 	tags := make(observability.Tags)
 	tags["run_id"] = settings.GetRunId().GetValue()
 	tags["run_url"] = settings.GetRunUrl().GetValue()

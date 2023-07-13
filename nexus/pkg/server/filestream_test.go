@@ -116,7 +116,7 @@ type testServer struct {
 
 func NewTestServer() *testServer {
 	settings := service.Settings{}
-	logger := observability.NewNexusLogger(server.SetupDefaultLogger(), &settings)
+	logger := observability.NewNexusLogger(server.SetupDefaultLogger(), nil)
 
 	mux := http.NewServeMux()
 	hserver := httptest.NewServer(mux)
