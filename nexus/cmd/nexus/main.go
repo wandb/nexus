@@ -49,13 +49,4 @@ func main() {
 
 	nexus := server.NewServer(ctx, "127.0.0.1:0", *portFilename)
 	nexus.Close()
-
-	// settings := &service.Settings{}
-	// settings.RunId = &wrapperspb.StringValue{Value: "SHMOGUS"}
-	//
-	// logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	//
-	// nl := analytics.NewNexusLogger(logger, settings)
-	// err := fmt.Errorf("SHMOGUS")
-	// nl.Error("SHMOGUS", err)
 }
