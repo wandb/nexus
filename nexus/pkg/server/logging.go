@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -51,19 +50,4 @@ func SetupStreamLogger(logFile string, streamID string) *slog.Logger {
 		logger := slog.New(textHandler)
 		return logger
 	*/
-}
-
-func LogError(log *slog.Logger, msg string, err error) {
-	log.LogAttrs(context.Background(),
-		slog.LevelError,
-		msg,
-		slog.String("error", err.Error()))
-}
-
-func LogFatalError(log *slog.Logger, msg string, err error) {
-	log.LogAttrs(context.Background(),
-		slog.LevelError,
-		msg,
-		slog.String("error", err.Error()))
-	panic(msg)
 }

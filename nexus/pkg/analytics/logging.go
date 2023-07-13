@@ -15,17 +15,27 @@ type NexusLogger struct {
 }
 
 func NewNexusLogger(logger *slog.Logger, settings *service.Settings) *NexusLogger {
+
+	nl := &NexusLogger{
+		tags: tagsFromSettings(settings),
+	}
+
+	var args []interface{}
+	for tag := range nl.tags {
+		args = append(args, slog.String(tag, nl.tags[tag]))
+	}
+	nl.Logger = logger.With(args...)
+
+	return nl
+}
+
+func tagsFromSettings(settings *service.Settings) map[string]string {
 	tags := make(map[string]string)
 	tags["run_id"] = settings.GetRunId().GetValue()
 	tags["run_url"] = settings.GetRunUrl().GetValue()
 	tags["project"] = settings.GetProject().GetValue()
 	tags["entity"] = settings.GetEntity().GetValue()
-
-	for tag := range tags {
-		logger = logger.With(slog.String(tag, tags[tag]))
-	}
-
-	return &NexusLogger{Logger: logger, tags: tags}
+	return tags
 }
 
 func (nl *NexusLogger) tagsFromArgs(args ...any) map[string]string {
@@ -52,12 +62,6 @@ func (nl *NexusLogger) tagsFromArgs(args ...any) map[string]string {
 		tags[k] = v
 	}
 	return tags
-}
-
-// Error logs an error and appends it to the args.
-func (nl *NexusLogger) Error(msg string, err error, args ...interface{}) {
-	args = append(args, "error", err)
-	nl.Logger.Error(msg, args...)
 }
 
 // CaptureError logs an error and sends it to sentry.

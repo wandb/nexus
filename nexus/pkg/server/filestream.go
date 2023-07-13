@@ -252,18 +252,18 @@ func (fs *FileStream) sendChunkList(chunks []chunkData) {
 func (fs *FileStream) send(data interface{}) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		LogFatalError(fs.logger.Logger, "json marshal error", err)
+		fs.logger.CaptureFatalAndPanic("json marshal error", err)
 	}
 
 	buffer := bytes.NewBuffer(jsonData)
 	req, err := retryablehttp.NewRequest(http.MethodPost, fs.path, buffer)
 	if err != nil {
-		LogFatalError(fs.logger.Logger, "FileStream: could not create request", err)
+		fs.logger.CaptureFatalAndPanic("FileStream: could not create request", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := fs.httpClient.Do(req)
 	if err != nil {
-		LogFatalError(fs.logger.Logger, "FileStream: error making HTTP request", err)
+		fs.logger.CaptureFatalAndPanic("FileStream: error making HTTP request", err)
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
