@@ -41,7 +41,7 @@ func NewWriter(ctx context.Context, settings *service.Settings, logger *analytic
 		logger.Error(
 			"writer: error creating store",
 			"err", err,
-			analytics.TagsFromSettings(settings),
+			// analytics.TagsFromSettings(settings),
 		)
 		panic(err)
 	}
@@ -73,7 +73,7 @@ func (w *Writer) close() {
 		w.logger.Error(
 			"writer: error closing store",
 			"err", err,
-			analytics.TagsFromSettings(w.settings),
+			// analytics.TagsFromSettings(w.settings),
 		)
 		return
 	}
@@ -96,7 +96,7 @@ func (w *Writer) handleRecord(msg *service.Record) {
 			w.logger.Error(
 				"writer: error storing record",
 				"err", err,
-				analytics.TagsFromSettings(w.settings),
+				// analytics.TagsFromSettings(w.settings),
 			)
 			return
 		}

@@ -101,7 +101,7 @@ func (s *Sender) sendRecord(msg *service.Record) {
 		s.logger.Error(
 			"sender: sendRecord: nil RecordType",
 			"err", err,
-			analytics.TagsFromSettings(s.settings),
+			// analytics.TagsFromSettings(s.settings),
 		)
 		panic(err)
 	default:
@@ -109,7 +109,7 @@ func (s *Sender) sendRecord(msg *service.Record) {
 		s.logger.Error(
 			"sender: sendRecord: unexpected type",
 			"err", err,
-			analytics.TagsFromSettings(s.settings),
+			// analytics.TagsFromSettings(s.settings),
 		)
 		panic(err)
 	}
@@ -130,7 +130,7 @@ func (s *Sender) sendRequest(_ *service.Record, req *service.Request) {
 		s.logger.Error(
 			"sender: sendRecord: unexpected type",
 			"err", err,
-			analytics.TagsFromSettings(s.settings),
+			// analytics.TagsFromSettings(s.settings),
 		)
 		s.sendMetadata(x.Metadata)
 	default:
@@ -199,7 +199,7 @@ func (s *Sender) parseConfigUpdate(config *service.ConfigRecord) map[string]inte
 			s.logger.Error(
 				"unmarshal problem",
 				"err", err,
-				analytics.TagsFromSettings(s.settings),
+				// analytics.TagsFromSettings(s.settings),
 			)
 			panic(err)
 		}
@@ -218,7 +218,7 @@ func (s *Sender) updateConfigTelemetry(config map[string]interface{}) {
 		s.logger.Error(
 			"sender received error",
 			"err", err,
-			analytics.TagsFromSettings(s.settings),
+			// analytics.TagsFromSettings(s.settings),
 		)
 		panic(err)
 	}
@@ -242,7 +242,7 @@ func (s *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 		s.logger.Error(
 			"sender received error",
 			"err", err,
-			analytics.TagsFromSettings(s.settings),
+			// analytics.TagsFromSettings(s.settings),
 		)
 		panic(err)
 	}
@@ -256,7 +256,7 @@ func (s *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 		s.logger.Error(
 			"sender received error",
 			"err", err,
-			analytics.TagsFromSettings(s.settings),
+			// analytics.TagsFromSettings(s.settings),
 		)
 		panic(err)
 	}
@@ -291,7 +291,7 @@ func (s *Sender) sendRun(msg *service.Record, record *service.RunRecord) {
 		s.logger.Error(
 			"sender received error",
 			"err", err,
-			analytics.TagsFromSettings(s.settings),
+			// analytics.TagsFromSettings(s.settings),
 		)
 		panic(err)
 	}
@@ -347,7 +347,7 @@ func (s *Sender) sendFile(path string) {
 		s.logger.Error(
 			"sender received error",
 			"err", err,
-			analytics.TagsFromSettings(s.settings),
+			// analytics.TagsFromSettings(s.settings),
 		)
 		panic(err)
 	}
@@ -367,7 +367,7 @@ func (s *Sender) sendFile(path string) {
 		s.logger.Error(
 			"sender received error",
 			"err", err,
-			analytics.TagsFromSettings(s.settings),
+			// analytics.TagsFromSettings(s.settings),
 		)
 		panic(err)
 	}

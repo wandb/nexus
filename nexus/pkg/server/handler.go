@@ -137,7 +137,7 @@ func (h *Handler) handleRecord(msg *service.Record) {
 		h.logger.Error(
 			"error handling record",
 			"err", err,
-			analytics.TagsFromSettings(h.settings),
+			// analytics.TagsFromSettings(h.settings),
 		)
 		panic(err)
 	default:
@@ -145,7 +145,7 @@ func (h *Handler) handleRecord(msg *service.Record) {
 		h.logger.Error(
 			"error handling record",
 			"err", err,
-			analytics.TagsFromSettings(h.settings),
+			// analytics.TagsFromSettings(h.settings),
 		)
 		panic(err)
 	}
@@ -158,6 +158,12 @@ func (h *Handler) handleRequest(rec *service.Record) {
 	case *service.Request_CheckVersion:
 		// TODO: handle this
 	case *service.Request_Defer:
+		err := fmt.Errorf("don't know about you, but I'm a teapot")
+		h.logger.Error(
+			"error handling request",
+			"err", err,
+			// analytics.TagsFromSettings(h.settings),
+		)
 		h.handleDefer(rec)
 	case *service.Request_GetSummary:
 		h.handleGetSummary(rec, x.GetSummary, response)
@@ -181,7 +187,7 @@ func (h *Handler) handleRequest(rec *service.Record) {
 		h.logger.Error(
 			"error handling request",
 			"err", err,
-			analytics.TagsFromSettings(h.settings),
+			// analytics.TagsFromSettings(h.settings),
 		)
 		panic(err)
 	}
@@ -213,7 +219,7 @@ func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartReque
 		h.logger.Error(
 			"error handling run start",
 			"err", err,
-			analytics.TagsFromSettings(h.settings),
+			// analytics.TagsFromSettings(h.settings),
 		)
 		panic(err)
 	}
@@ -307,7 +313,7 @@ func (h *Handler) handlePartialHistory(_ *service.Record, req *service.PartialHi
 				h.logger.Error(
 					"error parsing timestamp",
 					"err", err,
-					analytics.TagsFromSettings(h.settings),
+					// analytics.TagsFromSettings(h.settings),
 				)
 			}
 			runTime = val - h.startTime
