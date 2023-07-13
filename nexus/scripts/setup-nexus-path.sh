@@ -8,7 +8,6 @@
 #   source scripts/setup-nexus-path.sh
 #   source scripts/setup-nexus-path.sh --unset
 
-set -e
 ARG=$1
 BASE=$(dirname $(dirname $(readlink -f $0)))
 
