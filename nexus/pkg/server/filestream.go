@@ -180,10 +180,10 @@ func (fs *FileStream) streamRecord(msg *service.Record) {
 	case nil:
 		// The field is not set.
 		err := fmt.Errorf("FileStream: RecordType is nil")
-		fs.logger.CaptureFatal("FileStream error: field not set", err)
+		fs.logger.CaptureFatalAndPanic("FileStream error: field not set", err)
 	default:
 		err := fmt.Errorf("FileStream: Unknown type %T", x)
-		fs.logger.CaptureFatal("FileStream error: unknown type", err)
+		fs.logger.CaptureFatalAndPanic("FileStream error: unknown type", err)
 	}
 }
 
@@ -289,14 +289,14 @@ func (fs *FileStream) jsonifyHistory(msg *service.HistoryRecord) string {
 		var val interface{}
 		if err := json.Unmarshal([]byte(item.ValueJson), &val); err != nil {
 			e := fmt.Errorf("json unmarshal error: %v, items: %v", err, item)
-			fs.logger.CaptureFatal("json unmarshal error", e)
+			fs.logger.CaptureFatalAndPanic("json unmarshal error", e)
 		}
 		data[item.Key] = val
 	}
 
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		fs.logger.CaptureFatal("json unmarshal error", err)
+		fs.logger.CaptureFatalAndPanic("json unmarshal error", err)
 	}
 	return string(jsonData)
 }

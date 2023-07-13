@@ -124,10 +124,10 @@ func (h *Handler) handleRecord(msg *service.Record) {
 		// TODO: handle this
 	case nil:
 		err := fmt.Errorf("handleRecord: record type is nil")
-		h.logger.CaptureFatal("error handling record", err)
+		h.logger.CaptureFatalAndPanic("error handling record", err)
 	default:
 		err := fmt.Errorf("handleRecord: unknown record type %T", x)
-		h.logger.CaptureFatal("error handling record", err)
+		h.logger.CaptureFatalAndPanic("error handling record", err)
 	}
 }
 

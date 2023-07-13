@@ -71,16 +71,21 @@ func (nl *NexusLogger) CaptureError(msg string, err error, args ...interface{}) 
 	}
 }
 
-// Fatal logs an error and panics.
+// Fatal logs an error at the fatal level.
 func (nl *NexusLogger) Fatal(msg string, err error, args ...interface{}) {
 	args = append(args, "error", err)
 	nl.Logger.Log(context.TODO(), LevelFatal, msg, args...)
+}
+
+// FatalAndPanic logs an error at the fatal level and panics.
+func (nl *NexusLogger) FatalAndPanic(msg string, err error, args ...interface{}) {
+	nl.Fatal(msg, err, args...)
 	if err != nil {
 		panic(err)
 	}
 }
 
-// CaptureFatal is like CaptureError but panics after logging.
+// CaptureFatal logs an error at the fatal level and sends it to sentry.
 func (nl *NexusLogger) CaptureFatal(msg string, err error, args ...interface{}) {
 	// todo: make sure this level is printed nicely
 	nl.Logger.Log(context.TODO(), LevelFatal, msg, args...)
@@ -90,6 +95,14 @@ func (nl *NexusLogger) CaptureFatal(msg string, err error, args ...interface{}) 
 		tags := nl.tagsFromArgs(args...)
 		// send error to sentry:
 		CaptureException(err, tags)
+	}
+}
+
+// CaptureFatalAndPanic logs an error at the fatal level and sends it to sentry.
+// It then panics.
+func (nl *NexusLogger) CaptureFatalAndPanic(msg string, err error, args ...interface{}) {
+	nl.CaptureFatal(msg, err, args...)
+	if err != nil {
 		panic(err)
 	}
 }

@@ -38,7 +38,7 @@ func NewWriter(ctx context.Context, settings *service.Settings, logger *analytic
 
 	store, err := NewStore(ctx, settings.GetSyncFile().GetValue(), logger)
 	if err != nil {
-		logger.CaptureFatal("writer: error creating store", err)
+		logger.CaptureFatalAndPanic("writer: error creating store", err)
 	}
 
 	writer := &Writer{
