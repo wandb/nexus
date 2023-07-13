@@ -55,5 +55,12 @@ func SetupStreamLogger(name string, settings *service.Settings) *analytics.Nexus
 	}
 
 	writer := io.MultiWriter(writers...)
-	return analytics.NewNexusLogger(setupLogger(nil, writer), settings)
+
+	tags := make(analytics.Tags)
+	tags["run_id"] = settings.GetRunId().GetValue()
+	tags["run_url"] = settings.GetRunUrl().GetValue()
+	tags["project"] = settings.GetProject().GetValue()
+	tags["entity"] = settings.GetEntity().GetValue()
+
+	return analytics.NewNexusLogger(setupLogger(nil, writer), tags)
 }

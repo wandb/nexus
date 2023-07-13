@@ -3,21 +3,22 @@ package analytics
 import (
 	"context"
 
-	"github.com/wandb/wandb/nexus/pkg/service"
 	"golang.org/x/exp/slog"
 )
+
+type Tags map[string]string
 
 const LevelFatal = slog.Level(12)
 
 type NexusLogger struct {
 	*slog.Logger
-	tags map[string]string
+	tags Tags
 }
 
-func NewNexusLogger(logger *slog.Logger, settings *service.Settings) *NexusLogger {
+func NewNexusLogger(logger *slog.Logger, tags Tags) *NexusLogger {
 
 	nl := &NexusLogger{
-		tags: tagsFromSettings(settings),
+		tags: tags,
 	}
 
 	var args []interface{}
@@ -29,16 +30,7 @@ func NewNexusLogger(logger *slog.Logger, settings *service.Settings) *NexusLogge
 	return nl
 }
 
-func tagsFromSettings(settings *service.Settings) map[string]string {
-	tags := make(map[string]string)
-	tags["run_id"] = settings.GetRunId().GetValue()
-	tags["run_url"] = settings.GetRunUrl().GetValue()
-	tags["project"] = settings.GetProject().GetValue()
-	tags["entity"] = settings.GetEntity().GetValue()
-	return tags
-}
-
-func (nl *NexusLogger) tagsFromArgs(args ...any) map[string]string {
+func (nl *NexusLogger) tagsFromArgs(args ...any) Tags {
 	tags := make(map[string]string)
 	// add tags from args:
 	for len(args) > 0 {
