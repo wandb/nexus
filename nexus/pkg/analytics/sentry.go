@@ -23,6 +23,7 @@ func InitSentry(disabled bool, commit string) {
 		Dsn:              s.Dsn,
 		AttachStacktrace: true,
 		Release:          commit,
+		//Transport:        sentry.NewHTTPSyncTransport(),
 	})
 
 	if err != nil {
@@ -34,14 +35,16 @@ func InitSentry(disabled bool, commit string) {
 	} else {
 		slog.Debug("sentry is disabled")
 	}
-
 }
 
 func CaptureException(err error, tags map[string]string) {
 	localHub := sentry.CurrentHub().Clone()
 	localHub.ConfigureScope(func(scope *sentry.Scope) {
 		for k, v := range tags {
-			scope.SetTag(k, v)
+			// if not nil, set tag:
+			if v != "" {
+				scope.SetTag(k, v)
+			}
 		}
 	})
 	localHub.CaptureException(err)

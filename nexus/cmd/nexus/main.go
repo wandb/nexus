@@ -3,10 +3,8 @@ package main
 import (
 	"context"
 	"flag"
-
 	"github.com/getsentry/sentry-go"
 	"github.com/wandb/wandb/nexus/pkg/analytics"
-
 	"github.com/wandb/wandb/nexus/pkg/server"
 	"golang.org/x/exp/slog"
 )
@@ -33,7 +31,7 @@ func main() {
 	ctx := context.Background()
 
 	// set up sentry reporting
-	analytics.InitSentry(*noAnalytics, commit)
+	analytics.InitSentry(*noAnalytics, "aaaaaaa")
 	defer sentry.Flush(2)
 
 	logger.LogAttrs(
@@ -50,4 +48,13 @@ func main() {
 
 	nexus := server.NewServer(ctx, "127.0.0.1:0", *portFilename)
 	nexus.Close()
+
+	// settings := &service.Settings{}
+	// settings.RunId = &wrapperspb.StringValue{Value: "SHMOGUS"}
+	//
+	// logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	//
+	// nl := analytics.NewNexusLogger(logger, settings)
+	// err := fmt.Errorf("SHMOGUS")
+	// nl.Error("SHMOGUS", err)
 }

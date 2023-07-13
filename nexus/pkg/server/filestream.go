@@ -13,8 +13,6 @@ import (
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/wandb/wandb/nexus/pkg/service"
-
-	"golang.org/x/exp/slog"
 )
 
 const (
@@ -83,7 +81,7 @@ func NewFileStream(path string, settings *service.Settings, logger *analytics.Ne
 }
 
 func (fs *FileStream) Start() {
-	fs.logger.Logger.Debug("FileStream: Start")
+	fs.logger.Debug("FileStream: Start")
 
 	fs.recordWait.Add(1)
 	go fs.doRecordProcess()
@@ -108,18 +106,17 @@ func (fs *FileStream) pushReply(reply map[string]interface{}) {
 func (fs *FileStream) doRecordProcess() {
 	defer fs.recordWait.Done()
 
-	fs.logger.Logger.Debug("FileStream: OPEN")
+	fs.logger.Debug("FileStream: OPEN")
 
 	if fs.settings.GetXOffline().GetValue() {
 		return
 	}
 
 	for msg := range fs.recordChan {
-		fs.logger.Logger.Debug("FileStream *******")
-		LogRecord(fs.logger.Logger, "FileStream: got record", msg)
+		fs.logger.Debug("FileStream: got record", "record", msg)
 		fs.streamRecord(msg)
 	}
-	fs.logger.Logger.Debug("FileStream: finished")
+	fs.logger.Debug("FileStream: finished")
 }
 
 func (fs *FileStream) doChunkProcess() {
@@ -182,14 +179,16 @@ func (fs *FileStream) streamRecord(msg *service.Record) {
 		fs.streamFinish()
 	case nil:
 		// The field is not set.
-		LogFatal(fs.logger.Logger, "FileStream: RecordType is nil")
+		err := fmt.Errorf("FileStream: RecordType is nil")
+		fs.logger.Fatal("FileStream error: field not set", err)
 	default:
-		LogFatal(fs.logger.Logger, fmt.Sprintf("FileStream: Unknown type %T", x))
+		err := fmt.Errorf("FileStream: Unknown type %T", x)
+		fs.logger.Fatal("FileStream error: unknown type", err)
 	}
 }
 
 func (fs *FileStream) streamHistory(msg *service.HistoryRecord) {
-	fs.pushChunk(chunkData{fileData: &chunkLine{chunkType: historyChunk, line: jsonifyHistory(msg, fs.logger.Logger)}})
+	fs.pushChunk(chunkData{fileData: &chunkLine{chunkType: historyChunk, line: fs.jsonifyHistory(msg)}})
 }
 
 func (fs *FileStream) streamFinish() {
@@ -200,7 +199,7 @@ func (fs *FileStream) StreamRecord(rec *service.Record) {
 	if fs.settings.GetXOffline().GetValue() {
 		return
 	}
-	LogRecord(fs.logger.Logger, "+++++FileStream: stream", rec)
+	fs.logger.Debug("FileStream: stream", "record", rec)
 	fs.pushRecord(rec)
 }
 
@@ -269,40 +268,41 @@ func (fs *FileStream) send(data interface{}) {
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
-			LogError(fs.logger.Logger, "FileStream: error closing response body", err)
+			fs.logger.Error("FileStream: error closing response body", err)
 		}
 	}(resp.Body)
 
 	var res map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&res)
 	if err != nil {
-		LogError(fs.logger.Logger, "json decode error", err)
+		fs.logger.Error("json decode error", err)
 	}
 	fs.pushReply(res)
 
-	fs.logger.Logger.Debug(fmt.Sprintf("FileStream: post response: %v", res))
+	fs.logger.Debug(fmt.Sprintf("FileStream: post response: %v", res))
 }
 
-func jsonifyHistory(msg *service.HistoryRecord, logger *slog.Logger) string {
+func (fs *FileStream) jsonifyHistory(msg *service.HistoryRecord) string {
 	data := make(map[string]interface{})
 
 	for _, item := range msg.Item {
 		var val interface{}
 		if err := json.Unmarshal([]byte(item.ValueJson), &val); err != nil {
-			LogFatal(logger, fmt.Sprintf("json unmarshal error: %v, items: %v", err, item))
+			e := fmt.Errorf("json unmarshal error: %v, items: %v", err, item)
+			fs.logger.Fatal("json unmarshal error", e)
 		}
 		data[item.Key] = val
 	}
 
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		LogError(logger, "json marshal error", err)
+		fs.logger.Fatal("json unmarshal error", err)
 	}
 	return string(jsonData)
 }
 
 func (fs *FileStream) Close() {
-	fs.logger.Logger.Debug("FileStream: CLOSE")
+	fs.logger.Debug("FileStream: CLOSE")
 	close(fs.recordChan)
 	fs.recordWait.Wait()
 	close(fs.chunkChan)

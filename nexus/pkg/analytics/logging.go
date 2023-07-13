@@ -5,88 +5,82 @@ import (
 	"golang.org/x/exp/slog"
 )
 
+const LevelFatal = slog.Level(12)
+
 type NexusLogger struct {
-	Logger *slog.Logger
+	*slog.Logger
+	tags map[string]string
 }
 
-func NewNexusLogger(logger *slog.Logger) *NexusLogger {
-	return &NexusLogger{Logger: logger}
+func NewNexusLogger(logger *slog.Logger, settings *service.Settings) *NexusLogger {
+	tags := make(map[string]string)
+	tags["run_id"] = settings.GetRunId().GetValue()
+	tags["run_url"] = settings.GetRunUrl().GetValue()
+	tags["project"] = settings.GetProject().GetValue()
+	tags["entity"] = settings.GetEntity().GetValue()
+
+	for tag := range tags {
+		logger = logger.With(slog.String(tag, tags[tag]))
+	}
+
+	return &NexusLogger{Logger: logger, tags: tags}
 }
 
-//	func limitLength(s string) string {
-//	// sentry has a limit of 200 characters for tag values
-//	maxLen := 197
-//	if len(s) > maxLen {
-//		return s[:maxLen] + "..."
-//	}
-//	return s
-//}
-
-// tagsFromArgs constructs a map of tags from the args
-// func tagsFromArgs(args ...interface{}) map[string]string {
-//	tags := make(map[string]string)
-//	for i := 0; i < len(args); i += 2 {
-//		// skip "err":
-//		if args[i] == "err" || args[i] == "error" {
-//			continue
-//		}
-//		key := args[i].(string)
-//		if value, ok := args[i+1].(string); ok {
-//			// todo: handle this more gracefully
-//			// by splitting the string into multiple numbered tags
-//			tags[key] = limitLength(value)
-//		}
-//	}
-//	return tags
-//}
-
-// errFromArgs returns the first error found in the args
-func errFromArgs(args ...interface{}) error {
-	var err error
-	for i := 0; i < len(args)-1; i++ {
-		// check if the current argument is "err" and the next one is of type error
-		if argStr, ok := args[i].(string); ok && (argStr == "err" || argStr == "error") {
-			if errVal, ok := args[i+1].(error); ok {
-				err = errVal
-				return err
+func (nl *NexusLogger) tagsFromArgs(args ...any) map[string]string {
+	tags := make(map[string]string)
+	// add tags from args:
+	for len(args) > 0 {
+		switch x := args[0].(type) {
+		case slog.Attr:
+			tags[x.Key] = x.Value.String()
+			args = args[1:]
+		case string:
+			if len(args) < 2 {
+				break
 			}
+			attr := slog.Any(x, args[1])
+			tags[attr.Key] = attr.Value.String()
+			args = args[2:]
+		default:
+			args = args[1:]
 		}
 	}
-	return nil
-}
-
-func TagsFromSettings(settings *service.Settings) []string {
-	return []string{
-		"run_url", settings.GetRunUrl().GetValue(),
-		"project", settings.GetProject().GetValue(),
-		"entity", settings.GetEntity().GetValue(),
+	// add tags from logger:
+	for k, v := range nl.tags {
+		tags[k] = v
 	}
+	return tags
 }
 
-func (nl *NexusLogger) Debug(msg string, args ...interface{}) {
-	nl.Logger.Debug(msg, args...)
-}
-
-func (nl *NexusLogger) Error(msg string, args ...interface{}) {
+func (nl *NexusLogger) Error(msg string, err error, args ...interface{}) {
 	nl.Logger.Error(msg, args...)
-	// convert args to tags to pass to sentry:
-	tags := tagsFromArgs(args...)
-	// look for an error in the args:
-	err := errFromArgs(args...)
 	if err != nil {
+		// convert args to tags to pass to sentry:
+		tags := nl.tagsFromArgs(args...)
 		// send error to sentry:
 		CaptureException(err, tags)
 	}
 }
 
-func (nl *NexusLogger) Info(msg string, args ...interface{}) {
-	nl.Logger.Info(msg, args...)
+// Fatal is like Error but panics after logging.
+func (nl *NexusLogger) Fatal(msg string, err error, args ...interface{}) {
+	// todo: make sure this level is printed nicely
+	nl.Logger.Log(nil, LevelFatal, msg, args...)
+
+	if err != nil {
+		// convert args to tags to pass to sentry:
+		tags := nl.tagsFromArgs(args...)
+		// send error to sentry:
+		CaptureException(err, tags)
+	}
+
+	panic(err)
 }
 
 func (nl *NexusLogger) Warn(msg string, args ...interface{}) {
 	nl.Logger.Warn(msg, args...)
 
-	tags := tagsFromArgs(args...)
+	tags := nl.tagsFromArgs(args...)
 	// send message to sentry:
 	CaptureMessage(msg, tags)
 }

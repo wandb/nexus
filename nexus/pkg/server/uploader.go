@@ -84,7 +84,6 @@ func (u *Uploader) do() {
 		if err != nil {
 			u.logger.Error(
 				"uploader: error uploading",
-				"err",
 				err,
 				"path",
 				task.path,

@@ -6,7 +6,6 @@ import (
 	"github.com/wandb/wandb/nexus/pkg/analytics"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
-	"golang.org/x/exp/slog"
 )
 
 // Dispatcher is the dispatcher for a stream
@@ -59,7 +58,7 @@ func (d *Dispatcher) do() {
 			},
 		}
 		if responderId == "" {
-			LogResult(slog.Default(), "dispatch: got msg with no connection id", msg)
+			d.logger.Debug("dispatch: got msg with no connection id", "msg", msg)
 			continue
 		}
 		d.responders[responderId].Respond(response)

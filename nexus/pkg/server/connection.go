@@ -195,6 +195,8 @@ func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 }
 
 func (nc *Connection) handleInformStart(_ *service.ServerInformStartRequest) {
+	// todo: if we keep this and end up updating the settings here
+	//       we should update the stream logger to use the new settings as well
 }
 
 // handleInformAttach is called when the client sends an InformAttach message
