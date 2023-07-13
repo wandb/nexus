@@ -25,6 +25,7 @@ func setupLogger(opts *slog.HandlerOptions, writers ...io.Writer) *slog.Logger {
 func SetupDefaultLogger() *slog.Logger {
 	var writers []io.Writer
 
+	// todo: discover system temp lib
 	name := "/tmp/logs.txt"
 	file, err := os.OpenFile(name, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
