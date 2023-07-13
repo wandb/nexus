@@ -1,6 +1,7 @@
 package analytics
 
 import (
+	"context"
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"golang.org/x/exp/slog"
 )
@@ -65,7 +66,7 @@ func (nl *NexusLogger) Error(msg string, err error, args ...interface{}) {
 // Fatal is like Error but panics after logging.
 func (nl *NexusLogger) Fatal(msg string, err error, args ...interface{}) {
 	// todo: make sure this level is printed nicely
-	nl.Logger.Log(nil, LevelFatal, msg, args...)
+	nl.Logger.Log(context.TODO(), LevelFatal, msg, args...)
 
 	if err != nil {
 		// convert args to tags to pass to sentry:
