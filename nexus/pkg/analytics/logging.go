@@ -10,6 +10,15 @@ func NewNexusLogger(logger *slog.Logger) *NexusLogger {
 	return &NexusLogger{Logger: logger}
 }
 
+func limitLength(s string) string {
+	// sentry has a limit of 200 characters for tag values
+	maxLen := 197
+	if len(s) > maxLen {
+		return s[:maxLen] + "..."
+	}
+	return s
+}
+
 // tagsFromArgs constructs a map of tags from the args
 func tagsFromArgs(args ...interface{}) map[string]string {
 	tags := make(map[string]string)
@@ -21,7 +30,7 @@ func tagsFromArgs(args ...interface{}) map[string]string {
 		key := args[i].(string)
 		value, ok := args[i+1].(string)
 		if ok {
-			tags[key] = value
+			tags[key] = limitLength(value)
 		}
 	}
 	return tags

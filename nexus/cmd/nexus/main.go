@@ -11,6 +11,9 @@ import (
 	"golang.org/x/exp/slog"
 )
 
+// this is set by the build script and used by the analytics package
+var commit string
+
 func main() {
 	portFilename := flag.String(
 		"port-filename",
@@ -30,7 +33,7 @@ func main() {
 	ctx := context.Background()
 
 	// set up sentry reporting
-	analytics.InitSentry(*noAnalytics)
+	analytics.InitSentry(*noAnalytics, commit)
 	defer sentry.Flush(2)
 
 	logger.LogAttrs(
