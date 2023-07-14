@@ -3,12 +3,11 @@ package server
 import (
 	"context"
 	"fmt"
-	"strconv"
-
 	"github.com/wandb/wandb/nexus/pkg/observability"
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
+	"strconv"
 	// "time"
 )
 
@@ -45,6 +44,9 @@ type Handler struct {
 
 	// summary is the summary
 	summary map[string]string
+
+	// history is the history
+	historyRecord *service.HistoryRecord
 }
 
 // NewHandler creates a new handler
@@ -99,7 +101,6 @@ func (h *Handler) handleRecord(msg *service.Record) {
 	case *service.Record_Header:
 		// TODO: handle this
 	case *service.Record_History:
-		// TODO: handle this
 	case *service.Record_LinkArtifact:
 		// TODO: handle this
 	case *service.Record_Metric:
@@ -254,45 +255,92 @@ func (h *Handler) handleGetSummary(_ *service.Record, _ *service.GetSummaryReque
 func (h *Handler) handleDefer(rec *service.Record) {
 	req := rec.GetRequest().GetDefer()
 	switch req.State {
+	case service.DeferRequest_BEGIN:
+	case service.DeferRequest_FLUSH_STATS:
+	case service.DeferRequest_FLUSH_PARTIAL_HISTORY:
+		h.flushHistory(h.historyRecord)
+	case service.DeferRequest_FLUSH_TB:
+	case service.DeferRequest_FLUSH_SUM:
+	case service.DeferRequest_FLUSH_DEBOUNCER:
+	case service.DeferRequest_FLUSH_OUTPUT:
+	case service.DeferRequest_FLUSH_DIR:
+	case service.DeferRequest_FLUSH_FP:
+	case service.DeferRequest_JOIN_FP:
+	case service.DeferRequest_FLUSH_FS:
+	case service.DeferRequest_FLUSH_FINAL:
 	case service.DeferRequest_END:
-		h.sendRecord(rec)
 	default:
-		h.sendRecord(rec)
+		err := fmt.Errorf("handleDefer: unknown defer state %v", req.State)
+		h.logger.CaptureError("unknown defer state", err)
 	}
+	h.sendRecord(rec)
+}
+
+func (h *Handler) flushHistory(history *service.HistoryRecord) {
+
+	if history == nil || history.Item == nil {
+		return
+	}
+	// walk through items looking for _timestamp
+	// TODO: add a timestamp field to the history record
+	items := history.GetItem()
+	var runTime float64 = 0
+	for _, item := range items {
+		if item.Key == "_timestamp" {
+			val, err := strconv.ParseFloat(item.ValueJson, 64)
+			if err != nil {
+				h.logger.CaptureError("error parsing timestamp", err)
+			} else {
+				runTime = val - h.startTime
+			}
+		}
+	}
+
+	history.Item = append(history.Item,
+		&service.HistoryItem{Key: "_runtime", ValueJson: fmt.Sprintf("%f", runTime)},
+		&service.HistoryItem{Key: "_step", ValueJson: fmt.Sprintf("%d", history.GetStep().GetNum())},
+	)
+
+	rec := &service.Record{
+		RecordType: &service.Record_History{History: history},
+	}
+	h.updateSummary(history)
+	h.sendRecord(rec)
 }
 
 func (h *Handler) handlePartialHistory(_ *service.Record, req *service.PartialHistoryRequest) {
-	items := req.Item
-
-	stepNum := h.currentStep
-	h.currentStep += 1
-	s := service.HistoryStep{Num: stepNum}
-
-	var runTime float64 = 0
-	// walk through items looking for _timestamp
-	for i := 0; i < len(items); i++ {
-		if items[i].Key == "_timestamp" {
-			val, err := strconv.ParseFloat(items[i].ValueJson, 64)
-			if err != nil {
-				h.logger.CaptureError("error parsing timestamp", err)
-			}
-			runTime = val - h.startTime
+	if h.historyRecord == nil {
+		h.historyRecord = &service.HistoryRecord{}
+		if req.Step != nil {
+			h.historyRecord.Step = req.Step
+		} else {
+			h.historyRecord.Step = &service.HistoryStep{Num: 0}
 		}
 	}
-	items = append(items,
-		&service.HistoryItem{Key: "_runtime", ValueJson: fmt.Sprintf("%f", runTime)},
-		&service.HistoryItem{Key: "_step", ValueJson: fmt.Sprintf("%d", stepNum)},
-	)
 
-	record := service.HistoryRecord{Step: &s, Item: items}
-	r := service.Record{
-		RecordType: &service.Record_History{History: &record},
+	if req.Step != nil {
+		if req.Step.Num > h.historyRecord.Step.Num {
+			h.flushHistory(h.historyRecord)
+			h.historyRecord = &service.HistoryRecord{
+				Step: req.Step,
+			}
+		} else if req.Step.Num < h.historyRecord.Step.Num {
+			h.logger.CaptureWarn("received history record for a step that has already been received",
+				"received", req.Step, "current", h.historyRecord.Step)
+			return
+		}
 	}
-	h.updateSummary(&record)
 
-	// TODO: remove this once we have handleHistory
-	h.sendRecord(&r)
+	h.historyRecord.Item = append(h.historyRecord.Item, req.Item...)
 
+	if (req.Step == nil && req.Action == nil) || req.Action.Flush {
+		h.flushHistory(h.historyRecord)
+		h.historyRecord = &service.HistoryRecord{
+			Step: &service.HistoryStep{
+				Num: h.historyRecord.Step.Num + 1,
+			},
+		}
+	}
 }
 
 func (h *Handler) updateSummary(msg *service.HistoryRecord) {
