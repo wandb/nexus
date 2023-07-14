@@ -3,11 +3,12 @@ package server
 import (
 	"context"
 	"fmt"
+	"strconv"
+
 	"github.com/wandb/wandb/nexus/pkg/observability"
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
-	"strconv"
 	// "time"
 )
 
@@ -32,9 +33,6 @@ type Handler struct {
 
 	// logger is the logger for the handler
 	logger *observability.NexusLogger
-
-	// currentStep is the current step
-	currentStep int64
 
 	// startTime is the start time
 	startTime float64
