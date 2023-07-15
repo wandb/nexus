@@ -43,7 +43,8 @@ type Handler struct {
 	// summary is the summary
 	summary map[string]string
 
-	// history is the history
+	// historyRecord is the history record used to track
+	// current active history record for the run
 	historyRecord *service.HistoryRecord
 }
 
