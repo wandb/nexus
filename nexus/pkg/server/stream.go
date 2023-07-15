@@ -55,10 +55,6 @@ func NewStream(ctx context.Context, settings *service.Settings, streamId string,
 	handler.outChan = writer.inChan
 	sender.outChan = handler.inChan
 
-	// connect the dispatcher to the handler and sender
-	handler.dispatcherChan = dispatcher.inChan
-	sender.dispatcherChan = dispatcher.inChan
-
 	stream := &Stream{
 		ctx:        ctx,
 		wg:         sync.WaitGroup{},
@@ -79,6 +75,28 @@ func (s *Stream) AddResponders(entries ...ResponderEntry) {
 	for _, entry := range entries {
 		s.dispatcher.AddResponder(entry)
 	}
+}
+
+// handleDispatch handles dispatching messages from the handler and sender to
+// the dispatcher.
+func (s *Stream) handleDispatch() {
+	for s.sender.dispatcherChan != nil || s.handler.dispatcherChan != nil {
+		select {
+		case value, ok := <-s.handler.dispatcherChan:
+			if !ok {
+				s.handler.dispatcherChan = nil
+				continue
+			}
+			s.dispatcher.inChan <- value
+		case value, ok := <-s.sender.dispatcherChan:
+			if !ok {
+				s.sender.dispatcherChan = nil
+				continue
+			}
+			s.dispatcher.inChan <- value
+		}
+	}
+	close(s.dispatcher.inChan)
 }
 
 // Start starts the stream's handler, writer, sender, and dispatcher.
@@ -113,6 +131,13 @@ func (s *Stream) Start() {
 	s.wg.Add(1)
 	go func() {
 		s.dispatcher.do()
+		s.wg.Done()
+	}()
+
+	// handle dispatching between components
+	s.wg.Add(1)
+	go func() {
+		s.handleDispatch()
 		s.wg.Done()
 	}()
 }

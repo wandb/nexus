@@ -33,7 +33,7 @@ type Sender struct {
 	outChan chan<- *service.Record
 
 	// dispatcherChan is the channel for dispatcher messages
-	dispatcherChan chan<- *service.Result
+	dispatcherChan chan *service.Result
 
 	// graphqlClient is the graphql client
 	graphqlClient graphql.Client
@@ -59,26 +59,22 @@ func NewSender(ctx context.Context, settings *service.Settings, logger *observab
 	url := fmt.Sprintf("%s/graphql", settings.GetBaseUrl().GetValue())
 	apiKey := settings.GetApiKey().GetValue()
 	return &Sender{
-		ctx:           ctx,
-		settings:      settings,
-		inChan:        make(chan *service.Record),
-		logger:        logger,
-		graphqlClient: newGraphqlClient(url, apiKey, logger),
+		ctx:            ctx,
+		settings:       settings,
+		inChan:         make(chan *service.Record),
+		dispatcherChan: make(chan *service.Result),
+		logger:         logger,
+		graphqlClient:  newGraphqlClient(url, apiKey, logger),
 	}
 }
 
 // do sending of messages to the server
 func (s *Sender) do() {
-
-	defer func() {
-		close(s.dispatcherChan)
-		s.logger.Info("sender: closed", "stream_id", s.settings.RunId)
-	}()
-
 	s.logger.Info("sender: started", "stream_id", s.settings.RunId)
 	for msg := range s.inChan {
 		s.sendRecord(msg)
 	}
+	s.logger.Info("sender: closed", "stream_id", s.settings.RunId)
 }
 
 // sendRecord sends a record
@@ -158,6 +154,7 @@ func (s *Sender) sendDefer(req *service.DeferRequest) {
 		s.sendRequestDefer(req)
 	case service.DeferRequest_END:
 		close(s.outChan)
+		close(s.dispatcherChan)
 	default:
 		req.State++
 		s.sendRequestDefer(req)

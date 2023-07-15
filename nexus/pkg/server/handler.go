@@ -26,7 +26,7 @@ type Handler struct {
 	outChan chan<- *service.Record
 
 	// dispatcherChan is the channel for dispatcher messages
-	dispatcherChan chan<- *service.Result
+	dispatcherChan chan *service.Result
 
 	// settings is the settings for the handler
 	settings *service.Settings
@@ -51,11 +51,12 @@ type Handler struct {
 // NewHandler creates a new handler
 func NewHandler(ctx context.Context, settings *service.Settings, logger *observability.NexusLogger) *Handler {
 	h := &Handler{
-		ctx:      ctx,
-		inChan:   make(chan *service.Record),
-		settings: settings,
-		summary:  make(map[string]string),
-		logger:   logger,
+		ctx:            ctx,
+		inChan:         make(chan *service.Record),
+		dispatcherChan: make(chan *service.Result),
+		settings:       settings,
+		summary:        make(map[string]string),
+		logger:         logger,
 	}
 	return h
 }
@@ -76,6 +77,7 @@ func (h *Handler) do() {
 // close this closes the handler
 func (h *Handler) close() {
 	close(h.outChan)
+	close(h.dispatcherChan)
 	slog.Info("handle: closed", "stream_id", h.settings.RunId)
 }
 
