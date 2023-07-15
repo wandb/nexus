@@ -19,11 +19,8 @@ type Handler struct {
 	// ctx is the context for the handler
 	ctx context.Context
 
-	// inChan is the channel for incoming messages
-	inChan chan *service.Record
-
 	// outChan is the channel for outgoing messages
-	outChan chan<- *service.Record
+	outChan chan *service.Record
 
 	// dispatcherChan is the channel for dispatcher messages
 	dispatcherChan chan *service.Result
@@ -52,7 +49,6 @@ type Handler struct {
 func NewHandler(ctx context.Context, settings *service.Settings, logger *observability.NexusLogger) *Handler {
 	h := &Handler{
 		ctx:            ctx,
-		inChan:         make(chan *service.Record),
 		dispatcherChan: make(chan *service.Result),
 		settings:       settings,
 		summary:        make(map[string]string),
@@ -62,21 +58,25 @@ func NewHandler(ctx context.Context, settings *service.Settings, logger *observa
 }
 
 // do this starts the handler
-func (h *Handler) do() {
+func (h *Handler) do(inChan <-chan *service.Record) <-chan *service.Record {
 	defer observability.Reraise()
 
 	h.logger.Info("handler: started")
 
-	for msg := range h.inChan {
-		h.handleRecord(msg)
-	}
-	h.close()
-	slog.Debug("handler: started and closed")
+	h.outChan = make(chan *service.Record)
+	go func() {
+		for msg := range inChan {
+			h.handleRecord(msg)
+		}
+		close(h.outChan)
+		h.close()
+		slog.Debug("handler: closed")
+	}()
+	return h.outChan
 }
 
 // close this closes the handler
 func (h *Handler) close() {
-	close(h.outChan)
 	close(h.dispatcherChan)
 	slog.Info("handle: closed", "stream_id", h.settings.RunId)
 }
@@ -86,44 +86,29 @@ func (h *Handler) handleRecord(msg *service.Record) {
 	h.logger.Debug("handle: got a message", "msg", msg, "stream_id", h.settings.RunId)
 	switch x := msg.RecordType.(type) {
 	case *service.Record_Alert:
-		// TODO: handle this
 	case *service.Record_Artifact:
-		// TODO: handle this
 	case *service.Record_Config:
-		// TODO: handle this
 	case *service.Record_Exit:
 		h.handleExit(msg, x.Exit)
 	case *service.Record_Files:
 		h.handleFiles(msg, x.Files)
 	case *service.Record_Final:
-		// TODO: handle this
 	case *service.Record_Footer:
-		// TODO: handle this
 	case *service.Record_Header:
-		// TODO: handle this
 	case *service.Record_History:
 	case *service.Record_LinkArtifact:
-		// TODO: handle this
 	case *service.Record_Metric:
-		// TODO: handle this
 	case *service.Record_Output:
-		// TODO: handle this
 	case *service.Record_OutputRaw:
-		// TODO: handle this
 	case *service.Record_Preempting:
-		// TODO: handle this
 	case *service.Record_Request:
 		h.handleRequest(msg)
 	case *service.Record_Run:
 		h.handleRun(msg, x.Run)
 	case *service.Record_Stats:
-		// TODO: handle this
 	case *service.Record_Summary:
-		// TODO: handle this
 	case *service.Record_Tbrecord:
-		// TODO: handle this
 	case *service.Record_Telemetry:
-		// TODO: handle this
 	case nil:
 		err := fmt.Errorf("handleRecord: record type is nil")
 		h.logger.CaptureFatalAndPanic("error handling record", err)
@@ -138,7 +123,6 @@ func (h *Handler) handleRequest(rec *service.Record) {
 	response := &service.Response{}
 	switch x := req.RequestType.(type) {
 	case *service.Request_CheckVersion:
-		// TODO: handle this
 	case *service.Request_Defer:
 		h.handleDefer(rec)
 	case *service.Request_GetSummary:
@@ -163,6 +147,15 @@ func (h *Handler) handleRequest(rec *service.Record) {
 		h.logger.CaptureFatalAndPanic("error handling request", err)
 	}
 
+	result := &service.Result{
+		ResultType: &service.Result_Response{Response: response},
+		Control:    rec.Control,
+		Uuid:       rec.Uuid,
+	}
+	h.dispatcherChan <- result
+}
+
+func (h *Handler) sendResponse(rec *service.Record, response *service.Response) {
 	result := &service.Result{
 		ResultType: &service.Result_Response{Response: response},
 		Control:    rec.Control,

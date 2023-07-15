@@ -38,6 +38,8 @@ type Stream struct {
 
 	// logger is the logger for the stream
 	logger *observability.NexusLogger
+
+	inChan chan *service.Record
 }
 
 // NewStream creates a new stream with the given settings and responders.
@@ -50,11 +52,6 @@ func NewStream(ctx context.Context, settings *service.Settings, streamId string,
 	writer := NewWriter(ctx, settings, logger)
 	handler := NewHandler(ctx, settings, logger)
 
-	// connect the components
-	writer.outChan = sender.inChan
-	handler.outChan = writer.inChan
-	sender.outChan = handler.inChan
-
 	stream := &Stream{
 		ctx:        ctx,
 		wg:         sync.WaitGroup{},
@@ -64,6 +61,7 @@ func NewStream(ctx context.Context, settings *service.Settings, streamId string,
 		writer:     writer,
 		settings:   settings,
 		logger:     logger,
+		inChan:     make(chan *service.Record),
 	}
 	stream.wg.Add(1)
 	go stream.Start()
@@ -107,25 +105,13 @@ func (s *Stream) Start() {
 	s.logger.Info("created new stream", "id", s.settings.RunId)
 
 	// handle the client requests
-	s.wg.Add(1)
-	go func() {
-		s.handler.do()
-		s.wg.Done()
-	}()
+	handleChan := s.handler.do(s.inChan)
 
 	// write the data to a transaction log
-	s.wg.Add(1)
-	go func() {
-		s.writer.do()
-		s.wg.Done()
-	}()
+	writerChan := s.writer.do(handleChan)
 
 	// send the data to the server
-	s.wg.Add(1)
-	go func() {
-		s.sender.do()
-		s.wg.Done()
-	}()
+	s.sender.do(writerChan, s.inChan)
 
 	// dispatch responses to the client
 	s.wg.Add(1)
@@ -145,7 +131,7 @@ func (s *Stream) Start() {
 // HandleRecord handles the given record by sending it to the stream's handler.
 func (s *Stream) HandleRecord(rec *service.Record) {
 	s.logger.Debug("handling record", "record", rec)
-	s.handler.inChan <- rec
+	s.inChan <- rec
 }
 
 func (s *Stream) GetRun() *service.RunRecord {

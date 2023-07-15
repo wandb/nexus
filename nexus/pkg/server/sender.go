@@ -26,8 +26,8 @@ type Sender struct {
 	// ctx is the context for the handler
 	ctx context.Context
 
-	// inChan is the channel for incoming messages
-	inChan chan *service.Record
+	//// inChan is the channel for incoming messages
+	//inChan chan *service.Record
 
 	//	outChan is the channel for outgoing messages
 	outChan chan<- *service.Record
@@ -59,9 +59,9 @@ func NewSender(ctx context.Context, settings *service.Settings, logger *observab
 	url := fmt.Sprintf("%s/graphql", settings.GetBaseUrl().GetValue())
 	apiKey := settings.GetApiKey().GetValue()
 	return &Sender{
-		ctx:            ctx,
-		settings:       settings,
-		inChan:         make(chan *service.Record),
+		ctx:      ctx,
+		settings: settings,
+		//inChan:         make(chan *service.Record),
 		dispatcherChan: make(chan *service.Result),
 		logger:         logger,
 		graphqlClient:  newGraphqlClient(url, apiKey, logger),
@@ -69,12 +69,15 @@ func NewSender(ctx context.Context, settings *service.Settings, logger *observab
 }
 
 // do sending of messages to the server
-func (s *Sender) do() {
+func (s *Sender) do(inChan <-chan *service.Record, outChan chan<- *service.Record) {
 	s.logger.Info("sender: started", "stream_id", s.settings.RunId)
-	for msg := range s.inChan {
-		s.sendRecord(msg)
-	}
-	s.logger.Info("sender: closed", "stream_id", s.settings.RunId)
+	s.outChan = outChan
+	go func() {
+		for msg := range inChan {
+			s.sendRecord(msg)
+		}
+		s.logger.Info("sender: closed", "stream_id", s.settings.RunId)
+	}()
 }
 
 // sendRecord sends a record

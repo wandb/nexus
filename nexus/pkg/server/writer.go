@@ -17,11 +17,11 @@ type Writer struct {
 	// ctx is the context for the writer
 	ctx context.Context
 
-	// inChan is the channel for incoming messages
-	inChan chan *service.Record
+	//// inChan is the channel for incoming messages
+	//inChan chan *service.Record
 
 	// outChan is the channel for outgoing messages
-	outChan chan<- *service.Record
+	outChan chan *service.Record
 
 	// store is the store for the writer
 	store *Store
@@ -44,7 +44,6 @@ func NewWriter(ctx context.Context, settings *service.Settings, logger *observab
 	writer := &Writer{
 		ctx:      ctx,
 		settings: settings,
-		inChan:   make(chan *service.Record),
 		store:    store,
 		logger:   logger,
 	}
@@ -52,18 +51,22 @@ func NewWriter(ctx context.Context, settings *service.Settings, logger *observab
 }
 
 // do is the main loop of the writer to process incoming messages
-func (w *Writer) do() {
+func (w *Writer) do(inChan <-chan *service.Record) <-chan *service.Record {
 	slog.Info("writer: started", "stream_id", w.settings.RunId)
-	for msg := range w.inChan {
-		w.handleRecord(msg)
-	}
-	w.close()
+	w.outChan = make(chan *service.Record)
+	go func() {
+		for msg := range inChan {
+			w.handleRecord(msg)
+		}
+		close(w.outChan)
+		w.close()
+	}()
+	return w.outChan
 }
 
 // close closes the writer and all its resources
 // which includes the store
 func (w *Writer) close() {
-	close(w.outChan)
 	if err := w.store.Close(); err != nil {
 		w.logger.CaptureError("writer: error closing store", err)
 		return
