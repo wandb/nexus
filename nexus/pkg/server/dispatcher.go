@@ -13,8 +13,8 @@ type Dispatcher struct {
 	// ctx is the context for the dispatcher
 	ctx context.Context
 
-	// inChan is the channel for incoming messages
-	inChan chan *service.Result
+	//// inChan is the channel for incoming messages
+	//inChan chan *service.Result
 
 	// responders is the map of responders
 	responders map[string]Responder
@@ -26,8 +26,8 @@ type Dispatcher struct {
 // NewDispatcher creates a new dispatcher
 func NewDispatcher(ctx context.Context, logger *observability.NexusLogger) *Dispatcher {
 	dispatcher := &Dispatcher{
-		ctx:        ctx,
-		inChan:     make(chan *service.Result),
+		ctx: ctx,
+		//inChan:     make(chan *service.Result),
 		responders: make(map[string]Responder),
 		logger:     logger,
 	}
@@ -45,24 +45,26 @@ func (d *Dispatcher) AddResponder(entry ResponderEntry) {
 }
 
 // do start the dispatcher and dispatches messages
-func (d *Dispatcher) do() {
+func (d *Dispatcher) do(inChan <-chan *service.Result) {
 
 	d.logger.Info("dispatch: started")
 
-	for msg := range d.inChan {
-		responderId := msg.GetControl().GetConnectionId()
-		d.logger.Debug("dispatch: got msg", "msg", msg)
-		response := &service.ServerResponse{
-			ServerResponseType: &service.ServerResponse_ResultCommunicate{
-				ResultCommunicate: msg,
-			},
+	go func() {
+		for msg := range inChan {
+			responderId := msg.GetControl().GetConnectionId()
+			d.logger.Debug("dispatch: got msg", "msg", msg)
+			response := &service.ServerResponse{
+				ServerResponseType: &service.ServerResponse_ResultCommunicate{
+					ResultCommunicate: msg,
+				},
+			}
+			if responderId == "" {
+				d.logger.Debug("dispatch: got msg with no connection id", "msg", msg)
+				continue
+			}
+			d.responders[responderId].Respond(response)
 		}
-		if responderId == "" {
-			d.logger.Debug("dispatch: got msg with no connection id", "msg", msg)
-			continue
-		}
-		d.responders[responderId].Respond(response)
-	}
 
-	d.logger.Info("dispatch: finished")
+		d.logger.Info("dispatch: finished")
+	}()
 }

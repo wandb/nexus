@@ -39,7 +39,8 @@ type Stream struct {
 	// logger is the logger for the stream
 	logger *observability.NexusLogger
 
-	inChan chan *service.Record
+	inChan  chan *service.Record
+	outChan chan *service.Result
 }
 
 // NewStream creates a new stream with the given settings and responders.
@@ -62,6 +63,7 @@ func NewStream(ctx context.Context, settings *service.Settings, streamId string,
 		settings:   settings,
 		logger:     logger,
 		inChan:     make(chan *service.Record),
+		outChan:    make(chan *service.Result),
 	}
 	stream.wg.Add(1)
 	go stream.Start()
@@ -85,16 +87,16 @@ func (s *Stream) handleDispatch() {
 				s.handler.dispatcherChan = nil
 				continue
 			}
-			s.dispatcher.inChan <- value
+			s.outChan <- value
 		case value, ok := <-s.sender.dispatcherChan:
 			if !ok {
 				s.sender.dispatcherChan = nil
 				continue
 			}
-			s.dispatcher.inChan <- value
+			s.outChan <- value
 		}
 	}
-	close(s.dispatcher.inChan)
+	close(s.outChan)
 }
 
 // Start starts the stream's handler, writer, sender, and dispatcher.
@@ -114,11 +116,7 @@ func (s *Stream) Start() {
 	s.sender.do(writerChan, s.inChan)
 
 	// dispatch responses to the client
-	s.wg.Add(1)
-	go func() {
-		s.dispatcher.do()
-		s.wg.Done()
-	}()
+	s.dispatcher.do(s.outChan)
 
 	// handle dispatching between components
 	s.wg.Add(1)

@@ -147,12 +147,7 @@ func (h *Handler) handleRequest(rec *service.Record) {
 		h.logger.CaptureFatalAndPanic("error handling request", err)
 	}
 
-	result := &service.Result{
-		ResultType: &service.Result_Response{Response: response},
-		Control:    rec.Control,
-		Uuid:       rec.Uuid,
-	}
-	h.dispatcherChan <- result
+	h.sendResponse(rec, response)
 }
 
 func (h *Handler) sendResponse(rec *service.Record, response *service.Response) {
