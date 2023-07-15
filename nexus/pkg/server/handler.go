@@ -307,6 +307,11 @@ func (h *Handler) flushHistory(history *service.HistoryRecord) {
 }
 
 func (h *Handler) handlePartialHistory(_ *service.Record, req *service.PartialHistoryRequest) {
+
+	// This is the first partial history record we receive
+	// for this step, so we need to initialize the history record
+	// and step. If the user provided a step in the request,
+	// use that, otherwise use 0.
 	if h.historyRecord == nil {
 		h.historyRecord = &service.HistoryRecord{}
 		if req.Step != nil {
@@ -316,6 +321,34 @@ func (h *Handler) handlePartialHistory(_ *service.Record, req *service.PartialHi
 		}
 	}
 
+	// The HistoryRecord struct is responsible for tracking data related to
+	//	a single step in the history. Users can send multiple partial history
+	//	records for a single step. Each partial history record contains a
+	//	step number, a flush flag, and a list of history items.
+	//
+	// The step number indicates the step number for the history record. The
+	// flush flag determines whether the history record should be flushed
+	// after processing the request. The history items are appended to the
+	// existing history record.
+	//
+	// The following logic is used to process the request:
+	//
+	// -  If the request includes a step number and the step number is greater
+	//		than the current step number, the current history record is flushed
+	//		and a new history record is created.
+	// - If the step number in the request is less than the current step number,
+	//		we ignore the request and log a warning.
+	// 		NOTE: the server requires the steps of the history records
+	// 		to be monotonically increasing.
+	// -  If the step number in the request matches the current step number, the
+	//		history items are appended to the current history record.
+	//
+	// - If the request has a flush flag, another flush might occur after for the
+	// current history record after processing the request.
+	//
+	// - If the request doesn't have a step, and doesn't have a flush flag, this is
+	//	equivalent to step being equal to the current step number and a flush flag
+	//	being set to true.
 	if req.Step != nil {
 		if req.Step.Num > h.historyRecord.Step.Num {
 			h.flushHistory(h.historyRecord)
@@ -329,8 +362,11 @@ func (h *Handler) handlePartialHistory(_ *service.Record, req *service.PartialHi
 		}
 	}
 
+	// Append the history items from the request to the current history record.
 	h.historyRecord.Item = append(h.historyRecord.Item, req.Item...)
 
+	// Flush the history record and start to collect a new one with
+	// the next step number.
 	if (req.Step == nil && req.Action == nil) || req.Action.Flush {
 		h.flushHistory(h.historyRecord)
 		h.historyRecord = &service.HistoryRecord{
