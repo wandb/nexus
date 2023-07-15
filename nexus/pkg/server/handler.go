@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/wandb/wandb/nexus/pkg/monitor"
 	"strconv"
 
 	"github.com/wandb/wandb/nexus/pkg/observability"
@@ -27,6 +28,9 @@ type Handler struct {
 
 	// dispatcherChan is the channel for dispatcher messages
 	dispatcherChan chan<- *service.Result
+
+	// systemMonitor is the system monitor for the stream
+	systemMonitor *monitor.SystemMonitor
 
 	// settings is the settings for the handler
 	settings *service.Settings
@@ -197,6 +201,11 @@ func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartReque
 	//  attempting to do this before the run start request arrives in the sender
 	//  will cause a segfault because the sender's uploader is not initialized yet.
 	h.handleMetadata(rec, req)
+
+	// start the system monitor
+	h.systemMonitor = monitor.NewSystemMonitor(h.ctx, h.settings, h.logger)
+	h.systemMonitor.OutChan = h.inChan
+	go h.systemMonitor.Do()
 }
 
 func (h *Handler) handleAttach(_ *service.Record, _ *service.AttachRequest, resp *service.Response) {
@@ -254,6 +263,8 @@ func (h *Handler) handleGetSummary(_ *service.Record, _ *service.GetSummaryReque
 func (h *Handler) handleDefer(rec *service.Record) {
 	req := rec.GetRequest().GetDefer()
 	switch req.State {
+	case service.DeferRequest_FLUSH_STATS:
+		h.systemMonitor.Close()
 	case service.DeferRequest_END:
 		h.sendRecord(rec)
 	default:

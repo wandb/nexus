@@ -9,6 +9,8 @@ import (
 )
 
 // Dispatcher is the dispatcher for a stream
+// It dispatches messages to the appropriate responders
+// (i.e. handles server -> client communication)
 type Dispatcher struct {
 	// ctx is the context for the dispatcher
 	ctx context.Context
