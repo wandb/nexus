@@ -51,13 +51,13 @@ func (sm *SystemMonitor) Do() {
 
 			// CPU
 			cpuInfo, _ := cpu.Info()
-			fmt.Println(cpuInfo)
+			sm.logger.Info(fmt.Sprintf("CPU Info: %v", cpuInfo))
 
 			// CPU percentage
 			percent, _ := cpu.Percent(0, true)
 
 			for i, cpuPercent := range percent {
-				fmt.Printf("CPU %d: %f%%\n", i, cpuPercent)
+				sm.logger.Info(fmt.Sprintf("CPU %d: %f", i, cpuPercent))
 			}
 
 			fmt.Println(percent)
