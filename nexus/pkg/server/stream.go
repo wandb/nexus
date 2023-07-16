@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/wandb/wandb/nexus/pkg/observability"
 	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
@@ -36,8 +35,8 @@ type Stream struct {
 	// settings is the settings for the stream
 	settings *service.Settings
 
-	// logger is the logger for the stream
-	logger *observability.NexusLogger
+	//// logger is the logger for the stream
+	//logger *observability.NexusLogger
 
 	// inChan is the channel for incoming messages
 	inChan chan *service.Record
@@ -45,18 +44,18 @@ type Stream struct {
 
 // NewStream creates a new stream with the given settings and responders.
 func NewStream(ctx context.Context, settings *service.Settings, streamId string, responders ...ResponderEntry) *Stream {
-	logFile := settings.GetLogInternal().GetValue()
-	logger := SetupStreamLogger(logFile, settings)
+	//logFile := settings.GetLogInternal().GetValue()
+	//logger := SetupStreamLogger(logFile, settings)
 
 	stream := &Stream{
 		ctx:      ctx,
 		wg:       sync.WaitGroup{},
 		settings: settings,
-		logger:   logger,
-		inChan:   make(chan *service.Record),
+		//logger:   logger,
+		inChan: make(chan *service.Record, BufferSize),
 	}
-	stream.wg.Add(1)
-	go stream.Start()
+	//stream.wg.Add(1)
+	stream.Start()
 	return stream
 }
 
@@ -70,16 +69,16 @@ func (s *Stream) AddResponders(entries ...ResponderEntry) {
 		if _, ok := s.responders[responderId]; !ok {
 			s.responders[responderId] = entry.Responder
 		} else {
-			s.logger.CaptureWarn("Responder already exists", "responder", responderId)
+			//s.logger.CaptureWarn("Responder already exists", "responder", responderId)
 		}
 	}
 }
 
 func (s *Stream) handleRespond(result *service.Result) {
 	responderId := result.GetControl().GetConnectionId()
-	s.logger.Debug("dispatch: got result", "result", result)
+	//s.logger.Debug("dispatch: got result", "result", result)
 	if responderId == "" {
-		s.logger.Debug("dispatch: got result with no connection id", "result", result)
+		//s.logger.Debug("dispatch: got result with no connection id", "result", result)
 		return
 	}
 	response := &service.ServerResponse{
@@ -90,61 +89,57 @@ func (s *Stream) handleRespond(result *service.Result) {
 	s.responders[responderId].Respond(response)
 }
 
-// handleDispatch handles dispatching messages from the handler and sender to
-// the dispatcher.
-func (s *Stream) handleDispatch() {
-	for s.sender.dispatcherChan != nil || s.handler.resultChan != nil {
-		select {
-		case value, ok := <-s.handler.resultChan:
-			if !ok {
-				s.handler.resultChan = nil
-				continue
-			}
-			s.handleRespond(value)
-		case value, ok := <-s.sender.dispatcherChan:
-			if !ok {
-				s.sender.dispatcherChan = nil
-				continue
-			}
-			s.handleRespond(value)
-		}
-	}
-}
-
 // Start starts the stream's handler, writer, sender, and dispatcher.
 // We use Stream's wait group to ensure that all of these components are cleanly
 // finalized and closed when the stream is closed in Stream.Close().
 func (s *Stream) Start() {
-	defer s.wg.Done()
-	s.logger.Info("created new stream", "id", s.settings.RunId)
+	//defer s.wg.Done()
+	//s.logger.Info("created new stream", "id", s.settings.RunId)
 
 	// TODO: fix input channel, either remove the defer state machine or make
 	// a pattern to handle multiple writers
 
 	// handle the client requests
-	s.handler = NewHandler(s.ctx, s.settings, s.logger)
-	handleChan := s.handler.do(s.inChan)
+	s.handler = NewHandler(s.ctx, s.settings)
+	handleChan, handlerResultChan := s.handler.do(s.inChan)
 
 	// write the data to a transaction log
-	s.writer = NewWriter(s.ctx, s.settings, s.logger)
+	s.writer = NewWriter(s.ctx, s.settings, nil)
 	writerChan := s.writer.do(handleChan)
 
 	// send the data to the server
-	s.sender = NewSender(s.ctx, s.settings, s.logger)
-	s.sender.do(writerChan, s.inChan)
+	s.sender = NewSender(s.ctx, s.settings, nil)
+	senderResultChan := s.sender.do(writerChan, s.inChan)
+
+	//s.logger.Debug("starting stream", "id", handlerResultChan)
 
 	// handle dispatching between components
-	// TODO: can we do something better than this handleDispatch goroutine?
 	s.wg.Add(1)
 	go func() {
-		s.handleDispatch()
+		for senderResultChan != nil || handlerResultChan != nil {
+			select {
+			case result, ok := <-senderResultChan:
+				if !ok {
+					senderResultChan = nil
+					continue
+				}
+				s.handleRespond(result)
+			case result, ok := <-handlerResultChan:
+				if !ok {
+					handlerResultChan = nil
+					continue
+				}
+				s.handleRespond(result)
+			}
+		}
+		//s.logger.Debug("dispatch: finished")
 		s.wg.Done()
 	}()
 }
 
 // HandleRecord handles the given record by sending it to the stream's handler.
 func (s *Stream) HandleRecord(rec *service.Record) {
-	s.logger.Debug("handling record", "record", rec)
+	//s.logger.Debug("handling record", "record", rec)
 	s.inChan <- rec
 }
 
@@ -176,7 +171,7 @@ func (s *Stream) Close(force bool) {
 	if force {
 		s.PrintFooter()
 	}
-	s.logger.Info("closed stream", "id", s.settings.RunId)
+	//s.logger.Info("closed stream", "id", s.settings.RunId)
 }
 
 func (s *Stream) PrintFooter() {

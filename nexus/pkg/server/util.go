@@ -1,12 +1,10 @@
 package server
 
 import (
-	"context"
 	"crypto/rand"
 	"fmt"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
-	"golang.org/x/exp/slog"
 )
 
 type NexusStream struct {
@@ -63,10 +61,10 @@ func ShortID(length int) string {
 	_, err := rand.Read(b) // generates len(b) random bytes
 	if err != nil {
 		err = fmt.Errorf("rand error: %s", err.Error())
-		slog.LogAttrs(context.Background(),
-			slog.LevelError,
-			"ShortID: error",
-			slog.String("error", err.Error()))
+		//slog.LogAttrs(context.Background(),
+		//	slog.LevelError,
+		//	"ShortID: error",
+		//	slog.String("error", err.Error()))
 		panic(err)
 	}
 

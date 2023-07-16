@@ -12,8 +12,8 @@ import (
 // only one stream exists for a given streamId so that
 // we can safely add responders to streams.
 type StreamMux struct {
-	mux   map[string]*Stream
-	mutex sync.RWMutex
+	mux map[string]*Stream
+	//mutex sync.RWMutex
 }
 
 // NewStreamMux creates a new stream mux.
@@ -25,8 +25,8 @@ func NewStreamMux() *StreamMux {
 
 // AddStream adds a stream to the mux if it doesn't already exist.
 func (sm *StreamMux) AddStream(streamId string, stream *Stream) error {
-	sm.mutex.RLock()
-	defer sm.mutex.RUnlock()
+	//sm.mutex.RLock()
+	//defer sm.mutex.RUnlock()
 	if _, ok := sm.mux[streamId]; !ok {
 		sm.mux[streamId] = stream
 		return nil
@@ -37,8 +37,8 @@ func (sm *StreamMux) AddStream(streamId string, stream *Stream) error {
 
 // GetStream gets a stream from the mux.
 func (sm *StreamMux) GetStream(streamId string) (*Stream, error) {
-	sm.mutex.RLock()
-	defer sm.mutex.RUnlock()
+	//sm.mutex.RLock()
+	//defer sm.mutex.RUnlock()
 	if stream, ok := sm.mux[streamId]; !ok {
 		return nil, fmt.Errorf("stream not found")
 	} else {
@@ -48,8 +48,8 @@ func (sm *StreamMux) GetStream(streamId string) (*Stream, error) {
 
 // RemoveStream removes a stream from the mux.
 func (sm *StreamMux) RemoveStream(streamId string) (*Stream, error) {
-	sm.mutex.Lock()
-	defer sm.mutex.Unlock()
+	//sm.mutex.Lock()
+	//defer sm.mutex.Unlock()
 	if stream, ok := sm.mux[streamId]; !ok {
 		return nil, fmt.Errorf("stream not found %s", streamId)
 	} else {
@@ -60,8 +60,8 @@ func (sm *StreamMux) RemoveStream(streamId string) (*Stream, error) {
 
 // CloseAllStreams closes all streams in the mux.
 func (sm *StreamMux) CloseAllStreams(force bool) {
-	sm.mutex.RLock()
-	defer sm.mutex.RUnlock()
+	//sm.mutex.RLock()
+	//defer sm.mutex.RUnlock()
 
 	wg := sync.WaitGroup{}
 	for streamId, stream := range sm.mux {

@@ -9,8 +9,6 @@ import (
 
 	"github.com/wandb/wandb/nexus/pkg/observability"
 
-	"golang.org/x/exp/slog"
-
 	"github.com/hashicorp/go-retryablehttp"
 )
 
@@ -45,8 +43,8 @@ type Uploader struct {
 	// fileCounts is the file counts
 	fileCounts fileCounts
 
-	// logger is the logger for the uploader
-	logger *observability.NexusLogger
+	//// logger is the logger for the uploader
+	//logger *observability.NexusLogger
 
 	// wg is the wait group
 	wg *sync.WaitGroup
@@ -55,18 +53,18 @@ type Uploader struct {
 // NewUploader creates a new uploader
 func NewUploader(ctx context.Context, logger *observability.NexusLogger) *Uploader {
 	retryClient := retryablehttp.NewClient()
-	retryClient.Logger = slog.NewLogLogger(logger.Logger.Handler(), slog.LevelDebug)
+	retryClient.Logger = nil
 	retryClient.RetryMax = 10
 	retryClient.RetryWaitMin = 1 * time.Second
 	retryClient.RetryWaitMax = 60 * time.Second
 
 	uploader := &Uploader{
 		ctx:         ctx,
-		inChan:      make(chan *UploadTask),
+		inChan:      make(chan *UploadTask, BufferSize),
 		retryClient: retryClient,
 		fileCounts:  fileCounts{},
-		logger:      logger,
-		wg:          &sync.WaitGroup{},
+		//logger:      logger,
+		wg: &sync.WaitGroup{},
 	}
 	uploader.wg.Add(1)
 	go uploader.do()
@@ -77,32 +75,24 @@ func NewUploader(ctx context.Context, logger *observability.NexusLogger) *Upload
 func (u *Uploader) do() {
 	defer u.wg.Done()
 
-	u.logger.Debug("uploader: do")
+	//u.logger.Debug("uploader: do")
 	for task := range u.inChan {
-		u.logger.Debug("uploader: got task", task)
-		err := u.upload(task)
-		if err != nil {
-			u.logger.CaptureError(
-				"uploader: error uploading",
-				err,
-				"path",
-				task.path,
-				"url",
-				task.url,
-			)
+		//u.logger.Debug("uploader: got task", task)
+		if err := u.upload(task); err != nil {
+			//u.logger.CaptureError("uploader: error uploading", err, "path", task.path, "url", task.url)
 		}
 	}
 }
 
 // AddTask adds a task to the uploader
 func (u *Uploader) AddTask(task *UploadTask) {
-	u.logger.Debug("uploader: adding task", "path", task.path, "url", task.url)
+	//u.logger.Debug("uploader: adding task", "path", task.path, "url", task.url)
 	u.inChan <- task
 }
 
 // Close closes the uploader
 func (u *Uploader) Close() {
-	u.logger.Debug("uploader: Close")
+	//u.logger.Debug("uploader: Close")
 	close(u.inChan)
 	u.wg.Wait()
 }

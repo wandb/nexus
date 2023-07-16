@@ -58,19 +58,19 @@ func NewConnection(
 		wg:           sync.WaitGroup{},
 		conn:         conn,
 		id:           conn.RemoteAddr().String(), // TODO: check if this is properly unique
-		inChan:       make(chan *service.ServerRequest),
-		outChan:      make(chan *service.ServerResponse),
+		inChan:       make(chan *service.ServerRequest, BufferSize),
+		outChan:      make(chan *service.ServerResponse, BufferSize),
 		teardownChan: teardown, //TODO: should we trigger teardown from a connection?
 	}
-	nc.wg.Add(1)
-	go nc.handle()
+	//nc.wg.Add(1)
+	nc.handle()
 	return nc
 }
 
 func (nc *Connection) handle() {
 	slog.Info("created new connection", "id", nc.id)
 
-	defer nc.wg.Done()
+	//defer nc.wg.Done()
 
 	nc.wg.Add(1)
 	go func() {
@@ -225,6 +225,7 @@ func (nc *Connection) handleInformAttach(msg *service.ServerInformAttachRequest)
 func (nc *Connection) handleInformRecord(msg *service.Record) {
 	streamId := msg.GetXInfo().GetStreamId()
 	slog.Debug("handle record received", "streamId", streamId, "id", nc.id)
+	msgs := make([]*service.Record, 0)
 	if stream, err := streamMux.GetStream(streamId); err != nil {
 		slog.Error("handleInformRecord: stream not found", "streamId", streamId, "id", nc.id)
 	} else {
@@ -236,6 +237,7 @@ func (nc *Connection) handleInformRecord(msg *service.Record) {
 		} else {
 			msg.Control = &service.Control{ConnectionId: nc.id}
 		}
+		msgs = append(msgs, msg)
 		stream.HandleRecord(msg)
 	}
 }
