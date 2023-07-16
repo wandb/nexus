@@ -203,6 +203,7 @@ func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartReque
 	h.handleMetadata(rec, req)
 
 	// start the system monitor
+	h.logger.Debug("handle: starting system monitor", "stream_id", h.settings.RunId)
 	h.systemMonitor = monitor.NewSystemMonitor(h.ctx, h.settings, h.logger)
 	h.systemMonitor.OutChan = h.inChan
 	go h.systemMonitor.Do()
