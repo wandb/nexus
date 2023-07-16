@@ -265,7 +265,7 @@ func (h *Handler) handleDefer(rec *service.Record) {
 	switch req.State {
 	case service.DeferRequest_BEGIN:
 	case service.DeferRequest_FLUSH_STATS:
-    	h.systemMonitor.Close()
+		h.systemMonitor.Close()
 	case service.DeferRequest_FLUSH_PARTIAL_HISTORY:
 		h.flushHistory(h.historyRecord)
 	case service.DeferRequest_FLUSH_TB:
