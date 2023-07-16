@@ -24,8 +24,8 @@ type Stream struct {
 	// handler is the handler for the stream
 	handler *Handler
 
-	// dispatcher is the dispatcher for the stream
-	dispatcher *Dispatcher
+	// responders is the map of responders for the stream
+	responders map[string]Responder
 
 	// writer is the writer for the stream
 	writer *Writer
@@ -39,8 +39,7 @@ type Stream struct {
 	// logger is the logger for the stream
 	logger *observability.NexusLogger
 
-	inChan  chan *service.Record
-	outChan chan *service.Result
+	inChan chan *service.Record
 }
 
 // NewStream creates a new stream with the given settings and responders.
@@ -48,7 +47,6 @@ func NewStream(ctx context.Context, settings *service.Settings, streamId string,
 	logFile := settings.GetLogInternal().GetValue()
 	logger := SetupStreamLogger(logFile, settings)
 
-	dispatcher := NewDispatcher(ctx, logger)
 	sender := NewSender(ctx, settings, logger)
 	writer := NewWriter(ctx, settings, logger)
 	handler := NewHandler(ctx, settings, logger)
@@ -56,14 +54,13 @@ func NewStream(ctx context.Context, settings *service.Settings, streamId string,
 	stream := &Stream{
 		ctx:        ctx,
 		wg:         sync.WaitGroup{},
-		dispatcher: dispatcher,
+		responders: make(map[string]Responder),
 		handler:    handler,
 		sender:     sender,
 		writer:     writer,
 		settings:   settings,
 		logger:     logger,
 		inChan:     make(chan *service.Record),
-		outChan:    make(chan *service.Result),
 	}
 	stream.wg.Add(1)
 	go stream.Start()
@@ -73,7 +70,12 @@ func NewStream(ctx context.Context, settings *service.Settings, streamId string,
 // AddResponders adds the given responders to the stream's dispatcher.
 func (s *Stream) AddResponders(entries ...ResponderEntry) {
 	for _, entry := range entries {
-		s.dispatcher.AddResponder(entry)
+		responderId := entry.ID
+		if _, ok := s.responders[responderId]; !ok {
+			s.responders[responderId] = entry.Responder
+		} else {
+			s.logger.CaptureWarn("Responder already exists", "responder", responderId)
+		}
 	}
 }
 
@@ -87,16 +89,15 @@ func (s *Stream) handleDispatch() {
 				s.handler.dispatcherChan = nil
 				continue
 			}
-			s.outChan <- value
+			s.handleRespond(value)
 		case value, ok := <-s.sender.dispatcherChan:
 			if !ok {
 				s.sender.dispatcherChan = nil
 				continue
 			}
-			s.outChan <- value
+			s.handleRespond(value)
 		}
 	}
-	close(s.outChan)
 }
 
 // Start starts the stream's handler, writer, sender, and dispatcher.
@@ -115,9 +116,6 @@ func (s *Stream) Start() {
 	// send the data to the server
 	s.sender.do(writerChan, s.inChan)
 
-	// dispatch responses to the client
-	s.dispatcher.do(s.outChan)
-
 	// handle dispatching between components
 	s.wg.Add(1)
 	go func() {
@@ -130,6 +128,21 @@ func (s *Stream) Start() {
 func (s *Stream) HandleRecord(rec *service.Record) {
 	s.logger.Debug("handling record", "record", rec)
 	s.inChan <- rec
+}
+
+func (s *Stream) handleRespond(msg *service.Result) {
+	responderId := msg.GetControl().GetConnectionId()
+	s.logger.Debug("dispatch: got msg", "msg", msg)
+	response := &service.ServerResponse{
+		ServerResponseType: &service.ServerResponse_ResultCommunicate{
+			ResultCommunicate: msg,
+		},
+	}
+	if responderId == "" {
+		s.logger.Debug("dispatch: got msg with no connection id", "msg", msg)
+		return
+	}
+	s.responders[responderId].Respond(response)
 }
 
 func (s *Stream) GetRun() *service.RunRecord {

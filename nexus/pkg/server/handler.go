@@ -146,7 +146,6 @@ func (h *Handler) handleRequest(rec *service.Record) {
 		err := fmt.Errorf("handleRequest: unknown request type %T", x)
 		h.logger.CaptureFatalAndPanic("error handling request", err)
 	}
-
 	h.sendResponse(rec, response)
 }
 
