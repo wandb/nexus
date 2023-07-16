@@ -7,7 +7,6 @@ import (
 
 	"github.com/wandb/wandb/nexus/pkg/observability"
 	"github.com/wandb/wandb/nexus/pkg/service"
-	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
 	// "time"
 )
@@ -19,11 +18,11 @@ type Handler struct {
 	// ctx is the context for the handler
 	ctx context.Context
 
-	// outChan is the channel for outgoing messages
-	outChan chan *service.Record
+	// recordChan is the channel for outgoing messages
+	recordChan chan *service.Record
 
-	// dispatcherChan is the channel for dispatcher messages
-	dispatcherChan chan *service.Result
+	// resultChan is the channel for dispatcher messages
+	resultChan chan *service.Result
 
 	// settings is the settings for the handler
 	settings *service.Settings
@@ -34,25 +33,23 @@ type Handler struct {
 	// startTime is the start time
 	startTime float64
 
-	// run is the run record
-	run *service.RunRecord
+	// runRecord is the runRecord record
+	runRecord *service.RunRecord
 
 	// summary is the summary
 	summary map[string]string
 
 	// historyRecord is the history record used to track
-	// current active history record for the run
+	// current active history record for the stream
 	historyRecord *service.HistoryRecord
 }
 
 // NewHandler creates a new handler
 func NewHandler(ctx context.Context, settings *service.Settings, logger *observability.NexusLogger) *Handler {
 	h := &Handler{
-		ctx:            ctx,
-		dispatcherChan: make(chan *service.Result),
-		settings:       settings,
-		summary:        make(map[string]string),
-		logger:         logger,
+		ctx:      ctx,
+		settings: settings,
+		logger:   logger,
 	}
 	return h
 }
@@ -63,22 +60,18 @@ func (h *Handler) do(inChan <-chan *service.Record) <-chan *service.Record {
 
 	h.logger.Info("handler: started")
 
-	h.outChan = make(chan *service.Record)
+	h.recordChan = make(chan *service.Record)
+	h.resultChan = make(chan *service.Result)
+
 	go func() {
 		for msg := range inChan {
 			h.handleRecord(msg)
 		}
-		close(h.outChan)
-		h.close()
-		slog.Debug("handler: closed")
+		close(h.recordChan)
+		close(h.resultChan)
+		h.logger.Debug("handler: closed")
 	}()
-	return h.outChan
-}
-
-// close this closes the handler
-func (h *Handler) close() {
-	close(h.dispatcherChan)
-	slog.Info("handle: closed", "stream_id", h.settings.RunId)
+	return h.recordChan
 }
 
 //gocyclo:ignore
@@ -155,7 +148,7 @@ func (h *Handler) sendResponse(rec *service.Record, response *service.Response) 
 		Control:    rec.Control,
 		Uuid:       rec.Uuid,
 	}
-	h.dispatcherChan <- result
+	h.resultChan <- result
 }
 
 func (h *Handler) sendRecord(rec *service.Record) {
@@ -163,7 +156,7 @@ func (h *Handler) sendRecord(rec *service.Record) {
 	if control != nil {
 		control.AlwaysSend = true
 	}
-	h.outChan <- rec
+	h.recordChan <- rec
 }
 
 func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartRequest) {
@@ -171,7 +164,7 @@ func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartReque
 	run := req.Run
 
 	h.startTime = float64(run.StartTime.AsTime().UnixMicro()) / 1e6
-	h.run, ok = proto.Clone(run).(*service.RunRecord)
+	h.runRecord, ok = proto.Clone(run).(*service.RunRecord)
 	if !ok {
 		err := fmt.Errorf("handleRunStart: failed to clone run")
 		h.logger.CaptureFatalAndPanic("error handling run start", err)
@@ -192,7 +185,7 @@ func (h *Handler) handleAttach(_ *service.Record, _ *service.AttachRequest, resp
 
 	resp.ResponseType = &service.Response_AttachResponse{
 		AttachResponse: &service.AttachResponse{
-			Run: h.run,
+			Run: h.runRecord,
 		},
 	}
 }
@@ -368,6 +361,9 @@ func (h *Handler) handlePartialHistory(_ *service.Record, req *service.PartialHi
 }
 
 func (h *Handler) updateSummary(msg *service.HistoryRecord) {
+	if h.summary == nil {
+		h.summary = make(map[string]string)
+	}
 	items := msg.Item
 	for i := 0; i < len(items); i++ {
 		h.summary[items[i].Key] = items[i].ValueJson
@@ -375,5 +371,5 @@ func (h *Handler) updateSummary(msg *service.HistoryRecord) {
 }
 
 func (h *Handler) GetRun() *service.RunRecord {
-	return h.run
+	return h.runRecord
 }

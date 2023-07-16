@@ -75,14 +75,29 @@ func (s *Stream) AddResponders(entries ...ResponderEntry) {
 	}
 }
 
+func (s *Stream) handleRespond(result *service.Result) {
+	responderId := result.GetControl().GetConnectionId()
+	s.logger.Debug("dispatch: got result", "result", result)
+	if responderId == "" {
+		s.logger.Debug("dispatch: got result with no connection id", "result", result)
+		return
+	}
+	response := &service.ServerResponse{
+		ServerResponseType: &service.ServerResponse_ResultCommunicate{
+			ResultCommunicate: result,
+		},
+	}
+	s.responders[responderId].Respond(response)
+}
+
 // handleDispatch handles dispatching messages from the handler and sender to
 // the dispatcher.
 func (s *Stream) handleDispatch() {
-	for s.sender.dispatcherChan != nil || s.handler.dispatcherChan != nil {
+	for s.sender.dispatcherChan != nil || s.handler.resultChan != nil {
 		select {
-		case value, ok := <-s.handler.dispatcherChan:
+		case value, ok := <-s.handler.resultChan:
 			if !ok {
-				s.handler.dispatcherChan = nil
+				s.handler.resultChan = nil
 				continue
 			}
 			s.handleRespond(value)
@@ -103,6 +118,9 @@ func (s *Stream) Start() {
 	defer s.wg.Done()
 	s.logger.Info("created new stream", "id", s.settings.RunId)
 
+	// TODO: fix input channel, either remove the defer state machine or make
+	// a pattern to handle multiple writers
+
 	// handle the client requests
 	s.handler = NewHandler(s.ctx, s.settings, s.logger)
 	handleChan := s.handler.do(s.inChan)
@@ -116,6 +134,7 @@ func (s *Stream) Start() {
 	s.sender.do(writerChan, s.inChan)
 
 	// handle dispatching between components
+	// TODO: can we do something better than this handleDispatch goroutine?
 	s.wg.Add(1)
 	go func() {
 		s.handleDispatch()
@@ -127,21 +146,6 @@ func (s *Stream) Start() {
 func (s *Stream) HandleRecord(rec *service.Record) {
 	s.logger.Debug("handling record", "record", rec)
 	s.inChan <- rec
-}
-
-func (s *Stream) handleRespond(msg *service.Result) {
-	responderId := msg.GetControl().GetConnectionId()
-	s.logger.Debug("dispatch: got msg", "msg", msg)
-	response := &service.ServerResponse{
-		ServerResponseType: &service.ServerResponse_ResultCommunicate{
-			ResultCommunicate: msg,
-		},
-	}
-	if responderId == "" {
-		s.logger.Debug("dispatch: got msg with no connection id", "msg", msg)
-		return
-	}
-	s.responders[responderId].Respond(response)
 }
 
 func (s *Stream) GetRun() *service.RunRecord {
