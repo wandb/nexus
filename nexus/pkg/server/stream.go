@@ -39,6 +39,7 @@ type Stream struct {
 	// logger is the logger for the stream
 	logger *observability.NexusLogger
 
+	// inChan is the channel for incoming messages
 	inChan chan *service.Record
 }
 
@@ -47,20 +48,12 @@ func NewStream(ctx context.Context, settings *service.Settings, streamId string,
 	logFile := settings.GetLogInternal().GetValue()
 	logger := SetupStreamLogger(logFile, settings)
 
-	sender := NewSender(ctx, settings, logger)
-	writer := NewWriter(ctx, settings, logger)
-	handler := NewHandler(ctx, settings, logger)
-
 	stream := &Stream{
-		ctx:        ctx,
-		wg:         sync.WaitGroup{},
-		responders: make(map[string]Responder),
-		handler:    handler,
-		sender:     sender,
-		writer:     writer,
-		settings:   settings,
-		logger:     logger,
-		inChan:     make(chan *service.Record),
+		ctx:      ctx,
+		wg:       sync.WaitGroup{},
+		settings: settings,
+		logger:   logger,
+		inChan:   make(chan *service.Record),
 	}
 	stream.wg.Add(1)
 	go stream.Start()
@@ -69,6 +62,9 @@ func NewStream(ctx context.Context, settings *service.Settings, streamId string,
 
 // AddResponders adds the given responders to the stream's dispatcher.
 func (s *Stream) AddResponders(entries ...ResponderEntry) {
+	if s.responders == nil {
+		s.responders = make(map[string]Responder)
+	}
 	for _, entry := range entries {
 		responderId := entry.ID
 		if _, ok := s.responders[responderId]; !ok {
@@ -108,12 +104,15 @@ func (s *Stream) Start() {
 	s.logger.Info("created new stream", "id", s.settings.RunId)
 
 	// handle the client requests
+	s.handler = NewHandler(s.ctx, s.settings, s.logger)
 	handleChan := s.handler.do(s.inChan)
 
 	// write the data to a transaction log
+	s.writer = NewWriter(s.ctx, s.settings, s.logger)
 	writerChan := s.writer.do(handleChan)
 
 	// send the data to the server
+	s.sender = NewSender(s.ctx, s.settings, s.logger)
 	s.sender.do(writerChan, s.inChan)
 
 	// handle dispatching between components
@@ -157,7 +156,6 @@ func (s *Stream) GetRun() *service.RunRecord {
 //   - when the sender's SM gets to the final state, it will Close the handler
 //   - this will trigger the handler to Close the writer
 //   - this will trigger the writer to Close the sender
-//   - this will trigger the sender to Close the dispatcher
 //
 // This will finish the Stream's wait group, which will allow the stream to be
 // garbage collected.

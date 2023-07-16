@@ -76,6 +76,7 @@ func (s *Sender) do(inChan <-chan *service.Record, outChan chan<- *service.Recor
 		for msg := range inChan {
 			s.sendRecord(msg)
 		}
+		//close(s.outChan)
 		s.logger.Info("sender: closed", "stream_id", s.settings.RunId)
 	}()
 }
