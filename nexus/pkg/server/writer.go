@@ -49,7 +49,7 @@ func NewWriter(ctx context.Context, settings *service.Settings, logger *observab
 func (w *Writer) do(inChan <-chan *service.Record) <-chan *service.Record {
 	//w.logger.Info("writer: started", "stream_id", w.settings.RunId)
 	w.recordChan = make(chan *service.Record, BufferSize)
-	w.storeChan = make(chan *service.Record, BufferSize)
+	w.storeChan = make(chan *service.Record, BufferSize*8)
 
 	var err error
 	w.store, err = NewStore(w.ctx, w.settings.GetSyncFile().GetValue(), nil)
