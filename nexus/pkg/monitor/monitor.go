@@ -26,7 +26,11 @@ type SystemMonitor struct {
 }
 
 // NewSystemMonitor creates a new SystemMonitor with the given settings
-func NewSystemMonitor(ctx context.Context, settings *service.Settings, logger *observability.NexusLogger) *SystemMonitor {
+func NewSystemMonitor(
+	ctx context.Context,
+	settings *service.Settings,
+	logger *observability.NexusLogger,
+) *SystemMonitor {
 	ctx, cancel := context.WithCancel(ctx)
 	return &SystemMonitor{
 		ctx:      ctx,
