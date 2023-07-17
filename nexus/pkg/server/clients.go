@@ -8,7 +8,6 @@ import (
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/hashicorp/go-retryablehttp"
-	"golang.org/x/exp/slog"
 )
 
 func basicAuth(username, password string) string {
@@ -36,7 +35,7 @@ func newRetryClient(apiKey string, logger *observability.NexusLogger) *retryable
 		wrapped: http.DefaultTransport,
 	}
 	retryClient := retryablehttp.NewClient()
-	retryClient.Logger = slog.NewLogLogger(logger.Logger.Handler(), slog.LevelDebug)
+	retryClient.Logger = nil
 	retryClient.HTTPClient.Transport = tr
 	return retryClient
 }

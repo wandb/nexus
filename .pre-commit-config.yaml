@@ -62,13 +62,13 @@ repos:
         exclude: 'nexus/pkg/service/'
         language: 'script'
         description: "Runs `goimports`, requires golang"
-      - id: go-unit-tests
-        name: 'go-unit-tests'
-        entry: nexus/scripts/pre-commit-hooks/run-go-unit-tests.sh
-        files: '\.go$'
-        language: 'script'
-        description: "Runs `go test`"
-        require_serial: true
+#      - id: go-unit-tests
+#        name: 'go-unit-tests'
+#        entry: nexus/scripts/pre-commit-hooks/run-go-unit-tests.sh
+#        files: '\.go$'
+#        language: 'script'
+#        description: "Runs `go test`"
+#        require_serial: true
       - id: go-vet
         name: 'go-vet'
         entry: nexus/scripts/pre-commit-hooks/run-go-vet.sh

@@ -60,8 +60,8 @@ func (sm *StreamMux) RemoveStream(streamId string) (*Stream, error) {
 
 // CloseAllStreams closes all streams in the mux.
 func (sm *StreamMux) CloseAllStreams(force bool) {
-	sm.mutex.RLock()
-	defer sm.mutex.RUnlock()
+	// sm.mutex.RLock()
+	// defer sm.mutex.RUnlock()
 
 	wg := sync.WaitGroup{}
 	for streamId, stream := range sm.mux {
