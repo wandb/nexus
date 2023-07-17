@@ -7,9 +7,10 @@ import (
 	"github.com/wandb/wandb/nexus/pkg/server"
 	"golang.org/x/exp/slog"
 	"log"
-	"net/http"
 	_ "net/http/pprof"
+	"os"
 	"runtime"
+	"runtime/trace"
 )
 
 // this is set by the build script and used by the observability package
@@ -55,11 +56,26 @@ func main() {
 	//	slog.Bool("serveGrpc", *serveGrpc),
 	//)
 
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
+	//go func() {
+	//	log.Println(http.ListenAndServe("localhost:6060", nil))
+	//}()
 	//
+	f, err := os.Create("trace.out")
+	if err != nil {
+		log.Fatalf("failed to create trace output file: %v", err)
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Fatalf("failed to close trace file: %v", err)
+		}
+	}()
+
+	if err := trace.Start(f); err != nil {
+		log.Fatalf("failed to start trace: %v", err)
+	}
+	defer trace.Stop()
 
 	nexus := server.NewServer(ctx, "127.0.0.1:0", *portFilename)
 	nexus.Close()
+
 }
