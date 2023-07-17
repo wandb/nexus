@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"sync"
 
 	"github.com/wandb/wandb/nexus/pkg/observability"
 	"github.com/wandb/wandb/nexus/pkg/service"
@@ -24,8 +25,13 @@ type Writer struct {
 	// recordChan is the channel for outgoing messages
 	recordChan chan *service.Record
 
+	// storeChan is the channel for messages to be stored
+	storeChan chan *service.Record
+
 	// store is the store for the writer
 	store *Store
+
+	wg sync.WaitGroup
 }
 
 // NewWriter returns a new Writer
@@ -43,6 +49,7 @@ func NewWriter(ctx context.Context, settings *service.Settings, logger *observab
 func (w *Writer) do(inChan <-chan *service.Record) <-chan *service.Record {
 	//w.logger.Info("writer: started", "stream_id", w.settings.RunId)
 	w.recordChan = make(chan *service.Record, BufferSize)
+	w.storeChan = make(chan *service.Record, BufferSize)
 
 	var err error
 	w.store, err = NewStore(w.ctx, w.settings.GetSyncFile().GetValue(), nil)
@@ -50,11 +57,21 @@ func (w *Writer) do(inChan <-chan *service.Record) <-chan *service.Record {
 		panic(err)
 		//w.logger.CaptureFatalAndPanic("writer: error creating store", err)
 	}
+
+	w.wg = sync.WaitGroup{}
+	w.wg.Add(1)
+	go func() {
+		for record := range w.storeChan {
+			w.store.storeRecord(record)
+		}
+		w.store.Close()
+		w.wg.Done()
+	}()
+
 	go func() {
 		for record := range inChan {
 			w.handleRecord(record)
 		}
-		close(w.recordChan)
 		w.close()
 	}()
 	return w.recordChan
@@ -63,11 +80,14 @@ func (w *Writer) do(inChan <-chan *service.Record) <-chan *service.Record {
 // close closes the writer and all its resources
 // which includes the store
 func (w *Writer) close() {
-	if err := w.store.Close(); err != nil {
-		//w.logger.CaptureError("writer: error closing store", err)
-		return
-	}
+	//if err := w.store.Close(); err != nil {
+	//	//w.logger.CaptureError("writer: error closing store", err)
+	//	return
+	//}
 	//w.logger.Info("writer: closed", "stream_id", w.settings.RunId)
+	close(w.recordChan)
+	close(w.storeChan)
+	w.wg.Wait()
 }
 
 // handleRecord Writing messages to the append-only log,
@@ -83,18 +103,13 @@ func (w *Writer) handleRecord(record *service.Record) {
 		//w.logger.Error("nil record type")
 	default:
 		w.sendRecord(record)
-		if err := w.storeRecord(record); err != nil {
-			//w.logger.CaptureError("writer: error storing record", err)
-		}
+		w.storeRecord(record)
 	}
 }
 
 // storeRecord stores the record in the append-only log
-func (w *Writer) storeRecord(record *service.Record) error {
-	if err := w.store.storeRecord(record); err != nil {
-		return err
-	}
-	return nil
+func (w *Writer) storeRecord(record *service.Record) {
+	w.storeChan <- record
 }
 
 func (w *Writer) sendRecord(record *service.Record) {
