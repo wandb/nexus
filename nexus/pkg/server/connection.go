@@ -44,6 +44,7 @@ type Connection struct {
 
 	// logger is the logger for the connection
 	// logger *observability.NexusLogger
+	stream *Stream
 }
 
 // NewConnection creates a new connection
@@ -184,10 +185,10 @@ func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 	slog.Info("connection init received", "streamId", streamId, "id", nc.id)
 	// TODO: redo this function, to only init the stream and have the stream
 	//       handle the rest of the startup
-	stream := NewStream(nc.ctx, settings, streamId)
-	stream.AddResponders(ResponderEntry{nc, nc.id})
+	nc.stream = NewStream(nc.ctx, settings, streamId)
+	nc.stream.AddResponders(ResponderEntry{nc, nc.id})
 
-	if err := streamMux.AddStream(streamId, stream); err != nil {
+	if err := streamMux.AddStream(streamId, nc.stream); err != nil {
 		slog.Error("connection init failed, stream already exists", "streamId", streamId, "id", nc.id)
 		// TODO: should we Close the stream?
 		return
@@ -203,17 +204,19 @@ func (nc *Connection) handleInformStart(_ *service.ServerInformStartRequest) {
 func (nc *Connection) handleInformAttach(msg *service.ServerInformAttachRequest) {
 	streamId := msg.GetXInfo().GetStreamId()
 	slog.Debug("handle record received", "streamId", streamId, "id", nc.id)
-	if stream, err := streamMux.GetStream(streamId); err != nil {
+	var err error
+	nc.stream, err = streamMux.GetStream(streamId)
+	if err != nil {
 		slog.Error("handleInformAttach: stream not found", "streamId", streamId, "id", nc.id)
 	} else {
-		stream.AddResponders(ResponderEntry{nc, nc.id})
+		nc.stream.AddResponders(ResponderEntry{nc, nc.id})
 		// TODO: we should redo this attach logic, so that the stream handles
 		//       the attach logic
 		resp := &service.ServerResponse{
 			ServerResponseType: &service.ServerResponse_InformAttachResponse{
 				InformAttachResponse: &service.ServerInformAttachResponse{
 					XInfo:    msg.XInfo,
-					Settings: stream.settings,
+					Settings: nc.stream.settings,
 				},
 			},
 		}
@@ -226,7 +229,7 @@ func (nc *Connection) handleInformRecord(msg *service.Record) {
 	streamId := msg.GetXInfo().GetStreamId()
 	slog.Debug("handle record received", "streamId", streamId, "id", nc.id)
 	msgs := make([]*service.Record, 0)
-	if stream, err := streamMux.GetStream(streamId); err != nil {
+	if nc.stream == nil {
 		slog.Error("handleInformRecord: stream not found", "streamId", streamId, "id", nc.id)
 	} else {
 		// add connection id to control message
@@ -238,7 +241,7 @@ func (nc *Connection) handleInformRecord(msg *service.Record) {
 			msg.Control = &service.Control{ConnectionId: nc.id}
 		}
 		msgs = append(msgs, msg)
-		stream.HandleRecord(msg)
+		nc.stream.HandleRecord(msg)
 	}
 }
 
