@@ -100,7 +100,8 @@ func (s *Stream) Start() {
 
 	// handle the client requests
 	s.handler = NewHandler(s.ctx, s.settings)
-	handleChan, handlerResultChan := s.handler.do(s.inChan)
+	handlerInChan := make(chan *service.Record, BufferSize)
+	handleChan, handlerResultChan := s.handler.do(handlerInChan)
 
 	// write the data to a transaction log
 	s.writer = NewWriter(s.ctx, s.settings, nil)
@@ -108,7 +109,7 @@ func (s *Stream) Start() {
 
 	// send the data to the server
 	s.sender = NewSender(s.ctx, s.settings, nil)
-	senderResultChan := s.sender.do(writerChan, s.inChan)
+	senderResultChan, senderInChan := s.sender.do(writerChan)
 
 	//s.logger.Debug("starting stream", "id", handlerResultChan)
 
@@ -132,6 +133,30 @@ func (s *Stream) Start() {
 			}
 		}
 		//s.logger.Debug("dispatch: finished")
+		s.wg.Done()
+	}()
+
+	s.wg.Add(1)
+	streamInChan := s.inChan
+	go func() {
+		for senderInChan != nil || streamInChan != nil {
+			select {
+			case record, ok := <-senderInChan:
+				if !ok {
+					senderInChan = nil
+					continue
+				}
+				handlerInChan <- record
+			case record, ok := <-streamInChan:
+				if !ok {
+					streamInChan = nil
+					continue
+				}
+				handlerInChan <- record
+			}
+		}
+		//s.logger.Debug("dispatch: finished")
+		close(handlerInChan)
 		s.wg.Done()
 	}()
 }
@@ -166,6 +191,7 @@ func (s *Stream) Close(force bool) {
 		}
 		s.HandleRecord(record)
 	}
+	close(s.inChan)
 	s.wg.Wait()
 	if force {
 		s.PrintFooter()

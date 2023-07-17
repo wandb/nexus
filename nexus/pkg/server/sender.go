@@ -33,7 +33,7 @@ type Sender struct {
 	settings *service.Settings
 
 	//	recordChan is the channel for outgoing messages
-	recordChan chan<- *service.Record
+	recordChan chan *service.Record
 
 	// resultChan is the channel for dispatcher messages
 	resultChan chan *service.Result
@@ -64,9 +64,9 @@ func NewSender(ctx context.Context, settings *service.Settings, logger *observab
 }
 
 // do sending of messages to the server
-func (s *Sender) do(inChan <-chan *service.Record, outChan chan<- *service.Record) <-chan *service.Result {
+func (s *Sender) do(inChan <-chan *service.Record) (<-chan *service.Result, <-chan *service.Record) {
 	//s.logger.Info("sender: started", "stream_id", s.settings.RunId)
-	s.recordChan = outChan
+	s.recordChan = make(chan *service.Record, BufferSize)
 	s.resultChan = make(chan *service.Result, BufferSize)
 
 	go func() {
@@ -75,7 +75,7 @@ func (s *Sender) do(inChan <-chan *service.Record, outChan chan<- *service.Recor
 		}
 		//s.logger.Info("sender: closed", "stream_id", s.settings.RunId)
 	}()
-	return s.resultChan
+	return s.resultChan, s.recordChan
 }
 
 // sendRecord sends a record
@@ -152,7 +152,9 @@ func (s *Sender) sendDefer(request *service.DeferRequest) {
 		request.State++
 		s.sendRequestDefer(request)
 	case service.DeferRequest_FLUSH_FS:
-		s.fileStream.Close()
+		if s.fileStream != nil {
+			s.fileStream.Close()
+		}
 		request.State++
 		s.sendRequestDefer(request)
 	case service.DeferRequest_END:
