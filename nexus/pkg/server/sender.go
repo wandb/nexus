@@ -26,8 +26,8 @@ type Sender struct {
 	// ctx is the context for the handler
 	ctx context.Context
 
-	//// logger is the logger for the sender
-	//logger *observability.NexusLogger
+	// // logger is the logger for the sender
+	// logger *observability.NexusLogger
 
 	// settings is the settings for the sender
 	settings *service.Settings
@@ -58,14 +58,14 @@ func NewSender(ctx context.Context, settings *service.Settings, logger *observab
 	return &Sender{
 		ctx:      ctx,
 		settings: settings,
-		//logger:        logger,
+		// logger:        logger,
 		graphqlClient: newGraphqlClient(url, apiKey, nil),
 	}
 }
 
 // do sending of messages to the server
 func (s *Sender) do(inChan <-chan *service.Record) (<-chan *service.Result, <-chan *service.Record) {
-	//s.logger.Info("sender: started", "stream_id", s.settings.RunId)
+	// s.logger.Info("sender: started", "stream_id", s.settings.RunId)
 	s.recordChan = make(chan *service.Record, BufferSize)
 	s.resultChan = make(chan *service.Result, BufferSize)
 
@@ -73,14 +73,14 @@ func (s *Sender) do(inChan <-chan *service.Record) (<-chan *service.Result, <-ch
 		for record := range inChan {
 			s.sendRecord(record)
 		}
-		//s.logger.Info("sender: closed", "stream_id", s.settings.RunId)
+		// s.logger.Info("sender: closed", "stream_id", s.settings.RunId)
 	}()
 	return s.resultChan, s.recordChan
 }
 
 // sendRecord sends a record
 func (s *Sender) sendRecord(record *service.Record) {
-	//s.logger.Debug("sender: sendRecord", "record", record, "stream_id", s.settings.RunId)
+	// s.logger.Debug("sender: sendRecord", "record", record, "stream_id", s.settings.RunId)
 	switch x := record.RecordType.(type) {
 	case *service.Record_Run:
 		s.sendRun(record, x.Run)
@@ -95,11 +95,11 @@ func (s *Sender) sendRecord(record *service.Record) {
 	case nil:
 		err := fmt.Errorf("sender: sendRecord: nil RecordType")
 		panic(err)
-		//s.logger.CaptureFatalAndPanic("sender: sendRecord: nil RecordType", err)
+		// s.logger.CaptureFatalAndPanic("sender: sendRecord: nil RecordType", err)
 	default:
 		err := fmt.Errorf("sender: sendRecord: unexpected type %T", x)
 		panic(err)
-		//s.logger.CaptureFatalAndPanic("sender: sendRecord: unexpected type", err)
+		// s.logger.CaptureFatalAndPanic("sender: sendRecord: unexpected type", err)
 	}
 }
 
@@ -114,8 +114,6 @@ func (s *Sender) sendRequest(_ *service.Record, request *service.Request) {
 	case *service.Request_Defer:
 		s.sendDefer(x.Defer)
 	case *service.Request_Metadata:
-		//err := fmt.Errorf("dummy error")
-		//s.logger.CaptureError("sender: sendRecord: unexpected type", err)
 		s.sendMetadata(x.Metadata)
 	default:
 		// TODO: handle errors
@@ -185,7 +183,7 @@ func (s *Sender) parseConfigUpdate(config *service.ConfigRecord) map[string]inte
 		var data interface{}
 		if err := json.Unmarshal([]byte(j), &data); err != nil {
 			panic(err)
-			//s.logger.CaptureFatalAndPanic("unmarshal problem", err)
+			// s.logger.CaptureFatalAndPanic("unmarshal problem", err)
 		}
 		datas[d.GetKey()] = data
 	}
@@ -200,7 +198,7 @@ func (s *Sender) updateConfigTelemetry(config map[string]interface{}) {
 	default:
 		err := fmt.Errorf("can not parse config _wandb, saw: %v", v)
 		panic(err)
-		//s.logger.CaptureFatalAndPanic("sender received error", err)
+		// s.logger.CaptureFatalAndPanic("sender received error", err)
 	}
 }
 
@@ -221,7 +219,7 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 	if !ok {
 		err := fmt.Errorf("sender: sendRun: failed to clone RunRecord")
 		panic(err)
-		//s.logger.CaptureFatalAndPanic("sender received error", err)
+		// s.logger.CaptureFatalAndPanic("sender received error", err)
 	}
 
 	config := s.parseConfigUpdate(run.Config)
@@ -231,7 +229,7 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 	if err != nil {
 		err = fmt.Errorf("sender: sendRun: failed to marshal config: %s", err)
 		panic(err)
-		//s.logger.CaptureFatalAndPanic("sender received error", err)
+		// s.logger.CaptureFatalAndPanic("sender received error", err)
 	}
 	configString := string(configJson)
 
@@ -261,7 +259,7 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 	)
 	if err != nil {
 		err = fmt.Errorf("sender: sendRun: failed to upsert bucket: %s", err)
-		//s.logger.CaptureFatalAndPanic("sender received error", err)
+		// s.logger.CaptureFatalAndPanic("sender received error", err)
 		panic(err)
 	}
 
@@ -322,7 +320,7 @@ func (s *Sender) sendFiles(_ *service.Record, filesRecord *service.FilesRecord) 
 func (s *Sender) sendFile(name string) {
 	if s.RunRecord == nil {
 		err := fmt.Errorf("sender: sendFile: RunRecord not set")
-		//s.logger.CaptureFatalAndPanic("sender received error", err)
+		// s.logger.CaptureFatalAndPanic("sender received error", err)
 		panic(err)
 	}
 
@@ -337,7 +335,7 @@ func (s *Sender) sendFile(name string) {
 	)
 	if err != nil {
 		err = fmt.Errorf("sender: sendFile: failed to get upload urls: %s", err)
-		//s.logger.CaptureFatalAndPanic("sender received error", err)
+		// s.logger.CaptureFatalAndPanic("sender received error", err)
 		panic(err)
 	}
 

@@ -43,8 +43,8 @@ type Uploader struct {
 	// fileCounts is the file counts
 	fileCounts fileCounts
 
-	//// logger is the logger for the uploader
-	//logger *observability.NexusLogger
+	// // logger is the logger for the uploader
+	// logger *observability.NexusLogger
 
 	// wg is the wait group
 	wg *sync.WaitGroup
@@ -63,7 +63,7 @@ func NewUploader(ctx context.Context, logger *observability.NexusLogger) *Upload
 		inChan:      make(chan *UploadTask, BufferSize),
 		retryClient: retryClient,
 		fileCounts:  fileCounts{},
-		//logger:      logger,
+		// logger:      logger,
 		wg: &sync.WaitGroup{},
 	}
 	uploader.do()
@@ -73,13 +73,14 @@ func NewUploader(ctx context.Context, logger *observability.NexusLogger) *Upload
 // do is the main loop for the uploader
 func (u *Uploader) do() {
 
-	//u.logger.Debug("uploader: do")
+	// u.logger.Debug("uploader: do")
 	u.wg.Add(1)
 	go func() {
 		for task := range u.inChan {
-			//u.logger.Debug("uploader: got task", task)
+			// u.logger.Debug("uploader: got task", task)
 			if err := u.upload(task); err != nil {
-				//u.logger.CaptureError("uploader: error uploading", err, "path", task.path, "url", task.url)
+				panic(err)
+				// u.logger.CaptureError("uploader: error uploading", err, "path", task.path, "url", task.url)
 			}
 		}
 		u.wg.Done()
@@ -88,13 +89,13 @@ func (u *Uploader) do() {
 
 // AddTask adds a task to the uploader
 func (u *Uploader) AddTask(task *UploadTask) {
-	//u.logger.Debug("uploader: adding task", "path", task.path, "url", task.url)
+	// u.logger.Debug("uploader: adding task", "path", task.path, "url", task.url)
 	u.inChan <- task
 }
 
 // Close closes the uploader
 func (u *Uploader) Close() {
-	//u.logger.Debug("uploader: Close")
+	// u.logger.Debug("uploader: Close")
 	close(u.inChan)
 	u.wg.Wait()
 }

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"golang.org/x/exp/slog"
+
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"google.golang.org/protobuf/proto"
 	// "time"
@@ -20,8 +22,8 @@ type Handler struct {
 	// settings is the settings for the handler
 	settings *service.Settings
 
-	//// logger is the logger for the handler
-	//logger *observability.NexusLogger
+	// // logger is the logger for the handler
+	// logger *observability.NexusLogger
 
 	// recordChan is the channel for further processing
 	// of the incoming messages, by the writer
@@ -51,16 +53,16 @@ func NewHandler(ctx context.Context, settings *service.Settings) *Handler {
 	h := &Handler{
 		ctx:      ctx,
 		settings: settings,
-		//logger:   logger,
+		// logger:   logger,
 	}
 	return h
 }
 
 // do this starts the handler
 func (h *Handler) do(inChan <-chan *service.Record) (<-chan *service.Record, <-chan *service.Result) {
-	//defer observability.Reraise()
+	// defer observability.Reraise()
 
-	//h.logger.Info("handler: started", "stream_id", h.settings.RunId)
+	// h.logger.Info("handler: started", "stream_id", h.settings.RunId)
 
 	h.recordChan = make(chan *service.Record, BufferSize)
 	h.resultChan = make(chan *service.Result, BufferSize)
@@ -71,7 +73,7 @@ func (h *Handler) do(inChan <-chan *service.Record) (<-chan *service.Record, <-c
 		}
 		close(h.recordChan)
 		close(h.resultChan)
-		//h.logger.Debug("handler: closed", "stream_id", h.settings.RunId)
+		// h.logger.Debug("handler: closed", "stream_id", h.settings.RunId)
 	}()
 	return h.recordChan, h.resultChan
 }
@@ -95,7 +97,7 @@ func (h *Handler) sendRecord(record *service.Record) {
 
 //gocyclo:ignore
 func (h *Handler) handleRecord(record *service.Record) {
-	//h.logger.Debug("handle: got a message", "record", record)
+	// h.logger.Debug("handle: got a message", "record", record)
 	switch x := record.RecordType.(type) {
 	case *service.Record_Alert:
 	case *service.Record_Artifact:
@@ -124,11 +126,11 @@ func (h *Handler) handleRecord(record *service.Record) {
 	case nil:
 		err := fmt.Errorf("handleRecord: record type is nil")
 		panic(err)
-		//h.logger.CaptureFatalAndPanic("error handling record", err)
+		// h.logger.CaptureFatalAndPanic("error handling record", err)
 	default:
 		err := fmt.Errorf("handleRecord: unknown record type %T", x)
 		panic(err)
-		//h.logger.CaptureFatalAndPanic("error handling record", err)
+		// h.logger.CaptureFatalAndPanic("error handling record", err)
 	}
 }
 
@@ -159,7 +161,7 @@ func (h *Handler) handleRequest(record *service.Record) {
 	default:
 		err := fmt.Errorf("handleRequest: unknown request type %T", x)
 		panic(err)
-		//h.logger.CaptureFatalAndPanic("error handling request", err)
+		// h.logger.CaptureFatalAndPanic("error handling request", err)
 	}
 	h.sendResponse(record, response)
 }
@@ -184,7 +186,7 @@ func (h *Handler) handleDefer(record *service.Record) {
 	default:
 		err := fmt.Errorf("handleDefer: unknown defer state %v", request.State)
 		panic(err)
-		//h.logger.CaptureError("unknown defer state", err)
+		// h.logger.CaptureError("unknown defer state", err)
 	}
 	h.sendRecord(record)
 }
@@ -197,7 +199,7 @@ func (h *Handler) handleRunStart(record *service.Record, request *service.RunSta
 	if h.runRecord, ok = proto.Clone(run).(*service.RunRecord); !ok {
 		err := fmt.Errorf("handleRunStart: failed to clone run")
 		panic(err)
-		//h.logger.CaptureFatalAndPanic("error handling run start", err)
+		// h.logger.CaptureFatalAndPanic("error handling run start", err)
 	}
 	h.sendRecord(record)
 
@@ -275,7 +277,8 @@ func (h *Handler) flushHistory(history *service.HistoryRecord) {
 		if item.Key == "_timestamp" {
 			val, err := strconv.ParseFloat(item.ValueJson, 64)
 			if err != nil {
-				//h.logger.CaptureError("error parsing timestamp", err)
+				slog.Error("error parsing timestamp", "err", err)
+				// h.logger.CaptureError("error parsing timestamp", err)
 			} else {
 				runTime = val - h.startTime
 			}
@@ -344,7 +347,7 @@ func (h *Handler) handlePartialHistory(_ *service.Record, request *service.Parti
 				Step: request.Step,
 			}
 		} else if request.Step.Num < h.historyRecord.Step.Num {
-			//h.logger.CaptureWarn("received history record for a step that has already been received",
+			// h.logger.CaptureWarn("received history record for a step that has already been received",
 			//	"received", request.Step, "current", h.historyRecord.Step)
 			return
 		}

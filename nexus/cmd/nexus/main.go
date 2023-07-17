@@ -3,22 +3,21 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/wandb/wandb/nexus/pkg/observability"
-	"github.com/wandb/wandb/nexus/pkg/server"
-	"golang.org/x/exp/slog"
-	"log"
 	_ "net/http/pprof"
 	"os"
 	"runtime"
 	"runtime/trace"
+
+	"github.com/wandb/wandb/nexus/pkg/observability"
+	"github.com/wandb/wandb/nexus/pkg/server"
+	"golang.org/x/exp/slog"
 )
 
 // this is set by the build script and used by the observability package
-var commit string
+// var commit string
 
 func init() {
 	runtime.SetBlockProfileRate(1)
-	//runtime.GOMAXPROCS(24)
 }
 
 func main() {
@@ -36,15 +35,15 @@ func main() {
 
 	flag.Parse()
 
-	//logger := server.SetupDefaultLogger()
+	// logger := server.SetupDefaultLogger()
 	ctx := context.Background()
 	slog.SetDefault(observability.NoOpLogger.Logger)
 
-	// set up sentry reporting
-	//observability.InitSentry(*noAnalytics, commit)
-	//defer sentry.Flush(2)
+	// // set up sentry reporting
+	// observability.InitSentry(*noAnalytics, commit)
+	// defer sentry.Flush(2)
 
-	//slog.LogAttrs(
+	// slog.LogAttrs(
 	//	ctx,
 	//	slog.LevelDebug,
 	//	"Flags",
@@ -54,28 +53,30 @@ func main() {
 	//	slog.Bool("noAnalytics", *noAnalytics),
 	//	slog.Bool("serveSock", *serveSock),
 	//	slog.Bool("serveGrpc", *serveGrpc),
-	//)
+	// )
 
-	//go func() {
-	//	log.Println(http.ListenAndServe("localhost:6060", nil))
-	//}()
+	// go func() {
+	//	 log.Println(http.ListenAndServe("localhost:6060", nil))
+	// }()
 	//
 	f, err := os.Create("trace.out")
 	if err != nil {
-		log.Fatalf("failed to create trace output file: %v", err)
+		slog.Error("failed to create trace output file", "err", err)
+		panic(err)
 	}
 	defer func() {
-		if err := f.Close(); err != nil {
-			log.Fatalf("failed to close trace file: %v", err)
+		if err = f.Close(); err != nil {
+			slog.Error("failed to close trace file", "err", err)
+			panic(err)
 		}
 	}()
 
 	if err := trace.Start(f); err != nil {
-		log.Fatalf("failed to start trace: %v", err)
+		slog.Error("failed to start trace", "err", err)
+		panic(err)
 	}
 	defer trace.Stop()
 
 	nexus := server.NewServer(ctx, "127.0.0.1:0", *portFilename)
 	nexus.Close()
-
 }

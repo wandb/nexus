@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 
+	"golang.org/x/exp/slog"
+
 	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
@@ -35,8 +37,8 @@ type Stream struct {
 	// settings is the settings for the stream
 	settings *service.Settings
 
-	//// logger is the logger for the stream
-	//logger *observability.NexusLogger
+	// // logger is the logger for the stream
+	// logger *observability.NexusLogger
 
 	// inChan is the channel for incoming messages
 	inChan chan *service.Record
@@ -44,14 +46,14 @@ type Stream struct {
 
 // NewStream creates a new stream with the given settings and responders.
 func NewStream(ctx context.Context, settings *service.Settings, streamId string, responders ...ResponderEntry) *Stream {
-	//logFile := settings.GetLogInternal().GetValue()
-	//logger := SetupStreamLogger(logFile, settings)
+	// logFile := settings.GetLogInternal().GetValue()
+	// logger := SetupStreamLogger(logFile, settings)
 
 	stream := &Stream{
 		ctx:      ctx,
 		wg:       sync.WaitGroup{},
 		settings: settings,
-		//logger:   logger,
+		// logger:   logger,
 		inChan: make(chan *service.Record, BufferSize),
 	}
 	stream.Start()
@@ -68,16 +70,17 @@ func (s *Stream) AddResponders(entries ...ResponderEntry) {
 		if _, ok := s.responders[responderId]; !ok {
 			s.responders[responderId] = entry.Responder
 		} else {
-			//s.logger.CaptureWarn("Responder already exists", "responder", responderId)
+			slog.Warn("Responder already exists", "responder", responderId)
+			// s.logger.CaptureWarn("Responder already exists", "responder", responderId)
 		}
 	}
 }
 
 func (s *Stream) handleRespond(result *service.Result) {
 	responderId := result.GetControl().GetConnectionId()
-	//s.logger.Debug("dispatch: got result", "result", result)
+	// s.logger.Debug("dispatch: got result", "result", result)
 	if responderId == "" {
-		//s.logger.Debug("dispatch: got result with no connection id", "result", result)
+		// s.logger.Debug("dispatch: got result with no connection id", "result", result)
 		return
 	}
 	response := &service.ServerResponse{
@@ -92,8 +95,8 @@ func (s *Stream) handleRespond(result *service.Result) {
 // We use Stream's wait group to ensure that all of these components are cleanly
 // finalized and closed when the stream is closed in Stream.Close().
 func (s *Stream) Start() {
-	//defer s.wg.Done()
-	//s.logger.Info("created new stream", "id", s.settings.RunId)
+	// defer s.wg.Done()
+	// s.logger.Info("created new stream", "id", s.settings.RunId)
 
 	// TODO: fix input channel, either remove the defer state machine or make
 	// a pattern to handle multiple writers
@@ -111,7 +114,7 @@ func (s *Stream) Start() {
 	s.sender = NewSender(s.ctx, s.settings, nil)
 	senderResultChan, senderInChan := s.sender.do(writerChan)
 
-	//s.logger.Debug("starting stream", "id", handlerResultChan)
+	// s.logger.Debug("starting stream", "id", handlerResultChan)
 
 	// handle dispatching between components
 	s.wg.Add(1)
@@ -132,7 +135,7 @@ func (s *Stream) Start() {
 				s.handleRespond(result)
 			}
 		}
-		//s.logger.Debug("dispatch: finished")
+		// s.logger.Debug("dispatch: finished")
 		s.wg.Done()
 	}()
 
@@ -155,7 +158,7 @@ func (s *Stream) Start() {
 				handlerInChan <- record
 			}
 		}
-		//s.logger.Debug("dispatch: finished")
+		// s.logger.Debug("dispatch: finished")
 		close(handlerInChan)
 		s.wg.Done()
 	}()
@@ -163,7 +166,7 @@ func (s *Stream) Start() {
 
 // HandleRecord handles the given record by sending it to the stream's handler.
 func (s *Stream) HandleRecord(rec *service.Record) {
-	//s.logger.Debug("handling record", "record", rec)
+	// s.logger.Debug("handling record", "record", rec)
 	s.inChan <- rec
 }
 
@@ -196,7 +199,7 @@ func (s *Stream) Close(force bool) {
 	if force {
 		s.PrintFooter()
 	}
-	//s.logger.Info("closed stream", "id", s.settings.RunId)
+	// s.logger.Info("closed stream", "id", s.settings.RunId)
 }
 
 func (s *Stream) PrintFooter() {

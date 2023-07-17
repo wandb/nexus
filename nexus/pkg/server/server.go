@@ -6,6 +6,8 @@ import (
 	"net"
 	"sync"
 
+	"golang.org/x/exp/slog"
+
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"google.golang.org/protobuf/proto"
 )
@@ -34,7 +36,7 @@ type Server struct {
 func NewServer(ctx context.Context, addr string, portFile string) *Server {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		//slog.Error("can not listen", "error", err)
+		slog.Error("can not listen", "error", err)
 		// TODO: handle error
 	}
 
@@ -56,17 +58,17 @@ func NewServer(ctx context.Context, addr string, portFile string) *Server {
 // serve serves the server
 func (s *Server) Serve() {
 	defer s.wg.Done()
-	//slog.Info("server is running", "addr", s.listener.Addr())
+	slog.Info("server is running", "addr", s.listener.Addr())
 	// Run a separate goroutine to handle incoming connections
 	for {
 		conn, err := s.listener.Accept()
 		if err != nil {
 			select {
 			case <-s.shutdownChan:
-				//slog.Debug("server shutting down...")
+				slog.Debug("server shutting down...")
 				return
 			default:
-				//slog.Error("failed to accept conn.", "error", err)
+				slog.Error("failed to accept conn.", "error", err)
 			}
 		} else {
 			s.wg.Add(1)
@@ -83,10 +85,10 @@ func (s *Server) Close() {
 	<-s.teardownChan
 	close(s.shutdownChan)
 	if err := s.listener.Close(); err != nil {
-		//slog.Error("failed to Close listener", err)
+		slog.Error("failed to Close listener", err)
 	}
 	s.wg.Wait()
-	//slog.Info("server is closed")
+	slog.Info("server is closed")
 }
 
 // handleConnection handles a single connection
@@ -99,12 +101,12 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 	for scanner.Scan() {
 		msg := &service.ServerRequest{}
 		if err := proto.Unmarshal(scanner.Bytes(), msg); err != nil {
-			//slog.Error(
-			//	"unmarshalling error",
-			//	"err", err,
-			//	"conn", conn.RemoteAddr())
+			slog.Error(
+				"unmarshalling error",
+				"err", err,
+				"conn", conn.RemoteAddr())
 		} else {
-			//slog.Debug("received message", "msg", msg, "conn", conn.RemoteAddr())
+			slog.Debug("received message", "msg", msg, "conn", conn.RemoteAddr())
 			nc.inChan <- msg
 		}
 	}

@@ -44,25 +44,25 @@ func SetupDefaultLogger() *slog.Logger {
 }
 
 func SetupStreamLogger(name string, settings *service.Settings) *observability.NexusLogger {
-	//var writers []io.Writer
+	// var writers []io.Writer
 	//
-	//file, err := os.OpenFile(name, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
-	//if err != nil {
+	// file, err := os.OpenFile(name, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	// if err != nil {
 	//	fmt.Println("FATAL Problem", err)
-	//} else {
+	// } else {
 	//	writers = append(writers, file)
-	//}
-	//if os.Getenv("WANDB_NEXUS_DEBUG") != "" {
-	//	writers = append(writers, os.Stderr)
-	//}
+	// }
+	// if os.Getenv("WANDB_NEXUS_DEBUG") != "" {
+	//	 writers = append(writers, os.Stderr)
+	// }
 	//
-	//writer := io.MultiWriter(writers...)
-	//tags := make(observability.Tags)
-	//tags["run_id"] = settings.GetRunId().GetValue()
-	//tags["run_url"] = settings.GetRunUrl().GetValue()
-	//tags["project"] = settings.GetProject().GetValue()
-	//tags["entity"] = settings.GetEntity().GetValue()
+	// writer := io.MultiWriter(writers...)
+	// tags := make(observability.Tags)
+	// tags["run_id"] = settings.GetRunId().GetValue()
+	// tags["run_url"] = settings.GetRunUrl().GetValue()
+	// tags["project"] = settings.GetProject().GetValue()
+	// tags["entity"] = settings.GetEntity().GetValue()
 	//
-	//return observability.NewNexusLogger(setupLogger(nil, writer), tags)
+	// return observability.NewNexusLogger(setupLogger(nil, writer), tags)
 	return observability.NoOpLogger
 }

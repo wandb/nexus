@@ -63,7 +63,7 @@ func NewConnection(
 		outChan:      make(chan *service.ServerResponse, BufferSize),
 		teardownChan: teardown, //TODO: should we trigger teardown from a connection?
 	}
-	//nc.wg.Add(1)
+	// nc.wg.Add(1)
 	nc.handle()
 	return nc
 }
@@ -71,7 +71,7 @@ func NewConnection(
 func (nc *Connection) handle() {
 	slog.Info("created new connection", "id", nc.id)
 
-	//defer nc.wg.Done()
+	// defer nc.wg.Done()
 
 	nc.wg.Add(1)
 	go func() {
@@ -228,7 +228,6 @@ func (nc *Connection) handleInformAttach(msg *service.ServerInformAttachRequest)
 func (nc *Connection) handleInformRecord(msg *service.Record) {
 	streamId := msg.GetXInfo().GetStreamId()
 	slog.Debug("handle record received", "streamId", streamId, "id", nc.id)
-	msgs := make([]*service.Record, 0)
 	if nc.stream == nil {
 		slog.Error("handleInformRecord: stream not found", "streamId", streamId, "id", nc.id)
 	} else {
@@ -240,7 +239,6 @@ func (nc *Connection) handleInformRecord(msg *service.Record) {
 		} else {
 			msg.Control = &service.Control{ConnectionId: nc.id}
 		}
-		msgs = append(msgs, msg)
 		nc.stream.HandleRecord(msg)
 	}
 }

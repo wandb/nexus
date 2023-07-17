@@ -80,8 +80,8 @@ type FileStream struct {
 	// settings is the settings for the filestream
 	settings *service.Settings
 
-	//// logger is the logger for the filestream
-	//logger *observability.NexusLogger
+	// // logger is the logger for the filestream
+	// logger *observability.NexusLogger
 
 	// httpClient is the http client
 	httpClient *retryablehttp.Client
@@ -93,7 +93,7 @@ func NewFileStream(path string, settings *service.Settings, logger *observabilit
 	fs := FileStream{
 		path:     path,
 		settings: settings,
-		//logger:     logger,
+		// logger:     logger,
 		httpClient: retryClient,
 		wg:         &sync.WaitGroup{},
 	}
@@ -102,7 +102,7 @@ func NewFileStream(path string, settings *service.Settings, logger *observabilit
 }
 
 func (fs *FileStream) Start() {
-	//fs.logger.Debug("filestream: start", "path", fs.path)
+	// fs.logger.Debug("filestream: start", "path", fs.path)
 
 	fs.recordChan = make(chan *service.Record, BufferSize)
 
@@ -129,13 +129,13 @@ func (fs *FileStream) pushReply(reply map[string]interface{}) {
 }
 
 func (fs *FileStream) doRecordProcess(inChan <-chan *service.Record) <-chan chunkData {
-	//fs.logger.Debug("filestream: open", "path", fs.path)
+	// fs.logger.Debug("filestream: open", "path", fs.path)
 
 	fs.chunkChan = make(chan chunkData, BufferSize)
 
 	go func() {
 		for record := range inChan {
-			//fs.logger.Debug("filestream: record", "record", record)
+			// fs.logger.Debug("filestream: record", "record", record)
 			switch x := record.RecordType.(type) {
 			case *service.Record_History:
 				fs.streamHistory(x.History)
@@ -144,15 +144,15 @@ func (fs *FileStream) doRecordProcess(inChan <-chan *service.Record) <-chan chun
 			case nil:
 				err := fmt.Errorf("filestream: field not set")
 				panic(err)
-				//fs.logger.CaptureFatalAndPanic("filestream error:", err)
+				// fs.logger.CaptureFatalAndPanic("filestream error:", err)
 			default:
 				err := fmt.Errorf("filestream: Unknown type %T", x)
 				panic(err)
-				//fs.logger.CaptureFatalAndPanic("filestream error:", err)
+				// fs.logger.CaptureFatalAndPanic("filestream error:", err)
 			}
 		}
 		close(fs.chunkChan)
-		//fs.logger.Debug("filestream: close", "path", fs.path)
+		// fs.logger.Debug("filestream: close", "path", fs.path)
 	}()
 	return fs.chunkChan
 }
@@ -198,7 +198,7 @@ func (fs *FileStream) doChunkProcess(inChan <-chan chunkData) <-chan map[string]
 				}
 				fs.sendChunkList(chunkList)
 			case <-time.After(heartbeatTime):
-				//fs.logger.Debug("filestream: heartbeat... (timeout)", "offset", fs.offset)
+				// fs.logger.Debug("filestream: heartbeat... (timeout)", "offset", fs.offset)
 				fs.sendChunkList(chunkList)
 			}
 		}
@@ -219,7 +219,7 @@ func (fs *FileStream) jsonifyHistory(record *service.HistoryRecord) string {
 		var value interface{}
 		if err := json.Unmarshal([]byte(item.ValueJson), &value); err != nil {
 			e := fmt.Errorf("json unmarshal error: %v, items: %v", err, item)
-			//fs.logger.CaptureFatalAndPanic("json unmarshal error", e)
+			// fs.logger.CaptureFatalAndPanic("json unmarshal error", e)
 			panic(e)
 		}
 		jsonMap[item.Key] = value
@@ -227,7 +227,7 @@ func (fs *FileStream) jsonifyHistory(record *service.HistoryRecord) string {
 
 	jsonBytes, err := json.Marshal(jsonMap)
 	if err != nil {
-		//fs.logger.CaptureFatalAndPanic("json unmarshal error", err)
+		// fs.logger.CaptureFatalAndPanic("json unmarshal error", err)
 		panic(err)
 	}
 	return string(jsonBytes)
@@ -247,7 +247,7 @@ func (fs *FileStream) streamFinish() {
 }
 
 func (fs *FileStream) StreamRecord(rec *service.Record) {
-	//fs.logger.Debug("filestream: stream record", "record", rec)
+	// fs.logger.Debug("filestream: stream record", "record", rec)
 	fs.pushRecord(rec)
 }
 
@@ -286,40 +286,41 @@ func (fs *FileStream) sendChunkList(chunks []chunkData) {
 func (fs *FileStream) send(data interface{}) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		//fs.logger.CaptureFatalAndPanic("json marshal error", err)
+		// fs.logger.CaptureFatalAndPanic("json marshal error", err)
 		panic(err)
 	}
 
 	buffer := bytes.NewBuffer(jsonData)
 	req, err := retryablehttp.NewRequest(http.MethodPost, fs.path, buffer)
 	if err != nil {
-		//fs.logger.CaptureFatalAndPanic("filestream: error creating HTTP request", err)
+		// fs.logger.CaptureFatalAndPanic("filestream: error creating HTTP request", err)
 		panic(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := fs.httpClient.Do(req)
 	if err != nil {
-		//fs.logger.CaptureFatalAndPanic("filestream: error making HTTP request", err)
+		// fs.logger.CaptureFatalAndPanic("filestream: error making HTTP request", err)
 		panic(err)
 	}
 	defer func(Body io.ReadCloser) {
-		if err = Body.Close(); err != nil {
-			//fs.logger.CaptureError("filestream: error closing response body", err)
-		}
+		Body.Close()
+		// if err = ; err != nil {
+		//	//fs.logger.CaptureError("filestream: error closing response body", err)
+		// }
 	}(resp.Body)
 
 	var res map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&res)
 	if err != nil {
-		//fs.logger.CaptureError("json decode error", err)
+		panic(err)
+		// fs.logger.CaptureError("json decode error", err)
 	}
 	fs.pushReply(res)
-
-	//fs.logger.Debug("filestream: post response", "response", res)
+	// fs.logger.Debug("filestream: post response", "response", res)
 }
 
 func (fs *FileStream) Close() {
-	//fs.logger.Debug("filestream: closing...")
+	// fs.logger.Debug("filestream: closing...")
 	close(fs.recordChan)
 	fs.wg.Wait()
 }

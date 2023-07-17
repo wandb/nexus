@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 
+	"golang.org/x/exp/slog"
+
 	"github.com/wandb/wandb/nexus/pkg/observability"
 	"github.com/wandb/wandb/nexus/pkg/service"
 )
@@ -19,8 +21,8 @@ type Writer struct {
 	// settings is the settings for the writer
 	settings *service.Settings
 
-	//// logger is the logger for the writer
-	//logger *observability.NexusLogger
+	// // logger is the logger for the writer
+	// logger *observability.NexusLogger
 
 	// recordChan is the channel for outgoing messages
 	recordChan chan *service.Record
@@ -47,7 +49,7 @@ func NewWriter(ctx context.Context, settings *service.Settings, logger *observab
 
 // do is the main loop of the writer to process incoming messages
 func (w *Writer) do(inChan <-chan *service.Record) <-chan *service.Record {
-	//w.logger.Info("writer: started", "stream_id", w.settings.RunId)
+	// w.logger.Info("writer: started", "stream_id", w.settings.RunId)
 	w.recordChan = make(chan *service.Record, BufferSize)
 	w.storeChan = make(chan *service.Record, BufferSize*8)
 
@@ -55,14 +57,17 @@ func (w *Writer) do(inChan <-chan *service.Record) <-chan *service.Record {
 	w.store, err = NewStore(w.ctx, w.settings.GetSyncFile().GetValue(), nil)
 	if err != nil {
 		panic(err)
-		//w.logger.CaptureFatalAndPanic("writer: error creating store", err)
+		// w.logger.CaptureFatalAndPanic("writer: error creating store", err)
 	}
 
 	w.wg = sync.WaitGroup{}
 	w.wg.Add(1)
 	go func() {
 		for record := range w.storeChan {
-			w.store.storeRecord(record)
+			if err = w.store.storeRecord(record); err != nil {
+				// panic(err)
+				slog.Error("writer: error storing record", "error", err)
+			}
 		}
 		w.store.Close()
 		w.wg.Done()
@@ -80,11 +85,11 @@ func (w *Writer) do(inChan <-chan *service.Record) <-chan *service.Record {
 // close closes the writer and all its resources
 // which includes the store
 func (w *Writer) close() {
-	//if err := w.store.Close(); err != nil {
+	// if err := w.store.Close(); err != nil {
 	//	//w.logger.CaptureError("writer: error closing store", err)
 	//	return
-	//}
-	//w.logger.Info("writer: closed", "stream_id", w.settings.RunId)
+	// }
+	// w.logger.Info("writer: closed", "stream_id", w.settings.RunId)
 	close(w.recordChan)
 	close(w.storeChan)
 	w.wg.Wait()
@@ -95,12 +100,13 @@ func (w *Writer) close() {
 // We ensure that the messages are written to the log
 // before they are sent to the server.
 func (w *Writer) handleRecord(record *service.Record) {
-	//w.logger.Debug("write: got a message", "record", record, "stream_id", w.settings.RunId)
+	// w.logger.Debug("write: got a message", "record", record, "stream_id", w.settings.RunId)
 	switch record.RecordType.(type) {
 	case *service.Record_Request:
 		w.sendRecord(record)
 	case nil:
-		//w.logger.Error("nil record type")
+		slog.Error("nil record type")
+		// w.logger.Error("nil record type")
 	default:
 		w.sendRecord(record)
 		w.storeRecord(record)
