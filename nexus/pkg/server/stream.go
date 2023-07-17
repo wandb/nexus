@@ -54,7 +54,6 @@ func NewStream(ctx context.Context, settings *service.Settings, streamId string,
 		//logger:   logger,
 		inChan: make(chan *service.Record, BufferSize),
 	}
-	//stream.wg.Add(1)
 	stream.Start()
 	return stream
 }

@@ -82,10 +82,10 @@ func (w *Writer) handleRecord(record *service.Record) {
 	case nil:
 		//w.logger.Error("nil record type")
 	default:
+		w.sendRecord(record)
 		if err := w.storeRecord(record); err != nil {
 			//w.logger.CaptureError("writer: error storing record", err)
 		}
-		w.sendRecord(record)
 	}
 }
 

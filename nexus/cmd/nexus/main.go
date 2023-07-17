@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	_ "net/http/pprof"
-	"runtime"
 )
 
 // this is set by the build script and used by the observability package
@@ -53,8 +52,8 @@ func main() {
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
-
-	runtime.GOMAXPROCS(24)
+	//
+	//runtime.GOMAXPROCS(24)
 
 	nexus := server.NewServer(ctx, "127.0.0.1:0", *portFilename)
 	nexus.Close()
