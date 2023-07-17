@@ -9,10 +9,16 @@ import (
 	"log"
 	"net/http"
 	_ "net/http/pprof"
+	"runtime"
 )
 
 // this is set by the build script and used by the observability package
 var commit string
+
+func init() {
+	runtime.SetBlockProfileRate(1)
+	//runtime.GOMAXPROCS(24)
+}
 
 func main() {
 	portFilename := flag.String(
@@ -53,7 +59,6 @@ func main() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 	//
-	//runtime.GOMAXPROCS(24)
 
 	nexus := server.NewServer(ctx, "127.0.0.1:0", *portFilename)
 	nexus.Close()
