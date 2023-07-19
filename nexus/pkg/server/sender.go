@@ -61,7 +61,7 @@ func NewSender(ctx context.Context, settings *service.Settings, logger *observab
 	return &Sender{
 		ctx:           ctx,
 		settings:      settings,
-		inChan:        make(chan *service.Record),
+		inChan:        make(chan *service.Record, BufferSize),
 		logger:        logger,
 		graphqlClient: newGraphqlClient(url, apiKey, logger),
 	}

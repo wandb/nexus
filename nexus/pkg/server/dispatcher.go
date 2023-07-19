@@ -27,7 +27,7 @@ type Dispatcher struct {
 func NewDispatcher(ctx context.Context, logger *observability.NexusLogger) *Dispatcher {
 	dispatcher := &Dispatcher{
 		ctx:        ctx,
-		inChan:     make(chan *service.Result),
+		inChan:     make(chan *service.Result, BufferSize),
 		responders: make(map[string]Responder),
 		logger:     logger,
 	}

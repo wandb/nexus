@@ -52,7 +52,7 @@ type Handler struct {
 func NewHandler(ctx context.Context, settings *service.Settings, logger *observability.NexusLogger) *Handler {
 	h := &Handler{
 		ctx:      ctx,
-		inChan:   make(chan *service.Record),
+		inChan:   make(chan *service.Record, BufferSize),
 		settings: settings,
 		summary:  make(map[string]string),
 		logger:   logger,

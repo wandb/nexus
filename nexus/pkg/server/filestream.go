@@ -70,11 +70,11 @@ func NewFileStream(path string, settings *service.Settings, logger *observabilit
 		settings:   settings,
 		logger:     logger,
 		httpClient: retryClient,
-		recordChan: make(chan *service.Record),
+		recordChan: make(chan *service.Record, BufferSize),
 		recordWait: &sync.WaitGroup{},
-		chunkChan:  make(chan chunkData),
+		chunkChan:  make(chan chunkData, BufferSize),
 		chunkWait:  &sync.WaitGroup{},
-		replyChan:  make(chan map[string]interface{}),
+		replyChan:  make(chan map[string]interface{}, BufferSize),
 		replyWait:  &sync.WaitGroup{},
 	}
 	return &fs
@@ -160,7 +160,7 @@ func (fs *FileStream) doChunkProcess() {
 			fs.sendChunkList(chunkList)
 		case <-time.After(heartbeatTime):
 			if len(chunkList) > 0 {
-				fmt.Println("timeout")  // todo: remove
+				fmt.Println("timeout") // todo: remove
 				fs.sendChunkList(chunkList)
 			}
 		}

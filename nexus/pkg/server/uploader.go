@@ -62,7 +62,7 @@ func NewUploader(ctx context.Context, logger *observability.NexusLogger) *Upload
 
 	uploader := &Uploader{
 		ctx:         ctx,
-		inChan:      make(chan *UploadTask),
+		inChan:      make(chan *UploadTask, BufferSize),
 		retryClient: retryClient,
 		fileCounts:  fileCounts{},
 		logger:      logger,
