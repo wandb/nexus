@@ -64,5 +64,5 @@ func SetupStreamLogger(name string, settings *service.Settings) *observability.N
 	// tags["entity"] = settings.GetEntity().GetValue()
 	//
 	// return observability.NewNexusLogger(setupLogger(nil, writer), tags)
-	return observability.NoOpLogger
+	return nil
 }

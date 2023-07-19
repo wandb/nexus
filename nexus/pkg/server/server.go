@@ -55,7 +55,7 @@ func NewServer(ctx context.Context, addr string, portFile string) *Server {
 	return s
 }
 
-// serve serves the server
+// Serve serves the server
 func (s *Server) Serve() {
 	defer s.wg.Done()
 	slog.Info("server is running", "addr", s.listener.Addr())
