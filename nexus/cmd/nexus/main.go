@@ -3,11 +3,12 @@ package main
 import (
 	"context"
 	"flag"
-
 	"github.com/getsentry/sentry-go"
 	"github.com/wandb/wandb/nexus/pkg/observability"
 	"github.com/wandb/wandb/nexus/pkg/server"
 	"golang.org/x/exp/slog"
+	"os"
+	"runtime/trace"
 )
 
 // this is set by the build script and used by the observability package
@@ -27,6 +28,32 @@ func main() {
 	serveGrpc := flag.Bool("serve-grpc", false, "use grpc")
 
 	flag.Parse()
+
+	if debug != nil && *debug {
+		// performance profiling
+
+		// - use with the go trace tool: `go tool trace trace.out`
+		// - use with `gotraceui`:
+		//   - `go install honnef.co/go/gotraceui/cmd/gotraceui@latest`
+		//   - `go run honnef.co/go/gotraceui/cmd/gotraceui@latest`
+		//   - open the trace.out file in the UI
+		f, err := os.Create("trace.out")
+		if err != nil {
+			panic(err)
+		}
+		defer func(f *os.File) {
+			err := f.Close()
+			if err != nil {
+				panic(err)
+			}
+		}(f)
+
+		err = trace.Start(f)
+		if err != nil {
+			panic(err)
+		}
+		defer trace.Stop()
+	}
 
 	logger := server.SetupDefaultLogger()
 	ctx := context.Background()
