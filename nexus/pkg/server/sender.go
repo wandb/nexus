@@ -94,6 +94,8 @@ func (s *Sender) sendRecord(msg *service.Record) {
 		s.sendFiles(msg, x.Files)
 	case *service.Record_History:
 		s.sendHistory(msg, x.History)
+	case *service.Record_Stats:
+		s.sendSystemMetrics(msg, x.Stats)
 	case *service.Record_Request:
 		s.sendRequest(msg, x.Request)
 	case nil:
@@ -116,8 +118,6 @@ func (s *Sender) sendRequest(_ *service.Record, req *service.Request) {
 	case *service.Request_Defer:
 		s.sendDefer(x.Defer)
 	case *service.Request_Metadata:
-		err := fmt.Errorf("dummy error")
-		s.logger.CaptureError("sender: sendRecord: unexpected type", err)
 		s.sendMetadata(x.Metadata)
 	default:
 		// TODO: handle errors
@@ -276,6 +276,24 @@ func (s *Sender) sendHistory(msg *service.Record, _ *service.HistoryRecord) {
 	if s.fileStream != nil {
 		s.fileStream.StreamRecord(msg)
 	}
+}
+
+func (s *Sender) sendSystemMetrics(msg *service.Record, _ *service.StatsRecord) {
+	fmt.Println("Got me some system metrics")
+	for _, item := range msg.GetStats().Item {
+		fmt.Println(item.ValueJson)
+	}
+	// jsonData, err := json.Marshal(msg.GetStats().Item)
+	// if err != nil {
+	// 	continue
+	// }
+	// mo := protojson.MarshalOptions{
+	// 	Indent: "  ",
+	// 	// EmitUnpopulated: true,
+	// }
+	// jsonBytes, _ := mo.Marshal(req)
+	// _ = os.WriteFile(filepath.Join(s.settings.GetFilesDir().GetValue(), MetaFilename), jsonBytes, 0644)
+	// s.sendFile(MetaFilename)
 }
 
 // sendExit sends an exit record to the server and triggers the shutdown of the stream

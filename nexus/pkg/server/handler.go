@@ -119,7 +119,7 @@ func (h *Handler) handleRecord(msg *service.Record) {
 	case *service.Record_Run:
 		h.handleRun(msg, x.Run)
 	case *service.Record_Stats:
-		// TODO: handle this
+		h.handleSystemMetrics(msg, x.Stats)
 	case *service.Record_Summary:
 		// TODO: handle this
 	case *service.Record_Tbrecord:
@@ -234,6 +234,10 @@ func (h *Handler) handleMetadata(_ *service.Record, req *service.RunStartRequest
 					StartedAt: run.StartTime}}}}}
 
 	h.sendRecord(&meta)
+}
+
+func (h *Handler) handleSystemMetrics(rec *service.Record, _ *service.StatsRecord) {
+	h.sendRecord(rec)
 }
 
 func (h *Handler) handleRun(rec *service.Record, _ *service.RunRecord) {
