@@ -44,7 +44,7 @@ func NewWriter(ctx context.Context, settings *service.Settings, logger *observab
 	writer := &Writer{
 		ctx:      ctx,
 		settings: settings,
-		inChan:   make(chan *service.Record),
+		inChan:   make(chan *service.Record, BufferSize),
 		store:    store,
 		logger:   logger,
 	}
