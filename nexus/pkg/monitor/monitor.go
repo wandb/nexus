@@ -2,9 +2,11 @@ package monitor
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/wandb/wandb/nexus/pkg/observability"
 	"github.com/wandb/wandb/nexus/pkg/service"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"time"
 )
 
@@ -62,6 +64,31 @@ func NewMetricsMonitor(
 	}
 }
 
+func (mm *MetricsMonitor) makeStatsRecord(stats map[string]float64) *service.Record {
+	record := &service.Record{
+		RecordType: &service.Record_Stats{
+			Stats: &service.StatsRecord{
+				StatsType: service.StatsRecord_SYSTEM,
+				Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
+			},
+		},
+		Control: &service.Control{AlwaysSend: true},
+	}
+
+	for k, v := range stats {
+		jsonData, err := json.Marshal(v)
+		if err != nil {
+			continue
+		}
+		record.GetStats().Item = append(record.GetStats().Item, &service.StatsItem{
+			Key:       k,
+			ValueJson: string(jsonData),
+		})
+	}
+
+	return record
+}
+
 func (mm *MetricsMonitor) Monitor() {
 	// reset ctx:
 	mm.ctx, mm.cancel = context.WithCancel(mm.ctx)
@@ -104,14 +131,10 @@ func (mm *MetricsMonitor) Monitor() {
 				if len(aggregatedMetrics) > 0 {
 					// publish metrics
 					fmt.Println(aggregatedMetrics)
+					record := mm.makeStatsRecord(aggregatedMetrics)
+					fmt.Println(record)
+					mm.outChan <- record
 
-					// mm.outChan <- &service.Record{
-					// 	Record: &service.Record_Metrics{
-					// 		Metrics: &service.MetricsRecord{
-					// 			Metrics: aggregatedMetrics,
-					// 		},
-					// 	},
-					// }
 				}
 				for _, metric := range mm.metrics {
 					metric.Clear()
@@ -182,7 +205,7 @@ func NewSystemMonitor(
 func (sm *SystemMonitor) Do() {
 	sm.logger.Info("Starting system monitor")
 
-	// todo: start the assets here and add a wait group to wait for them to finish
+	// start monitoring the assets
 	for _, asset := range sm.assets {
 		go asset.Start()
 	}
