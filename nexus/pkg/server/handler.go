@@ -204,7 +204,7 @@ func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartReque
 
 	// start the system monitor
 	h.logger.Debug("handle: starting system monitor", "stream_id", h.settings.RunId)
-	h.systemMonitor = monitor.NewSystemMonitor(h.ctx, h.settings, h.logger)
+	h.systemMonitor = monitor.NewSystemMonitor(h.ctx, h.inChan, h.settings, h.logger)
 	h.systemMonitor.OutChan = h.inChan
 	go h.systemMonitor.Do()
 }
@@ -266,7 +266,7 @@ func (h *Handler) handleDefer(rec *service.Record) {
 	switch req.State {
 	case service.DeferRequest_BEGIN:
 	case service.DeferRequest_FLUSH_STATS:
-		h.systemMonitor.Close()
+		h.systemMonitor.Stop()
 	case service.DeferRequest_FLUSH_PARTIAL_HISTORY:
 		h.flushHistory(h.historyRecord)
 	case service.DeferRequest_FLUSH_TB:
