@@ -16,9 +16,7 @@ type MemoryPercent struct {
 	mutex   sync.RWMutex
 }
 
-func (mp *MemoryPercent) Name() string {
-	return mp.name
-}
+func (mp *MemoryPercent) Name() string { return mp.name }
 
 func (mp *MemoryPercent) Sample() {
 	// implementation of sample goes here
@@ -59,7 +57,7 @@ func NewMemory(
 ) *Memory {
 	metrics := []Metric{
 		&MemoryPercent{
-			name:    "memory_percent",
+			name:    "memory",
 			samples: []float64{},
 		},
 	}
@@ -79,28 +77,19 @@ func NewMemory(
 	}
 }
 
-func (m *Memory) Name() string {
-	return m.name
-}
+func (m *Memory) Name() string { return m.name }
 
-func (m *Memory) Metrics() []Metric {
-	return m.metrics
-}
+func (m *Memory) Metrics() []Metric { return m.metrics }
 
-func (m *Memory) IsAvailable() bool {
-	return true
-}
+func (m *Memory) IsAvailable() bool { return true }
 
-func (m *Memory) Start() {
-	m.metricsMonitor.Monitor()
-}
+func (m *Memory) Start() { m.metricsMonitor.Monitor() }
 
-func (m *Memory) Stop() {
-	m.metricsMonitor.Stop()
-}
+func (m *Memory) Stop() { m.metricsMonitor.Stop() }
 
-func (m *Memory) Probe() map[string]interface{} {
-	info := make(map[string]interface{})
-	info["total"] = 1337
+func (m *Memory) Probe() map[string]map[string]interface{} {
+	info := make(map[string]map[string]interface{})
+	virtualMem, _ := mem.VirtualMemory()
+	info["memory"]["total"] = virtualMem.Total / 1024 / 1024 / 1024
 	return info
 }

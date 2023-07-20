@@ -34,7 +34,7 @@ type Asset interface {
 	IsAvailable() bool
 	Start()
 	Stop()
-	Probe() map[string]interface{}
+	Probe() map[string]map[string]interface{}
 }
 
 type MetricsMonitor struct {
