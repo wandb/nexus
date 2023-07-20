@@ -216,4 +216,5 @@ func (sm *SystemMonitor) Do() {
 func (sm *SystemMonitor) Stop() {
 	sm.logger.Info("Stopping system monitor")
 	sm.cancel()
+	fmt.Println("stopping system monitor")
 }
