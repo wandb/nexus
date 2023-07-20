@@ -145,6 +145,7 @@ func (fs *FileStream) doChunkProcess() {
 
 			for ready := true; ready; {
 				select {
+
 				case chunk, ok := <-fs.chunkChan:
 					if !ok {
 						ready = false
