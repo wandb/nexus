@@ -127,14 +127,14 @@ func (fs *FileStream) doChunkProcess() {
 	overflow := false
 
 	for active := true; active; {
-		var chunkList []chunkData
+		var chunkMaps = make(map[string][]chunkData)
 		select {
 		case chunk, ok := <-fs.chunkChan:
 			if !ok {
 				active = false
 				break
 			}
-			chunkList = append(chunkList, chunk)
+			chunkMaps[chunk.fileName] = append(chunkMaps[chunk.fileName], chunk)
 
 			delayTime := delayProcess
 			if overflow {
@@ -151,8 +151,8 @@ func (fs *FileStream) doChunkProcess() {
 						active = false
 						break
 					}
-					chunkList = append(chunkList, chunk)
-					if len(chunkList) >= maxItemsPerPush {
+					chunkMaps[chunk.fileName] = append(chunkMaps[chunk.fileName], chunk)
+					if len(chunkMaps[chunk.fileName]) >= maxItemsPerPush {
 						ready = false
 						overflow = true
 					}
@@ -160,10 +160,14 @@ func (fs *FileStream) doChunkProcess() {
 					ready = false
 				}
 			}
-			fs.sendChunkList(chunkList)
-		case <-time.After(heartbeatTime):
-			if len(chunkList) > 0 {
+			for _, chunkList := range chunkMaps {
 				fs.sendChunkList(chunkList)
+			}
+		case <-time.After(heartbeatTime):
+			for _, chunkList := range chunkMaps {
+				if len(chunkList) > 0 {
+					fs.sendChunkList(chunkList)
+				}
 			}
 		}
 	}
