@@ -2,10 +2,11 @@ package monitor
 
 import (
 	"context"
+	"sync"
+
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/wandb/wandb/nexus/pkg/observability"
 	"github.com/wandb/wandb/nexus/pkg/service"
-	"sync"
 )
 
 // Metrics
