@@ -21,9 +21,6 @@ func (mp *MemoryPercent) Name() string {
 }
 
 func (mp *MemoryPercent) Sample() {
-	mp.mutex.RLock()
-	defer mp.mutex.RUnlock()
-
 	// implementation of sample goes here
 	virtualMem, _ := mem.VirtualMemory()
 	mp.samples = append(mp.samples, virtualMem.UsedPercent)
@@ -87,12 +84,7 @@ func (m *Memory) Name() string {
 }
 
 func (m *Memory) Metrics() []Metric {
-	return []Metric{
-		&MemoryPercent{
-			name:    "memory_percent",
-			samples: []float64{},
-		},
-	}
+	return m.metrics
 }
 
 func (m *Memory) IsAvailable() bool {

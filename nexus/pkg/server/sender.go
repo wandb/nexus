@@ -4,10 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/wandb/wandb/nexus/pkg/observability"
 	"os"
 	"path/filepath"
-
-	"github.com/wandb/wandb/nexus/pkg/observability"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/wandb/wandb/nexus/pkg/service"
@@ -131,6 +130,7 @@ func (s *Sender) sendRunStart(_ *service.RunStartRequest) {
 	s.fileStream = NewFileStream(fsPath, s.settings, s.logger)
 	s.fileStream.Start()
 	s.uploader = NewUploader(s.ctx, s.logger)
+
 }
 
 func (s *Sender) sendNetworkStatusRequest(_ *service.NetworkStatusRequest) {
@@ -279,21 +279,9 @@ func (s *Sender) sendHistory(msg *service.Record, _ *service.HistoryRecord) {
 }
 
 func (s *Sender) sendSystemMetrics(msg *service.Record, _ *service.StatsRecord) {
-	fmt.Println("Got me some system metrics")
-	for _, item := range msg.GetStats().Item {
-		fmt.Println(item.ValueJson)
+	if s.fileStream != nil {
+		s.fileStream.StreamRecord(msg)
 	}
-	// jsonData, err := json.Marshal(msg.GetStats().Item)
-	// if err != nil {
-	// 	continue
-	// }
-	// mo := protojson.MarshalOptions{
-	// 	Indent: "  ",
-	// 	// EmitUnpopulated: true,
-	// }
-	// jsonBytes, _ := mo.Marshal(req)
-	// _ = os.WriteFile(filepath.Join(s.settings.GetFilesDir().GetValue(), MetaFilename), jsonBytes, 0644)
-	// s.sendFile(MetaFilename)
 }
 
 // sendExit sends an exit record to the server and triggers the shutdown of the stream

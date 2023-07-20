@@ -113,7 +113,7 @@ func (mm *MetricsMonitor) Monitor() {
 		}
 	}()
 
-	samplesAveraged := int32(0)
+	samplesCollected := int32(0)
 
 	for {
 		select {
@@ -124,9 +124,9 @@ func (mm *MetricsMonitor) Monitor() {
 			for _, metric := range mm.metrics {
 				metric.Sample()
 			}
-			samplesAveraged++
+			samplesCollected++
 
-			if samplesAveraged == samplesToAverage {
+			if samplesCollected == samplesToAverage {
 				aggregatedMetrics := mm.aggregate()
 				if len(aggregatedMetrics) > 0 {
 					// publish metrics
@@ -139,8 +139,8 @@ func (mm *MetricsMonitor) Monitor() {
 				for _, metric := range mm.metrics {
 					metric.Clear()
 				}
-				// reset samplesAveraged
-				samplesAveraged = int32(0)
+				// reset samplesCollected
+				samplesCollected = int32(0)
 			}
 		}
 	}

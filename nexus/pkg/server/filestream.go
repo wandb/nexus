@@ -16,6 +16,7 @@ import (
 )
 
 const (
+	EventsFileName  = "wandb-events.jsonl"
 	HistoryFileName = "wandb-history.jsonl"
 	maxItemsPerPush = 5_000
 	delayProcess    = 20 * time.Millisecond
@@ -32,9 +33,11 @@ type chunkFile int8
 const (
 	historyChunk chunkFile = iota
 	outputChunk
+	eventsChunk
 )
 
 type chunkData struct {
+	fileName string
 	fileData *chunkLine
 	Exitcode *int
 	Complete *bool
@@ -178,6 +181,8 @@ func (fs *FileStream) streamRecord(msg *service.Record) {
 		fs.streamHistory(x.History)
 	case *service.Record_Exit:
 		fs.streamFinish()
+	case *service.Record_Stats:
+		fs.streamSystemMetrics(x.Stats)
 	case nil:
 		// The field is not set.
 		err := fmt.Errorf("FileStream: RecordType is nil")
@@ -189,11 +194,45 @@ func (fs *FileStream) streamRecord(msg *service.Record) {
 }
 
 func (fs *FileStream) streamHistory(msg *service.HistoryRecord) {
-	fs.pushChunk(chunkData{fileData: &chunkLine{chunkType: historyChunk, line: fs.jsonifyHistory(msg)}})
+	fs.pushChunk(chunkData{fileName: HistoryFileName, fileData: &chunkLine{chunkType: historyChunk, line: fs.jsonifyHistory(msg)}})
 }
 
 func (fs *FileStream) streamFinish() {
-	fs.pushChunk(chunkData{Complete: &completeTrue, Exitcode: &exitcodeZero})
+	fs.pushChunk(chunkData{fileName: HistoryFileName, Complete: &completeTrue, Exitcode: &exitcodeZero})
+}
+
+func (fs *FileStream) streamSystemMetrics(msg *service.StatsRecord) {
+	// todo: there is a lot of unnecessary overhead here,
+	//  we should prepare all the data in system monitor
+	//  and then send it in one record
+	fmt.Println("Got me some system metrics")
+
+	row := make(map[string]interface{})
+	row["_wandb"] = true
+	timestamp := float64(msg.GetTimestamp().Seconds) + float64(msg.GetTimestamp().Nanos/1e9)
+	row["_timestamp"] = timestamp
+	row["_runtime"] = timestamp - fs.settings.XStartTime.GetValue()
+
+	for _, item := range msg.Item {
+		var val interface{}
+		if err := json.Unmarshal([]byte(item.ValueJson), &val); err != nil {
+			e := fmt.Errorf("json unmarshal error: %v, items: %v", err, item)
+			errMsg := fmt.Sprintf("sender: sendSystemMetrics: failed to marshal value: %s for key: %s", item.ValueJson, item.Key)
+			fs.logger.CaptureError(errMsg, e)
+			continue
+		}
+
+		row["system."+item.Key] = val
+	}
+
+	// marshal the row
+	line, err := json.Marshal(row)
+	if err != nil {
+		fs.logger.CaptureError("sender: sendSystemMetrics: failed to marshal row", err)
+		return
+	}
+
+	fs.pushChunk(chunkData{fileName: EventsFileName, fileData: &chunkLine{chunkType: eventsChunk, line: string(line)}})
 }
 
 func (fs *FileStream) StreamRecord(rec *service.Record) {
@@ -207,6 +246,7 @@ func (fs *FileStream) StreamRecord(rec *service.Record) {
 /*
  * Data to serialize over filestream
  */
+
 type FsChunkData struct {
 	Offset  int      `json:"offset"`
 	Content []string `json:"content"`
@@ -239,7 +279,7 @@ func (fs *FileStream) sendChunkList(chunks []chunkData) {
 		Offset:  fs.offset,
 		Content: lines}
 	fs.offset += len(lines)
-	chunkFileName := HistoryFileName
+	chunkFileName := chunks[0].fileName // all chunks in the list have the same filename
 	var files map[string]FsChunkData
 	if len(lines) > 0 {
 		files = map[string]FsChunkData{
