@@ -206,7 +206,7 @@ func (h *Handler) handleRunStart(rec *service.Record, req *service.RunStartReque
 	h.logger.Debug("handle: starting system monitor", "stream_id", h.settings.RunId)
 	h.systemMonitor = monitor.NewSystemMonitor(h.ctx, h.inChan, h.settings, h.logger)
 	h.systemMonitor.OutChan = h.inChan
-	go h.systemMonitor.Do()
+	h.systemMonitor.Do()
 }
 
 func (h *Handler) handleAttach(_ *service.Record, _ *service.AttachRequest, resp *service.Response) {
@@ -269,20 +269,33 @@ func (h *Handler) handleDefer(rec *service.Record) {
 	req := rec.GetRequest().GetDefer()
 	switch req.State {
 	case service.DeferRequest_BEGIN:
+		fmt.Println("handleDefer: BEGIN")
 	case service.DeferRequest_FLUSH_STATS:
+		fmt.Println("handleDefer: FLUSH_STATS")
 		h.systemMonitor.Stop()
 	case service.DeferRequest_FLUSH_PARTIAL_HISTORY:
+		fmt.Println("handleDefer: FLUSH_PARTIAL_HISTORY")
 		h.flushHistory(h.historyRecord)
 	case service.DeferRequest_FLUSH_TB:
+		fmt.Println("handleDefer: FLUSH_TB")
 	case service.DeferRequest_FLUSH_SUM:
+		fmt.Println("handleDefer: FLUSH_SUM")
 	case service.DeferRequest_FLUSH_DEBOUNCER:
+		fmt.Println("handleDefer: FLUSH_DEBOUNCER")
 	case service.DeferRequest_FLUSH_OUTPUT:
+		fmt.Println("handleDefer: FLUSH_OUTPUT")
 	case service.DeferRequest_FLUSH_DIR:
+		fmt.Println("handleDefer: FLUSH_DIR")
 	case service.DeferRequest_FLUSH_FP:
+		fmt.Println("handleDefer: FLUSH_FP")
 	case service.DeferRequest_JOIN_FP:
+		fmt.Println("handleDefer: JOIN_FP")
 	case service.DeferRequest_FLUSH_FS:
+		fmt.Println("handleDefer: FLUSH_FS")
 	case service.DeferRequest_FLUSH_FINAL:
+		fmt.Println("handleDefer: FLUSH_FINAL")
 	case service.DeferRequest_END:
+		fmt.Println("handleDefer: END")
 	default:
 		err := fmt.Errorf("handleDefer: unknown defer state %v", req.State)
 		h.logger.CaptureError("unknown defer state", err)

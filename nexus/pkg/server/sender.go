@@ -149,16 +149,20 @@ func (s *Sender) sendMetadata(req *service.MetadataRequest) {
 func (s *Sender) sendDefer(req *service.DeferRequest) {
 	switch req.State {
 	case service.DeferRequest_FLUSH_FP:
+		fmt.Println("sendDefer: flushing file stream")
 		s.uploader.Close()
 		req.State++
 		s.sendRequestDefer(req)
 	case service.DeferRequest_FLUSH_FS:
+		fmt.Println("sendDefer: flushing file stream")
 		s.fileStream.Close()
 		req.State++
 		s.sendRequestDefer(req)
 	case service.DeferRequest_END:
+		fmt.Println("sendDefer: closing outChan")
 		close(s.outChan)
 	default:
+		fmt.Println("sendDefer: defer state", req.State)
 		req.State++
 		s.sendRequestDefer(req)
 	}
@@ -296,7 +300,8 @@ func (s *Sender) sendExit(msg *service.Record, _ *service.RunExitRecord) {
 	s.dispatcherChan <- result
 	req := &service.Request{RequestType: &service.Request_Defer{Defer: &service.DeferRequest{State: service.DeferRequest_BEGIN}}}
 	rec := &service.Record{RecordType: &service.Record_Request{Request: req}, Control: msg.Control, Uuid: msg.Uuid}
-	s.sendRecord(rec)
+	// s.sendRecord(rec)
+	s.outChan <- rec
 }
 
 // sendFiles iterates over the files in the FilesRecord and sends them to

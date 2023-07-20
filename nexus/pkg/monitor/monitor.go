@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/wandb/wandb/nexus/pkg/observability"
@@ -41,6 +42,7 @@ type Asset interface {
 type MetricsMonitor struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
+	wg       sync.WaitGroup
 	metrics  []Metric
 	settings *service.Settings
 	logger   *observability.NexusLogger
@@ -48,16 +50,17 @@ type MetricsMonitor struct {
 }
 
 func NewMetricsMonitor(
-	ctx context.Context,
-	cancel context.CancelFunc,
 	metrics []Metric,
 	settings *service.Settings,
 	logger *observability.NexusLogger,
 	outChan chan<- *service.Record,
 ) *MetricsMonitor {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return &MetricsMonitor{
 		ctx:      ctx,
 		cancel:   cancel,
+		wg:       sync.WaitGroup{},
 		metrics:  metrics,
 		settings: settings,
 		logger:   logger,
@@ -91,13 +94,10 @@ func (mm *MetricsMonitor) makeStatsRecord(stats map[string]float64) *service.Rec
 }
 
 func (mm *MetricsMonitor) Monitor() {
-	// reset ctx:
-	mm.ctx, mm.cancel = context.WithCancel(mm.ctx)
-
 	// todo: rename the setting...should be SamplingIntervalSeconds
 	samplingInterval := time.Duration(mm.settings.XStatsSampleRateSeconds.GetValue() * float64(time.Second))
 	samplesToAverage := mm.settings.XStatsSamplesToAverage.GetValue()
-	fmt.Println(samplingInterval, samplesToAverage)
+	// fmt.Println(samplingInterval, samplesToAverage)
 
 	// Create a ticker that fires every `samplingInterval` seconds
 	ticker := time.NewTicker(samplingInterval)
@@ -119,23 +119,28 @@ func (mm *MetricsMonitor) Monitor() {
 	for {
 		select {
 		case <-mm.ctx.Done():
+			fmt.Println("CLOSING")
 			return
 		case <-tickChan:
+			fmt.Println("TICK")
+			time.Sleep(1 * time.Second)
 			fmt.Println("current time:", time.Now().Format(time.RFC3339Nano))
 			for _, metric := range mm.metrics {
 				metric.Sample()
 			}
 			samplesCollected++
+			fmt.Println("samples collected:", samplesCollected)
 
 			if samplesCollected == samplesToAverage {
 				aggregatedMetrics := mm.aggregate()
 				if len(aggregatedMetrics) > 0 {
 					// publish metrics
-					fmt.Println(aggregatedMetrics)
+					// fmt.Println(aggregatedMetrics)
 					record := mm.makeStatsRecord(aggregatedMetrics)
-					fmt.Println(record)
+					// fmt.Println(record)
+					fmt.Println("SENDING RECORD")
 					mm.outChan <- record
-
+					fmt.Println("RECORD SENT")
 				}
 				for _, metric := range mm.metrics {
 					metric.Clear()
@@ -143,6 +148,7 @@ func (mm *MetricsMonitor) Monitor() {
 				// reset samplesCollected
 				samplesCollected = int32(0)
 			}
+			fmt.Println("TICK DONE")
 		}
 	}
 }
@@ -158,7 +164,10 @@ func (mm *MetricsMonitor) aggregate() map[string]float64 {
 
 func (mm *MetricsMonitor) Stop() {
 	mm.logger.Info("Stopping metrics monitor")
+	fmt.Println("Stopping metrics monitor")
 	mm.cancel()
+	fmt.Println("Cancel called")
+	mm.wg.Wait()
 }
 
 type SystemMonitor struct {
@@ -188,16 +197,15 @@ func NewSystemMonitor(
 ) *SystemMonitor {
 	ctx, cancel := context.WithCancel(ctx)
 
-	assets := []Asset{
-		NewMemory(ctx, cancel, settings, logger, outChan),
-	}
-
 	systemMonitor := &SystemMonitor{
 		ctx:      ctx,
 		cancel:   cancel,
-		assets:   assets,
 		logger:   logger,
 		settings: settings,
+	}
+
+	systemMonitor.assets = []Asset{
+		NewMemory(settings, logger, outChan),
 	}
 
 	return systemMonitor
@@ -208,7 +216,7 @@ func (sm *SystemMonitor) Do() {
 
 	// start monitoring the assets
 	for _, asset := range sm.assets {
-		go asset.Start()
+		asset.Start()
 	}
 
 }
@@ -216,5 +224,16 @@ func (sm *SystemMonitor) Do() {
 func (sm *SystemMonitor) Stop() {
 	sm.logger.Info("Stopping system monitor")
 	sm.cancel()
-	fmt.Println("stopping system monitor")
+
+	wg := &sync.WaitGroup{}
+
+	for _, asset := range sm.assets {
+		wg.Add(1)
+		go func(asset Asset) {
+			asset.Stop()
+			wg.Done()
+		}(asset)
+	}
+	fmt.Println("waiting for all assets to stop")
+	wg.Wait()
 }

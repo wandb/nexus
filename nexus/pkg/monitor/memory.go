@@ -1,7 +1,6 @@
 package monitor
 
 import (
-	"context"
 	"sync"
 
 	"github.com/shirou/gopsutil/v3/mem"
@@ -79,11 +78,10 @@ type Memory struct {
 	name           string
 	metrics        []Metric
 	metricsMonitor *MetricsMonitor
+	wg             *sync.WaitGroup
 }
 
 func NewMemory(
-	ctx context.Context,
-	cancel context.CancelFunc,
 	settings *service.Settings,
 	logger *observability.NexusLogger,
 	outChan chan<- *service.Record,
@@ -98,9 +96,8 @@ func NewMemory(
 			samples: []float64{},
 		},
 	}
+
 	metricsMonitor := NewMetricsMonitor(
-		ctx,
-		cancel,
 		metrics,
 		settings,
 		logger,
@@ -120,7 +117,14 @@ func (m *Memory) Metrics() []Metric { return m.metrics }
 
 func (m *Memory) IsAvailable() bool { return true }
 
-func (m *Memory) Start() { m.metricsMonitor.Monitor() }
+func (m *Memory) Start() {
+	m.metricsMonitor.wg.Add(1)
+
+	go func() {
+		m.metricsMonitor.Monitor()
+		m.metricsMonitor.wg.Done()
+	}()
+}
 
 func (m *Memory) Stop() { m.metricsMonitor.Stop() }
 
