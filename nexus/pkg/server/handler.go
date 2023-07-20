@@ -154,7 +154,7 @@ func (h *Handler) handleRequest(record *service.Record) {
 	case *service.Request_Shutdown:
 	case *service.Request_StopStatus:
 	case *service.Request_LogArtifact:
-		h.handleLogArtifact(rec, x.LogArtifact, response)
+		h.handleLogArtifact(record, x.LogArtifact, response)
 	case *service.Request_JobInfo:
 	case *service.Request_Attach:
 		h.handleAttach(record, response)
