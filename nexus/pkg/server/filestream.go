@@ -201,11 +201,12 @@ func (fs *FileStream) doChunkProcess(inChan <-chan chunkData) {
 			}
 			fs.sendChunkList(chunkList)
 		case <-time.After(heartbeatTime):
-			fs.logger.Debug("filestream: heartbeat... (timeout)", "offset", fs.offset)
-			fs.sendChunkList(chunkList)
+			if len(chunkList) > 0 {
+				fs.logger.Debug("filestream: heartbeat... (timeout)", "offset", fs.offset)
+				fs.sendChunkList(chunkList)
+			}
 		}
 	}
-
 }
 
 func (fs *FileStream) doReplyProcess(inChan <-chan map[string]interface{}) {
