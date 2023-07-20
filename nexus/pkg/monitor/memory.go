@@ -78,7 +78,6 @@ type Memory struct {
 	name           string
 	metrics        []Metric
 	metricsMonitor *MetricsMonitor
-	wg             *sync.WaitGroup
 }
 
 func NewMemory(
