@@ -24,13 +24,6 @@ repos:
         name: debug-statements
       - id: forbid-submodules
         name: forbid-submodules
-      - id: go-imports
-        name: 'go-imports'
-        entry: nexus/scripts/pre-commit-hooks/run-go-imports.sh
-        files: '\.go$'
-        exclude: 'nexus/pkg/service/'
-        language: 'script'
-        description: "Runs `goimports`, requires golang"
   - repo: https://github.com/psf/black
     rev: 23.3.0
     hooks:
