@@ -3,18 +3,30 @@ package server
 import (
 	"context"
 
+	"github.com/wandb/wandb/nexus/pkg/observability"
+
 	"github.com/wandb/wandb/nexus/pkg/service"
-	"golang.org/x/exp/slog"
 )
 
+// Dispatcher is the dispatcher for a stream
 type Dispatcher struct {
-	inChan     chan *service.Result
+	// ctx is the context for the dispatcher
+	ctx context.Context
+
+	// inChan is the channel for incoming messages
+	inChan chan *service.Result
+
+	// responders is the map of responders
 	responders map[string]Responder
-	logger     *slog.Logger
+
+	// logger is the logger for the dispatcher
+	logger *observability.NexusLogger
 }
 
-func NewDispatcher(ctx context.Context, logger *slog.Logger) *Dispatcher {
+// NewDispatcher creates a new dispatcher
+func NewDispatcher(ctx context.Context, logger *observability.NexusLogger) *Dispatcher {
 	dispatcher := &Dispatcher{
+		ctx:        ctx,
 		inChan:     make(chan *service.Result),
 		responders: make(map[string]Responder),
 		logger:     logger,
@@ -22,34 +34,35 @@ func NewDispatcher(ctx context.Context, logger *slog.Logger) *Dispatcher {
 	return dispatcher
 }
 
-func (d *Dispatcher) AddResponder(responderId string, responder Responder) {
+// AddResponder adds a responder to the dispatcher
+func (d *Dispatcher) AddResponder(entry ResponderEntry) {
+	responderId := entry.ID
 	if _, ok := d.responders[responderId]; !ok {
-		d.responders[responderId] = responder
+		d.responders[responderId] = entry.Responder
 	} else {
-		slog.LogAttrs(
-			context.Background(),
-			slog.LevelError,
-			"Responder already exists",
-			slog.String("responder", responderId))
+		d.logger.CaptureWarn("Responder already exists", "responder", responderId)
 	}
 }
 
-func (d *Dispatcher) Deliver(result *service.Result) {
-	d.inChan <- result
-}
+// do start the dispatcher and dispatches messages
+func (d *Dispatcher) do() {
 
-func (d *Dispatcher) start() {
-	// start the dispatcher
+	d.logger.Info("dispatch: started")
+
 	for msg := range d.inChan {
-		responderId := msg.Control.ConnectionId
-		LogResult(d.logger, "dispatch: got msg", msg)
+		responderId := msg.GetControl().GetConnectionId()
+		d.logger.Debug("dispatch: got msg", "msg", msg)
 		response := &service.ServerResponse{
-			ServerResponseType: &service.ServerResponse_ResultCommunicate{ResultCommunicate: msg},
+			ServerResponseType: &service.ServerResponse_ResultCommunicate{
+				ResultCommunicate: msg,
+			},
 		}
 		if responderId == "" {
-			LogResult(slog.Default(), "dispatch: got msg with no connection id", msg)
+			d.logger.Debug("dispatch: got msg with no connection id", "msg", msg)
 			continue
 		}
 		d.responders[responderId].Respond(response)
 	}
+
+	d.logger.Info("dispatch: finished")
 }

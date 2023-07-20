@@ -2,80 +2,100 @@ package server
 
 import (
 	"context"
-	"sync"
+
+	"github.com/wandb/wandb/nexus/pkg/observability"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"golang.org/x/exp/slog"
 )
 
+// Writer is responsible for writing messages to the append-only log.
+// It receives messages from the handler, processes them,
+// if the message is to be persisted it writes them to the log.
+// It also sends the messages to the sender.
 type Writer struct {
-	settings *Settings
-	inChan   chan *service.Record
-	outChan  chan<- *service.Record
-	store    *Store
-	logger   *slog.Logger
+	// ctx is the context for the writer
+	ctx context.Context
+
+	// inChan is the channel for incoming messages
+	inChan chan *service.Record
+
+	// outChan is the channel for outgoing messages
+	outChan chan<- *service.Record
+
+	// store is the store for the writer
+	store *Store
+
+	// settings is the settings for the writer
+	settings *service.Settings
+
+	// logger is the logger for the writer
+	logger *observability.NexusLogger
 }
 
-func NewWriter(ctx context.Context, settings *Settings, logger *slog.Logger) *Writer {
+// NewWriter returns a new Writer
+func NewWriter(ctx context.Context, settings *service.Settings, logger *observability.NexusLogger) *Writer {
+
+	store, err := NewStore(ctx, settings.GetSyncFile().GetValue(), logger)
+	if err != nil {
+		logger.CaptureFatalAndPanic("writer: error creating store", err)
+	}
 
 	writer := &Writer{
+		ctx:      ctx,
 		settings: settings,
 		inChan:   make(chan *service.Record),
-		store:    NewStore(settings.SyncFile, logger),
+		store:    store,
 		logger:   logger,
 	}
 	return writer
 }
 
-func (w *Writer) Deliver(msg *service.Record) {
-	w.inChan <- msg
-}
-
-func (w *Writer) start(wg *sync.WaitGroup) {
-	defer wg.Done()
+// do is the main loop of the writer to process incoming messages
+func (w *Writer) do() {
+	slog.Info("writer: started", "stream_id", w.settings.RunId)
 	for msg := range w.inChan {
-		LogRecord(w.logger, "write: got msg", msg)
-		w.writeRecord(msg)
+		w.handleRecord(msg)
 	}
 	w.close()
-	slog.Debug("writer: started and closed")
 }
 
+// close closes the writer and all its resources
+// which includes the store
 func (w *Writer) close() {
 	close(w.outChan)
-	err := w.store.Close()
-	if err != nil {
+	if err := w.store.Close(); err != nil {
+		w.logger.CaptureError("writer: error closing store", err)
 		return
 	}
+	w.logger.Info("writer: closed", "stream_id", w.settings.RunId)
 }
 
-// writeRecord Writing messages to the append-only log,
+// handleRecord Writing messages to the append-only log,
 // and passing them to the sender.
 // We ensure that the messages are written to the log
 // before they are sent to the server.
-func (w *Writer) writeRecord(rec *service.Record) {
-	switch rec.RecordType.(type) {
+func (w *Writer) handleRecord(msg *service.Record) {
+	w.logger.Debug("write: got a message", "msg", msg, "stream_id", w.settings.RunId)
+	switch msg.RecordType.(type) {
 	case *service.Record_Request:
-		w.sendRecord(rec)
+		w.sendRecord(msg)
 	case nil:
 		slog.Error("nil record type")
 	default:
-		w.store.storeRecord(rec)
-		w.sendRecord(rec)
+		if err := w.store.storeRecord(msg); err != nil {
+			w.logger.CaptureError("writer: error storing record", err)
+			return
+		}
+		w.sendRecord(msg)
 	}
 }
 
 func (w *Writer) sendRecord(rec *service.Record) {
 	control := rec.GetControl()
-	LogRecord(w.logger, "WRITER: sendRecord", rec)
-	if w.settings.Offline && control != nil && !control.AlwaysSend {
+	// TODO: redo it so it only uses control
+	if w.settings.GetXOffline().GetValue() && control != nil && !control.AlwaysSend {
 		return
 	}
-	slog.Debug("WRITER: sendRecord: send")
 	w.outChan <- rec
 }
-
-// func (w *Writer) Flush() {
-// 	log.Debug("WRITER: close")
-// 	close(w.inChan)
-// }

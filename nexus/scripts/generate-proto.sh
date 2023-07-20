@@ -18,6 +18,12 @@ set -e
 BASE=$(dirname $(dirname $(readlink -f $0)))
 cd $BASE
 
+# hack to make sure we use our local protoc
+export PATH="$HOME/.local/bin:$PATH"
+
+./scripts/update-dev-env.sh protocolbuffers/protobuf
+./scripts/update-dev-env.sh protoc-gen-go
+
 MOD=pkg/service/
 INC=api/proto/
 
@@ -37,8 +43,13 @@ protoc -I=$INC \
     --go_out=. --proto_path=. wandb_telemetry.proto
 
 protoc -I=$INC \
+    --go_opt=Mwandb_settings.proto=$MOD \
+    --go_out=. --proto_path=. wandb_settings.proto
+
+protoc -I=$INC \
     --go_opt=Mwandb_base.proto=$MOD \
     --go_opt=Mwandb_telemetry.proto=$MOD \
+    --go_opt=Mwandb_settings.proto=$MOD \
     --go_opt=Mwandb_internal.proto=$MOD \
     --go_opt=Mwandb_server.proto=$MOD \
     --go_out=. --proto_path=. wandb_server.proto

@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
+	"github.com/wandb/wandb/nexus/pkg/observability"
 	"github.com/wandb/wandb/nexus/pkg/service"
-	"golang.org/x/exp/slog"
 )
 
 // Stream is a collection of components that work together to handle incoming
@@ -15,20 +15,35 @@ import (
 // data to Stream.sender, which sends it to the W&B server. Stream.dispatcher
 // handles dispatching responses to the appropriate client responders.
 type Stream struct {
-	handler    *Handler
+	// ctx is the context for the stream
+	ctx context.Context
+
+	// wg is the WaitGroup for the stream
+	wg sync.WaitGroup
+
+	// handler is the handler for the stream
+	handler *Handler
+
+	// dispatcher is the dispatcher for the stream
 	dispatcher *Dispatcher
-	writer     *Writer
-	sender     *Sender
-	settings   *Settings
-	logger     *slog.Logger
-	finished   bool
-	done       chan struct{}
+
+	// writer is the writer for the stream
+	writer *Writer
+
+	// sender is the sender for the stream
+	sender *Sender
+
+	// settings is the settings for the stream
+	settings *service.Settings
+
+	// logger is the logger for the stream
+	logger *observability.NexusLogger
 }
 
-func NewStream(settings *Settings, streamId string) *Stream {
-	ctx := context.Background()
-	logFile := settings.LogInternal
-	logger := SetupStreamLogger(logFile, streamId)
+// NewStream creates a new stream with the given settings and responders.
+func NewStream(ctx context.Context, settings *service.Settings, streamId string, responders ...ResponderEntry) *Stream {
+	logFile := settings.GetLogInternal().GetValue()
+	logger := SetupStreamLogger(logFile, settings)
 
 	dispatcher := NewDispatcher(ctx, logger)
 	sender := NewSender(ctx, settings, logger)
@@ -36,71 +51,76 @@ func NewStream(settings *Settings, streamId string) *Stream {
 	handler := NewHandler(ctx, settings, logger)
 
 	// connect the components
-	handler.outChan = writer.inChan
 	writer.outChan = sender.inChan
+	handler.outChan = writer.inChan
 	sender.outChan = handler.inChan
 
 	// connect the dispatcher to the handler and sender
-	handler.dispatcherChan = dispatcher
-	sender.dispatcherChan = dispatcher
+	handler.dispatcherChan = dispatcher.inChan
+	sender.dispatcherChan = dispatcher.inChan
 
 	stream := &Stream{
+		ctx:        ctx,
+		wg:         sync.WaitGroup{},
 		dispatcher: dispatcher,
 		handler:    handler,
 		sender:     sender,
 		writer:     writer,
 		settings:   settings,
 		logger:     logger,
-		done:       make(chan struct{}),
 	}
-
+	stream.wg.Add(1)
+	go stream.Start()
 	return stream
-
 }
 
-func (s *Stream) AddResponder(responderId string, responder Responder) {
-	s.dispatcher.AddResponder(responderId, responder)
+// AddResponders adds the given responders to the stream's dispatcher.
+func (s *Stream) AddResponders(entries ...ResponderEntry) {
+	for _, entry := range entries {
+		s.dispatcher.AddResponder(entry)
+	}
 }
 
 // Start starts the stream's handler, writer, sender, and dispatcher.
 // We use Stream's wait group to ensure that all of these components are cleanly
 // finalized and closed when the stream is closed in Stream.Close().
 func (s *Stream) Start() {
+	defer s.wg.Done()
+	s.logger.Info("created new stream", "id", s.settings.RunId)
 
-	wg := &sync.WaitGroup{}
+	// handle the client requests
+	s.wg.Add(1)
+	go func() {
+		s.handler.do()
+		s.wg.Done()
+	}()
 
-	// start the handler
-	go s.handler.start()
+	// write the data to a transaction log
+	s.wg.Add(1)
+	go func() {
+		s.writer.do()
+		s.wg.Done()
+	}()
 
-	// start the writer
-	wg.Add(1)
-	go s.writer.start(wg)
+	// send the data to the server
+	s.wg.Add(1)
+	go func() {
+		s.sender.do()
+		s.wg.Done()
+	}()
 
-	// start the sender
-	wg.Add(1)
-	go s.sender.start(wg)
-
-	// start the dispatcher
-	go s.dispatcher.start()
-
-	wg.Wait()
-	s.done <- struct{}{}
+	// dispatch responses to the client
+	s.wg.Add(1)
+	go func() {
+		s.dispatcher.do()
+		s.wg.Done()
+	}()
 }
 
+// HandleRecord handles the given record by sending it to the stream's handler.
 func (s *Stream) HandleRecord(rec *service.Record) {
+	s.logger.Debug("handling record", "record", rec)
 	s.handler.inChan <- rec
-}
-
-func (s *Stream) MarkFinished() {
-	s.finished = true
-}
-
-func (s *Stream) IsFinished() bool {
-	return s.finished
-}
-
-func (s *Stream) GetSettings() *Settings {
-	return s.settings
 }
 
 func (s *Stream) GetRun() *service.RunRecord {
@@ -108,25 +128,34 @@ func (s *Stream) GetRun() *service.RunRecord {
 }
 
 // Close closes the stream's handler, writer, sender, and dispatcher.
-// We first mark the Stream's context as done, which signals to the
-// components that they should close. Each of the components will
-// call Done() on the Stream's wait group when they are finished closing.
-
-func (s *Stream) Close(wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	// todo: is this the best way to handle this?
-	if s.IsFinished() {
-		return
-	}
-
+// This can be triggered by the client (force=False) or by the server (force=True).
+// We need the ExitRecord to initiate the shutdown procedure (which we
+// either get from the client, or generate ourselves if the server is shutting us down).
+// This will trigger the defer state machines (SM) in the stream's components:
+//   - when the sender's SM gets to the final state, it will Close the handler
+//   - this will trigger the handler to Close the writer
+//   - this will trigger the writer to Close the sender
+//   - this will trigger the sender to Close the dispatcher
+//
+// This will finish the Stream's wait group, which will allow the stream to be
+// garbage collected.
+func (s *Stream) Close(force bool) {
 	// send exit record to handler
-	record := &service.Record{RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{}}, Control: &service.Control{AlwaysSend: true}}
-	s.HandleRecord(record)
-	<-s.done
+	if force {
+		record := &service.Record{
+			RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{}},
+			Control:    &service.Control{AlwaysSend: true},
+		}
+		s.HandleRecord(record)
+	}
+	s.wg.Wait()
+	if force {
+		s.PrintFooter()
+	}
+	s.logger.Info("closed stream", "id", s.settings.RunId)
+}
 
-	settings := s.GetSettings()
+func (s *Stream) PrintFooter() {
 	run := s.GetRun()
-	PrintHeadFoot(run, settings)
-	s.MarkFinished()
+	PrintHeadFoot(run, s.settings)
 }

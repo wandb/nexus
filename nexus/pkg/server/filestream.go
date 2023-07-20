@@ -1,64 +1,176 @@
 package server
 
 import (
-	// "flag"
-	// "io"
-	// "google.golang.org/protobuf/reflect/protoreflect"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"sync"
+	"time"
 
+	"github.com/wandb/wandb/nexus/pkg/observability"
+
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/wandb/wandb/nexus/pkg/service"
-
-	"golang.org/x/exp/slog"
 )
 
-const historyFileName = "wandb-history.jsonl"
+const (
+	HistoryFileName = "wandb-history.jsonl"
+	maxItemsPerPush = 5_000
+	delayProcess    = 20 * time.Millisecond
+	heartbeatTime   = 2 * time.Second
+)
+
+var (
+	exitcodeZero int  = 0
+	completeTrue bool = true
+)
+
+type chunkFile int8
+
+const (
+	historyChunk chunkFile = iota
+	outputChunk
+)
+
+type chunkData struct {
+	fileData *chunkLine
+	Exitcode *int
+	Complete *bool
+}
+
+type chunkLine struct {
+	chunkType chunkFile
+	line      string
+}
 
 type FileStream struct {
-	wg     *sync.WaitGroup
-	inChan chan *service.Record
-	path   string
+	recordChan chan *service.Record
+	recordWait *sync.WaitGroup
+	chunkChan  chan chunkData
+	chunkWait  *sync.WaitGroup
+	replyChan  chan map[string]interface{}
+	replyWait  *sync.WaitGroup
+
+	path string
 
 	// FIXME this should be per db
 	offset int
 
-	settings   *Settings
-	logger     *slog.Logger
-	httpClient http.Client
+	settings   *service.Settings
+	logger     *observability.NexusLogger
+	httpClient *retryablehttp.Client
 }
 
-func NewFileStream(path string, settings *Settings, logger *slog.Logger) *FileStream {
+func NewFileStream(path string, settings *service.Settings, logger *observability.NexusLogger) *FileStream {
+	retryClient := newRetryClient(settings.GetApiKey().GetValue(), logger)
 	fs := FileStream{
-		wg:       &sync.WaitGroup{},
-		path:     path,
-		settings: settings,
-		logger:   logger,
-		inChan:   make(chan *service.Record)}
-	fs.wg.Add(1)
-	go fs.start()
+		path:       path,
+		settings:   settings,
+		logger:     logger,
+		httpClient: retryClient,
+		recordChan: make(chan *service.Record),
+		recordWait: &sync.WaitGroup{},
+		chunkChan:  make(chan chunkData),
+		chunkWait:  &sync.WaitGroup{},
+		replyChan:  make(chan map[string]interface{}),
+		replyWait:  &sync.WaitGroup{},
+	}
 	return &fs
 }
 
-func (fs *FileStream) start() {
-	defer fs.wg.Done()
+func (fs *FileStream) Start() {
+	fs.logger.Debug("FileStream: Start")
 
-	slog.Debug("FileStream: OPEN")
+	fs.recordWait.Add(1)
+	go fs.doRecordProcess()
+	fs.chunkWait.Add(1)
+	go fs.doChunkProcess()
+	fs.replyWait.Add(1)
+	go fs.doReplyProcess()
+}
 
-	if fs.settings.Offline {
+func (fs *FileStream) pushRecord(rec *service.Record) {
+	fs.recordChan <- rec
+}
+
+func (fs *FileStream) pushChunk(chunk chunkData) {
+	fs.chunkChan <- chunk
+}
+
+func (fs *FileStream) pushReply(reply map[string]interface{}) {
+	fs.replyChan <- reply
+}
+
+func (fs *FileStream) doRecordProcess() {
+	defer fs.recordWait.Done()
+
+	fs.logger.Debug("FileStream: OPEN")
+
+	if fs.settings.GetXOffline().GetValue() {
 		return
 	}
 
-	fs.httpClient = newHttpClient(fs.settings.ApiKey)
-	for msg := range fs.inChan {
-		slog.Debug("FileStream *******")
-		LogRecord(fs.logger, "FileStream: got record", msg)
+	for msg := range fs.recordChan {
+		fs.logger.Debug("FileStream: got record", "record", msg)
 		fs.streamRecord(msg)
 	}
-	slog.Debug("FileStream: finished")
+	fs.logger.Debug("FileStream: finished")
+}
+
+func (fs *FileStream) doChunkProcess() {
+	defer fs.chunkWait.Done()
+	overflow := false
+
+	for active := true; active; {
+		var chunkList []chunkData
+		select {
+		case chunk, ok := <-fs.chunkChan:
+			if !ok {
+				active = false
+				break
+			}
+			chunkList = append(chunkList, chunk)
+
+			delayTime := delayProcess
+			if overflow {
+				delayTime = 0
+			}
+			delayChan := time.After(delayTime)
+			overflow = false
+
+			for ready := true; ready; {
+				select {
+				case chunk, ok := <-fs.chunkChan:
+					if !ok {
+						ready = false
+						active = false
+						break
+					}
+					chunkList = append(chunkList, chunk)
+					if len(chunkList) >= maxItemsPerPush {
+						ready = false
+						overflow = true
+					}
+				case <-delayChan:
+					ready = false
+				}
+			}
+			fs.sendChunkList(chunkList)
+		case <-time.After(heartbeatTime):
+			if len(chunkList) > 0 {
+				fmt.Println("timeout")  // todo: remove
+				fs.sendChunkList(chunkList)
+			}
+		}
+	}
+}
+
+func (fs *FileStream) doReplyProcess() {
+	defer fs.replyWait.Done()
+	for range fs.replyChan {
+	}
 }
 
 func (fs *FileStream) streamRecord(msg *service.Record) {
@@ -69,103 +181,134 @@ func (fs *FileStream) streamRecord(msg *service.Record) {
 		fs.streamFinish()
 	case nil:
 		// The field is not set.
-		LogFatal(fs.logger, "FileStream: RecordType is nil")
+		err := fmt.Errorf("FileStream: RecordType is nil")
+		fs.logger.CaptureFatalAndPanic("FileStream error: field not set", err)
 	default:
-		LogFatal(fs.logger, fmt.Sprintf("FileStream: Unknown type %T", x))
+		err := fmt.Errorf("FileStream: Unknown type %T", x)
+		fs.logger.CaptureFatalAndPanic("FileStream error: unknown type", err)
 	}
 }
 
 func (fs *FileStream) streamHistory(msg *service.HistoryRecord) {
-
-	type FsChunkData struct {
-		Offset  int      `json:"offset"`
-		Content []string `json:"content"`
-	}
-
-	type FsFilesData struct {
-		Files map[string]FsChunkData `json:"files"`
-	}
-
-	chunk := FsChunkData{
-		Offset:  fs.offset,
-		Content: []string{jsonify(msg, fs.logger)}}
-	fs.offset += 1
-	files := map[string]FsChunkData{
-		historyFileName: chunk,
-	}
-	data := FsFilesData{Files: files}
-	fs.send(data)
+	fs.pushChunk(chunkData{fileData: &chunkLine{chunkType: historyChunk, line: fs.jsonifyHistory(msg)}})
 }
 
 func (fs *FileStream) streamFinish() {
-	type FsFinishedData struct {
-		Complete bool `json:"complete"`
-		Exitcode int  `json:"exitcode"`
-	}
-
-	data := FsFinishedData{Complete: true, Exitcode: 0}
-	fs.send(data)
+	fs.pushChunk(chunkData{Complete: &completeTrue, Exitcode: &exitcodeZero})
 }
 
-func (fs *FileStream) stream(rec *service.Record) {
-	if fs.settings.Offline {
+func (fs *FileStream) StreamRecord(rec *service.Record) {
+	if fs.settings.GetXOffline().GetValue() {
 		return
 	}
-	LogRecord(fs.logger, "+++++FileStream: stream", rec)
-	fs.inChan <- rec
+	fs.logger.Debug("FileStream: stream", "record", rec)
+	fs.pushRecord(rec)
+}
+
+/*
+ * Data to serialize over filestream
+ */
+type FsChunkData struct {
+	Offset  int      `json:"offset"`
+	Content []string `json:"content"`
+}
+
+type FsData struct {
+	Files    map[string]FsChunkData `json:"files,omitempty"`
+	Complete *bool                  `json:"complete,omitempty"`
+	Exitcode *int                   `json:"exitcode,omitempty"`
+}
+
+func (fs *FileStream) sendChunkList(chunks []chunkData) {
+	var lines []string
+	var complete *bool
+	var exitcode *int
+
+	for i := range chunks {
+		if chunks[i].fileData != nil {
+			lines = append(lines, chunks[i].fileData.line)
+		}
+		if chunks[i].Complete != nil {
+			complete = chunks[i].Complete
+		}
+		if chunks[i].Exitcode != nil {
+			exitcode = chunks[i].Exitcode
+		}
+	}
+
+	fsChunk := FsChunkData{
+		Offset:  fs.offset,
+		Content: lines}
+	fs.offset += len(lines)
+	chunkFileName := HistoryFileName
+	var files map[string]FsChunkData
+	if len(lines) > 0 {
+		files = map[string]FsChunkData{
+			chunkFileName: fsChunk,
+		}
+	}
+	data := FsData{Files: files, Complete: complete, Exitcode: exitcode}
+	fs.send(data)
 }
 
 func (fs *FileStream) send(data interface{}) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		LogFatalError(fs.logger, "json marshal error", err)
+		fs.logger.CaptureFatalAndPanic("json marshal error", err)
 	}
 
 	buffer := bytes.NewBuffer(jsonData)
-	req, err := http.NewRequest(http.MethodPost, fs.path, buffer)
+	req, err := retryablehttp.NewRequest(http.MethodPost, fs.path, buffer)
 	if err != nil {
-		LogFatalError(fs.logger, "FileStream: could not create request", err)
+		fs.logger.CaptureFatalAndPanic("FileStream: could not create request", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := fs.httpClient.Do(req)
 	if err != nil {
-		LogFatalError(fs.logger, "FileStream: error making HTTP request", err)
+		fs.logger.CaptureFatalAndPanic("FileStream: error making HTTP request", err)
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
-			LogError(fs.logger, "FileStream: error closing response body", err)
+			fs.logger.CaptureError("FileStream: error closing response body", err)
 		}
 	}(resp.Body)
 
 	var res map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&res)
 	if err != nil {
-		LogError(fs.logger, "json decode error", err)
+		fs.logger.CaptureError("json decode error", err)
 	}
-	slog.Debug(fmt.Sprintf("FileStream: post response: %v", res))
+	fs.pushReply(res)
+
+	fs.logger.Debug(fmt.Sprintf("FileStream: post response: %v", res))
 }
 
-func jsonify(msg *service.HistoryRecord, logger *slog.Logger) string {
+func (fs *FileStream) jsonifyHistory(msg *service.HistoryRecord) string {
 	data := make(map[string]interface{})
 
 	for _, item := range msg.Item {
 		var val interface{}
 		if err := json.Unmarshal([]byte(item.ValueJson), &val); err != nil {
-			LogFatal(logger, fmt.Sprintf("json unmarshal error: %v, items: %v", err, item))
+			e := fmt.Errorf("json unmarshal error: %v, items: %v", err, item)
+			fs.logger.CaptureFatalAndPanic("json unmarshal error", e)
 		}
 		data[item.Key] = val
 	}
 
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		LogError(logger, "json marshal error", err)
+		fs.logger.CaptureFatalAndPanic("json unmarshal error", err)
 	}
 	return string(jsonData)
 }
 
-func (fs *FileStream) close() {
-	slog.Debug("FileStream: CLOSE")
-	close(fs.inChan)
-	fs.wg.Wait()
+func (fs *FileStream) Close() {
+	fs.logger.Debug("FileStream: CLOSE")
+	close(fs.recordChan)
+	fs.recordWait.Wait()
+	close(fs.chunkChan)
+	fs.chunkWait.Wait()
+	close(fs.replyChan)
+	fs.replyWait.Wait()
 }

@@ -1,102 +1,114 @@
 package server
 
 import (
+	"bufio"
 	"context"
-	"fmt"
 	"net"
-	"os"
 	"sync"
 
+	"github.com/wandb/wandb/nexus/pkg/service"
 	"golang.org/x/exp/slog"
+	"google.golang.org/protobuf/proto"
 )
 
-func writePortFile(portFile string, port int) {
-	tempFile := fmt.Sprintf("%s.tmp", portFile)
-	f, err := os.Create(tempFile)
-	if err != nil {
-		LogError(slog.Default(), "fail create", err)
-	}
-	defer func(f *os.File) {
-		_ = f.Close()
-	}(f)
+// Server is the nexus server
+type Server struct {
+	// ctx is the context for the server
+	ctx context.Context
 
-	if _, err = f.WriteString(fmt.Sprintf("sock=%d\n", port)); err != nil {
-		LogError(slog.Default(), "fail write", err)
-	}
+	// listener is the underlying listener
+	listener net.Listener
 
-	if _, err = f.WriteString("EOF"); err != nil {
-		LogError(slog.Default(), "fail write EOF", err)
-	}
+	// wg is the WaitGroup for the server
+	wg sync.WaitGroup
 
-	if err = f.Sync(); err != nil {
-		LogError(slog.Default(), "fail sync", err)
-	}
+	// teardownChan is the channel for signaling and waiting for teardown
+	teardownChan chan struct{}
 
-	if err = os.Rename(tempFile, portFile); err != nil {
-		LogError(slog.Default(), "fail rename", err)
-	}
+	// shutdownChan is the channel for signaling shutdown
+	shutdownChan chan struct{}
 }
 
-type NexusServer struct {
-	shutdownChan chan bool
-	shutdown     bool
-	listen       net.Listener
-}
-
-func tcpServer(portFile string) {
-	addr := "127.0.0.1:0"
-	listen, err := net.Listen("tcp", addr)
+// NewServer creates a new server
+func NewServer(ctx context.Context, addr string, portFile string) *Server {
+	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		LogError(slog.Default(), "cant listen", err)
+		slog.Error("can not listen", "error", err)
+		// TODO: handle error
 	}
 
-	server := NexusServer{shutdownChan: make(chan bool), listen: listen}
+	s := &Server{
+		ctx:          ctx,
+		listener:     listener,
+		wg:           sync.WaitGroup{},
+		teardownChan: make(chan struct{}),
+		shutdownChan: make(chan struct{}),
+	}
 
-	defer func() {
-		err := listen.Close()
-		if err != nil {
-			LogError(slog.Default(), "Error closing listener:", err)
-		}
-		close(server.shutdownChan)
-	}()
-
-	slog.Info(fmt.Sprintf("Server is running on: %v", addr))
-	port := listen.Addr().(*net.TCPAddr).Port
-	slog.Info(fmt.Sprintf("PORT %v", port))
-
+	port := s.listener.Addr().(*net.TCPAddr).Port
 	writePortFile(portFile, port)
 
-	wg := sync.WaitGroup{}
-
-	// Run a separate goroutine to handle incoming connections
-	go func() {
-		for {
-			conn, err := listen.Accept()
-			if err != nil {
-				if server.shutdown {
-					break // Break when shutdown has been requested
-				}
-				LogError(slog.Default(), "Failed to accept conn.", err)
-				continue
-			}
-
-			ctx, cancel := context.WithCancel(context.Background())
-
-			wg.Add(1)
-			go handleConnection(ctx, cancel, &wg, conn, server.shutdownChan)
-		}
-	}()
-
-	// Wait for a shutdown signal
-	<-server.shutdownChan
-	server.shutdown = true
-	slog.Debug("shutting down...")
-
-	slog.Debug("What goes on here in my mind...")
-	wg.Wait()
-	slog.Debug("I think that I am falling down...")
+	s.wg.Add(1)
+	go s.serve(ctx)
+	return s
 }
 
-func WandbService(portFilename string) {
-	tcpServer(portFilename)
+// serve serves the server
+func (s *Server) serve(ctx context.Context) {
+	defer s.wg.Done()
+
+	slog.Info("server is running", "addr", s.listener.Addr())
+	// Run a separate goroutine to handle incoming connections
+	for {
+		conn, err := s.listener.Accept()
+		if err != nil {
+			select {
+			case <-s.shutdownChan:
+				slog.Debug("server shutting down...")
+				return
+			default:
+				slog.Error("failed to accept conn.", "error", err)
+			}
+		} else {
+			s.wg.Add(1)
+			go func() {
+				s.handleConnection(ctx, conn)
+				s.wg.Done()
+			}()
+		}
+	}
+}
+
+// Close closes the server
+func (s *Server) Close() {
+	<-s.teardownChan
+	close(s.shutdownChan)
+	if err := s.listener.Close(); err != nil {
+		slog.Error("failed to Close listener", err)
+	}
+	s.wg.Wait()
+	slog.Info("server is closed")
+}
+
+// handleConnection handles a single connection
+func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
+	nc := NewConnection(ctx, conn, s.teardownChan)
+
+	defer close(nc.inChan)
+
+	scanner := bufio.NewScanner(conn)
+	tokenizer := &Tokenizer{}
+	scanner.Split(tokenizer.split)
+	for scanner.Scan() {
+		msg := &service.ServerRequest{}
+		if err := proto.Unmarshal(scanner.Bytes(), msg); err != nil {
+			slog.Error(
+				"unmarshalling error",
+				"err", err,
+				"conn", conn.RemoteAddr())
+		} else {
+			slog.Debug("received message", "msg", msg, "conn", conn.RemoteAddr())
+			nc.inChan <- msg
+		}
+	}
 }
