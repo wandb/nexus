@@ -116,6 +116,9 @@ func (s *Stream) Start() {
 	s.logger.Debug("starting stream", "id", handlerResultChan)
 
 	// handle dispatching between components
+	// TODO: revisit both of these as we probably just want to use the defer state machine
+	// to resolve the order of closing. We can also use a single channel to handle
+	// all of the components, hence reducing the extra channels.
 	s.wg.Add(1)
 	go func() {
 		for senderResultChan != nil || handlerResultChan != nil {
@@ -139,6 +142,10 @@ func (s *Stream) Start() {
 	}()
 
 	s.wg.Add(1)
+	// TODO: revisit both of these as we probably just want to use the defer state machine
+	// to resolve the order of closing. We can also use a single channel to handle
+	// all of the components, hence reducing the extra channels. We will need to recover from panics for writes on a closed
+	// on the close channel for writes coming from the connections.
 	streamInChan := s.inChan
 	go func() {
 		for senderInChan != nil || streamInChan != nil {
