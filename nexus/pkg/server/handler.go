@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/wandb/wandb/nexus/pkg/monitor"
 	"strconv"
 
 	"github.com/wandb/wandb/nexus/pkg/observability"
@@ -46,14 +47,23 @@ type Handler struct {
 	// historyRecord is the history record used to track
 	// current active history record for the stream
 	historyRecord *service.HistoryRecord
+
+	// systemMonitor is the system monitor for the stream
+	systemMonitor *monitor.SystemMonitor
 }
 
 // NewHandler creates a new handler
-func NewHandler(ctx context.Context, settings *service.Settings, logger *observability.NexusLogger) *Handler {
+func NewHandler(
+	ctx context.Context,
+	settings *service.Settings,
+	logger *observability.NexusLogger,
+	systemMonitor *monitor.SystemMonitor,
+) *Handler {
 	h := &Handler{
-		ctx:      ctx,
-		settings: settings,
-		logger:   logger,
+		ctx:           ctx,
+		settings:      settings,
+		logger:        logger,
+		systemMonitor: systemMonitor,
 	}
 	return h
 }
@@ -120,6 +130,7 @@ func (h *Handler) handleRecord(record *service.Record) {
 	case *service.Record_Run:
 		h.handleRun(record)
 	case *service.Record_Stats:
+		h.handleSystemMetrics(record)
 	case *service.Record_Summary:
 	case *service.Record_Tbrecord:
 	case *service.Record_Telemetry:
@@ -206,6 +217,9 @@ func (h *Handler) handleRunStart(record *service.Record, request *service.RunSta
 	//  attempting to do this before the run start request arrives in the sender
 	//  will cause a segfault because the sender's uploader is not initialized yet.
 	h.handleMetadata(record, request)
+
+	// start the system monitor
+	h.systemMonitor.Do()
 }
 
 func (h *Handler) handleAttach(_ *service.Record, response *service.Response) {
@@ -231,6 +245,10 @@ func (h *Handler) handleMetadata(_ *service.Record, req *service.RunStartRequest
 					Program:   h.settings.GetProgram().GetValue(),
 					StartedAt: req.Run.StartTime}}}}}
 
+	h.sendRecord(record)
+}
+
+func (h *Handler) handleSystemMetrics(record *service.Record) {
 	h.sendRecord(record)
 }
 

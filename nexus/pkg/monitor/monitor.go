@@ -137,7 +137,7 @@ func (mm *MetricsMonitor) Monitor() {
 					// publish metrics
 					// fmt.Println(aggregatedMetrics)
 					record := mm.makeStatsRecord(aggregatedMetrics)
-					// fmt.Println(record)
+					fmt.Println(record)
 					fmt.Println("SENDING RECORD")
 					mm.outChan <- record
 					fmt.Println("RECORD SENT")
