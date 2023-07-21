@@ -1,7 +1,6 @@
 package monitor
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/shirou/gopsutil/v3/mem"
@@ -42,10 +41,6 @@ func (m *Memory) SampleMetrics() {
 		m.metrics["proc.memory.availableMB"],
 		float64(virtualMem.Available)/1024/1024,
 	)
-
-	for metric, samples := range m.metrics {
-		fmt.Println(metric, samples)
-	}
 }
 
 func (m *Memory) AggregateMetrics() map[string]float64 {
