@@ -98,7 +98,7 @@ func (mm *MetricsMonitor) Monitor() {
 	// recover from panic and log the error
 	defer func() {
 		if err := recover(); err != nil {
-			// handle?
+			mm.logger.Debug("panic in metrics monitor", err)
 		}
 	}()
 
