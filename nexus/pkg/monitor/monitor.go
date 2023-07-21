@@ -88,7 +88,7 @@ func NewSystemMonitor(
 	}
 
 	assets := []Asset{
-		NewMemory(),
+		NewMemory(settings),
 	}
 
 	// if asset is available, add it to the list of assets to monitor
