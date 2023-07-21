@@ -179,6 +179,12 @@ func (fs *FileStream) doChunkProcess(inChan <-chan chunkData) {
 				active = false
 				break
 			}
+
+			if chunk.fileName == EventsFileName {
+				fs.sendChunkList([]chunkData{chunk})
+				continue
+			}
+
 			chunkMaps[chunk.fileName] = append(chunkMaps[chunk.fileName], chunk)
 
 			delayTime := delayProcess
@@ -255,13 +261,11 @@ func (fs *FileStream) streamHistory(msg *service.HistoryRecord) {
 
 func (fs *FileStream) streamSystemMetrics(msg *service.StatsRecord) {
 	// todo: there is a lot of unnecessary overhead here,
-	//  we should prepare all the data in system monitor
+	//  we should prepare all the data in the system monitor
 	//  and then send it in one record
-	fmt.Println("Got me some system metrics")
-
 	row := make(map[string]interface{})
 	row["_wandb"] = true
-	timestamp := float64(msg.GetTimestamp().Seconds) + float64(msg.GetTimestamp().Nanos/1e9)
+	timestamp := float64(msg.GetTimestamp().Seconds) + float64(msg.GetTimestamp().Nanos)/1e9
 	row["_timestamp"] = timestamp
 	row["_runtime"] = timestamp - fs.settings.XStartTime.GetValue()
 
@@ -280,7 +284,7 @@ func (fs *FileStream) streamSystemMetrics(msg *service.StatsRecord) {
 	// marshal the row
 	line, err := json.Marshal(row)
 	if err != nil {
-		fs.logger.CaptureError("sender: sendSystemMetrics: failed to marshal row", err)
+		fs.logger.CaptureError("sender: sendSystemMetrics: failed to marshal system metrics", err)
 		return
 	}
 

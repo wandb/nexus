@@ -73,7 +73,7 @@ func (mm *MetricsMonitor) makeStatsRecord(stats map[string]float64) *service.Rec
 		RecordType: &service.Record_Stats{
 			Stats: &service.StatsRecord{
 				StatsType: service.StatsRecord_SYSTEM,
-				Timestamp: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
+				Timestamp: timestamppb.Now(),
 			},
 		},
 		Control: &service.Control{AlwaysSend: true},
@@ -105,13 +105,20 @@ func (mm *MetricsMonitor) Monitor() {
 	// todo: rename the setting...should be SamplingIntervalSeconds
 	samplingInterval := time.Duration(mm.settings.XStatsSampleRateSeconds.GetValue() * float64(time.Second))
 	samplesToAverage := mm.settings.XStatsSamplesToAverage.GetValue()
-	// fmt.Println(samplingInterval, samplesToAverage)
+	mm.logger.Debug(
+		fmt.Sprintf(
+			"samplingInterval: %v, samplesToAverage: %v",
+			samplingInterval,
+			samplesToAverage,
+		),
+	)
 
 	// Create a ticker that fires every `samplingInterval` seconds
 	ticker := time.NewTicker(samplingInterval)
 	defer ticker.Stop()
 
-	// Create a new channel and immediately send a signal
+	// Create a new channel and immediately send a signal to it.
+	// This is to ensure that the first sample is taken immediately.
 	tickChan := make(chan time.Time, 1)
 	tickChan <- time.Now()
 
@@ -127,36 +134,28 @@ func (mm *MetricsMonitor) Monitor() {
 	for {
 		select {
 		case <-mm.ctx.Done():
-			fmt.Println("CLOSING")
 			return
 		case <-tickChan:
-			fmt.Println("TICK")
-			// time.Sleep(1 * time.Second)
-			fmt.Println("current time:", time.Now().Format(time.RFC3339Nano))
 			for _, metric := range mm.metrics {
 				metric.Sample()
 			}
 			samplesCollected++
-			fmt.Println("samples collected:", samplesCollected)
 
 			if samplesCollected == samplesToAverage {
 				aggregatedMetrics := mm.aggregate()
 				if len(aggregatedMetrics) > 0 {
 					// publish metrics
-					// fmt.Println(aggregatedMetrics)
 					record := mm.makeStatsRecord(aggregatedMetrics)
-					fmt.Println(record)
-					fmt.Println("SENDING RECORD")
 					mm.outChan <- record
-					fmt.Println("RECORD SENT")
+
+					for _, metric := range mm.metrics {
+						metric.Clear()
+					}
 				}
-				for _, metric := range mm.metrics {
-					metric.Clear()
-				}
+
 				// reset samplesCollected
 				samplesCollected = int32(0)
 			}
-			fmt.Println("TICK DONE")
 		}
 	}
 }
@@ -171,19 +170,13 @@ func (mm *MetricsMonitor) aggregate() map[string]float64 {
 }
 
 func (mm *MetricsMonitor) Stop() {
-	mm.logger.Info("Stopping metrics monitor")
-	fmt.Println("Stopping metrics monitor")
-	close(mm.outChan)
+	mm.logger.Info("Stopping asset metrics monitor")
 	mm.cancel()
-	fmt.Println("Cancel called")
 	mm.wg.Wait()
+	mm.logger.Info("Stopped asset metrics monitor")
 }
 
 type SystemMonitor struct {
-	// ctx is the context for the system monitor
-	ctx    context.Context
-	cancel context.CancelFunc
-
 	// assets is the list of assets to monitor
 	assets []Asset
 
@@ -199,16 +192,13 @@ type SystemMonitor struct {
 
 // NewSystemMonitor creates a new SystemMonitor with the given settings
 func NewSystemMonitor(
-	ctx context.Context,
 	outChan chan<- *service.Record,
 	settings *service.Settings,
 	logger *observability.NexusLogger,
 ) *SystemMonitor {
-	ctx, cancel := context.WithCancel(ctx)
 
 	systemMonitor := &SystemMonitor{
-		ctx:      ctx,
-		cancel:   cancel,
+		OutChan:  outChan,
 		logger:   logger,
 		settings: settings,
 	}
@@ -222,7 +212,6 @@ func NewSystemMonitor(
 
 func (sm *SystemMonitor) Do() {
 	sm.logger.Info("Starting system monitor")
-
 	// start monitoring the assets
 	for _, asset := range sm.assets {
 		asset.Start()
@@ -232,10 +221,8 @@ func (sm *SystemMonitor) Do() {
 
 func (sm *SystemMonitor) Stop() {
 	sm.logger.Info("Stopping system monitor")
-	sm.cancel()
-
 	wg := &sync.WaitGroup{}
-
+	close(sm.OutChan)
 	for _, asset := range sm.assets {
 		wg.Add(1)
 		go func(asset Asset) {
@@ -243,6 +230,6 @@ func (sm *SystemMonitor) Stop() {
 			wg.Done()
 		}(asset)
 	}
-	fmt.Println("waiting for all assets to stop")
 	wg.Wait()
+	sm.logger.Info("Stopped system monitor")
 }

@@ -104,7 +104,7 @@ func (s *Stream) Start() {
 
 	// init the system monitor
 	systemMonitorChan := make(chan *service.Record, BufferSize)
-	systemMonitor := monitor.NewSystemMonitor(s.ctx, systemMonitorChan, s.settings, s.logger)
+	systemMonitor := monitor.NewSystemMonitor(systemMonitorChan, s.settings, s.logger)
 
 	// handle the client requests
 	s.handler = NewHandler(s.ctx, s.settings, s.logger, systemMonitor)

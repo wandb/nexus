@@ -179,21 +179,33 @@ func (h *Handler) handleDefer(record *service.Record) {
 	request := record.GetRequest().GetDefer()
 	switch request.State {
 	case service.DeferRequest_BEGIN:
-		fmt.Println("handleDefer: begin")
+		h.logger.Debug("handleDefer: begin", "stream_id", h.settings.RunId)
 	case service.DeferRequest_FLUSH_STATS:
+		h.logger.Debug("handleDefer: flush stats", "stream_id", h.settings.RunId)
 		h.systemMonitor.Stop()
 	case service.DeferRequest_FLUSH_PARTIAL_HISTORY:
+		h.logger.Debug("handleDefer: flush partial history", "stream_id", h.settings.RunId)
 		h.flushHistory(h.historyRecord)
 	case service.DeferRequest_FLUSH_TB:
+		h.logger.Debug("handleDefer: flush tb", "stream_id", h.settings.RunId)
 	case service.DeferRequest_FLUSH_SUM:
+		h.logger.Debug("handleDefer: flush sum", "stream_id", h.settings.RunId)
 	case service.DeferRequest_FLUSH_DEBOUNCER:
+		h.logger.Debug("handleDefer: flush debouncer", "stream_id", h.settings.RunId)
 	case service.DeferRequest_FLUSH_OUTPUT:
+		h.logger.Debug("handleDefer: flush output", "stream_id", h.settings.RunId)
 	case service.DeferRequest_FLUSH_DIR:
+		h.logger.Debug("handleDefer: flush dir", "stream_id", h.settings.RunId)
 	case service.DeferRequest_FLUSH_FP:
+		h.logger.Debug("handleDefer: flush fp", "stream_id", h.settings.RunId)
 	case service.DeferRequest_JOIN_FP:
+		h.logger.Debug("handleDefer: join fp", "stream_id", h.settings.RunId)
 	case service.DeferRequest_FLUSH_FS:
+		h.logger.Debug("handleDefer: flush fs", "stream_id", h.settings.RunId)
 	case service.DeferRequest_FLUSH_FINAL:
+		h.logger.Debug("handleDefer: flush final", "stream_id", h.settings.RunId)
 	case service.DeferRequest_END:
+		h.logger.Debug("handleDefer: end", "stream_id", h.settings.RunId)
 	default:
 		err := fmt.Errorf("handleDefer: unknown defer state %v", request.State)
 		h.logger.CaptureError("unknown defer state", err)
