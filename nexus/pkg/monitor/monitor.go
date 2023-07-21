@@ -149,7 +149,7 @@ func (sm *SystemMonitor) Monitor(asset Asset) {
 
 	samplesCollected := int32(0)
 
-	for _ = range tickChan {
+	for range tickChan {
 		asset.SampleMetrics()
 		samplesCollected++
 
