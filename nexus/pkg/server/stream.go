@@ -2,8 +2,9 @@ package server
 
 import (
 	"context"
-	"github.com/wandb/wandb/nexus/pkg/monitor"
 	"sync"
+
+	"github.com/wandb/wandb/nexus/pkg/monitor"
 
 	"github.com/wandb/wandb/nexus/pkg/observability"
 

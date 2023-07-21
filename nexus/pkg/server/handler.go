@@ -3,8 +3,9 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/wandb/wandb/nexus/pkg/monitor"
 	"strconv"
+
+	"github.com/wandb/wandb/nexus/pkg/monitor"
 
 	"github.com/wandb/wandb/nexus/pkg/observability"
 
