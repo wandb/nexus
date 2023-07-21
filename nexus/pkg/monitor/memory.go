@@ -60,9 +60,7 @@ func (m *Memory) ClearMetrics() {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
-	for metric := range m.metrics {
-		m.metrics[metric] = []float64{}
-	}
+	m.metrics = map[string][]float64{}
 }
 
 func (m *Memory) IsAvailable() bool { return true }
