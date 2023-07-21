@@ -1,23 +1,26 @@
 package monitor
 
 import (
+	"github.com/wandb/wandb/nexus/pkg/service"
 	"sync"
 
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
 type Memory struct {
-	name    string
-	metrics map[string][]float64
-	mutex   sync.RWMutex
+	name     string
+	metrics  map[string][]float64
+	settings *service.Settings
+	mutex    sync.RWMutex
 }
 
-func NewMemory() *Memory {
+func NewMemory(settings *service.Settings) *Memory {
 	metrics := map[string][]float64{}
 
 	memory := &Memory{
-		name:    "memory",
-		metrics: metrics,
+		name:     "memory",
+		metrics:  metrics,
+		settings: settings,
 	}
 
 	return memory
@@ -31,6 +34,9 @@ func (m *Memory) SampleMetrics() {
 
 	virtualMem, _ := mem.VirtualMemory()
 
+	// process-related metrics
+	// process := process.Process{int32(m.settings.XStatsPid.GetValue())}
+
 	// total system memory usage in percent
 	m.metrics["memory_percent"] = append(
 		m.metrics["memory_percent"],
@@ -41,6 +47,7 @@ func (m *Memory) SampleMetrics() {
 		m.metrics["proc.memory.availableMB"],
 		float64(virtualMem.Available)/1024/1024,
 	)
+	//
 }
 
 func (m *Memory) AggregateMetrics() map[string]float64 {
