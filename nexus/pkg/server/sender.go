@@ -146,23 +146,19 @@ func (s *Sender) sendMetadata(request *service.MetadataRequest) {
 func (s *Sender) sendDefer(request *service.DeferRequest) {
 	switch request.State {
 	case service.DeferRequest_FLUSH_FP:
-		s.logger.Debug("sender: sendDefer: flush file stream", "stream_id", s.settings.RunId)
 		s.uploader.Close()
 		request.State++
 		s.sendRequestDefer(request)
 	case service.DeferRequest_FLUSH_FS:
-		s.logger.Debug("sender: sendDefer: flush file stream", "stream_id", s.settings.RunId)
 		if s.fileStream != nil {
 			s.fileStream.Close()
 		}
 		request.State++
 		s.sendRequestDefer(request)
 	case service.DeferRequest_END:
-		s.logger.Debug("sender: sendDefer: end", "stream_id", s.settings.RunId)
 		close(s.recordChan)
 		close(s.resultChan)
 	default:
-		s.logger.Debug("sender: sendDefer: moving to next state", "state", request.State, "stream_id", s.settings.RunId)
 		request.State++
 		s.sendRequestDefer(request)
 	}
