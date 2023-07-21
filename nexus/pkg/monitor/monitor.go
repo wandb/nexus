@@ -1,7 +1,6 @@
 package monitor
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -58,11 +57,6 @@ type Asset interface {
 }
 
 type SystemMonitor struct {
-	// ctx is the context for the system monitor
-	ctx context.Context
-	// cancel is the context cancel function for the system monitor
-	cancel context.CancelFunc
-
 	// wg is the wait group for the system monitor
 	wg sync.WaitGroup
 
@@ -85,11 +79,8 @@ func NewSystemMonitor(
 	settings *service.Settings,
 	logger *observability.NexusLogger,
 ) *SystemMonitor {
-	ctx, cancel := context.WithCancel(context.Background())
 
 	systemMonitor := &SystemMonitor{
-		ctx:      ctx,
-		cancel:   cancel,
 		wg:       sync.WaitGroup{},
 		OutChan:  outChan,
 		settings: settings,
@@ -158,34 +149,29 @@ func (sm *SystemMonitor) Monitor(asset Asset) {
 
 	samplesCollected := int32(0)
 
-	for {
-		select {
-		case <-sm.ctx.Done():
-			return
-		case <-tickChan:
-			asset.SampleMetrics()
-			samplesCollected++
+	for _ = range tickChan {
+		asset.SampleMetrics()
+		samplesCollected++
 
-			if samplesCollected == samplesToAverage {
-				aggregatedMetrics := asset.AggregateMetrics()
-				if len(aggregatedMetrics) > 0 {
-					// publish metrics
-					record := makeStatsRecord(aggregatedMetrics)
-					sm.OutChan <- record
+		if samplesCollected == samplesToAverage {
+			aggregatedMetrics := asset.AggregateMetrics()
+			if len(aggregatedMetrics) > 0 {
+				// publish metrics
+				record := makeStatsRecord(aggregatedMetrics)
+				sm.OutChan <- record
 
-					asset.ClearMetrics()
-				}
-
-				// reset samplesCollected
-				samplesCollected = int32(0)
+				asset.ClearMetrics()
 			}
+
+			// reset samplesCollected
+			samplesCollected = int32(0)
 		}
 	}
+
 }
 
 func (sm *SystemMonitor) Stop() {
 	sm.logger.Info("Stopping system monitor")
-	sm.cancel()
 	close(sm.OutChan)
 	sm.wg.Wait()
 	sm.logger.Info("Stopped system monitor")
