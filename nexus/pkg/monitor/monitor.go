@@ -63,6 +63,7 @@ type SystemMonitor struct {
 	// cancel is the context cancel function for the system monitor
 	cancel context.CancelFunc
 
+	// wg is the wait group for the system monitor
 	wg sync.WaitGroup
 
 	// assets is the list of assets to monitor
