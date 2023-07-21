@@ -12,7 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const BufferSize = 0
+const BufferSize = 32
 
 // Server is the nexus server
 type Server struct {
