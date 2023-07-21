@@ -14,10 +14,7 @@ type Memory struct {
 }
 
 func NewMemory() *Memory {
-	metrics := map[string][]float64{
-		"memory_percent":          []float64{}, // total system memory usage in percent
-		"proc.memory.availableMB": []float64{}, // total system memory available in MB
-	}
+	metrics := map[string][]float64{}
 
 	memory := &Memory{
 		name:    "memory",
@@ -34,10 +31,13 @@ func (m *Memory) SampleMetrics() {
 	defer m.mutex.RUnlock()
 
 	virtualMem, _ := mem.VirtualMemory()
+
+	// total system memory usage in percent
 	m.metrics["memory_percent"] = append(
 		m.metrics["memory_percent"],
 		virtualMem.UsedPercent,
 	)
+	// total system memory available in MB
 	m.metrics["proc.memory.availableMB"] = append(
 		m.metrics["proc.memory.availableMB"],
 		float64(virtualMem.Available)/1024/1024,
