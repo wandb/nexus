@@ -92,6 +92,8 @@ func (s *Sender) sendRecord(record *service.Record) {
 		s.sendHistory(record, x.History)
 	case *service.Record_Stats:
 		s.sendSystemMetrics(record, x.Stats)
+	case *service.Record_OutputRaw:
+		s.sendOutputRaw(record, x.OutputRaw)
 	case *service.Record_Request:
 		s.sendRequest(record, x.Request)
 	case nil:
@@ -281,6 +283,12 @@ func (s *Sender) sendHistory(record *service.Record, _ *service.HistoryRecord) {
 }
 
 func (s *Sender) sendSystemMetrics(record *service.Record, _ *service.StatsRecord) {
+	if s.fileStream != nil {
+		s.fileStream.StreamRecord(record)
+	}
+}
+
+func (s *Sender) sendOutputRaw(record *service.Record, _ *service.OutputRawRecord) {
 	if s.fileStream != nil {
 		s.fileStream.StreamRecord(record)
 	}
