@@ -179,7 +179,9 @@ func (h *Handler) handleDefer(record *service.Record) {
 	request := record.GetRequest().GetDefer()
 	switch request.State {
 	case service.DeferRequest_BEGIN:
+		fmt.Println("handleDefer: begin")
 	case service.DeferRequest_FLUSH_STATS:
+		h.systemMonitor.Stop()
 	case service.DeferRequest_FLUSH_PARTIAL_HISTORY:
 		h.flushHistory(h.historyRecord)
 	case service.DeferRequest_FLUSH_TB:

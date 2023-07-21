@@ -94,6 +94,14 @@ func (mm *MetricsMonitor) makeStatsRecord(stats map[string]float64) *service.Rec
 }
 
 func (mm *MetricsMonitor) Monitor() {
+
+	// recover from panic and log the error
+	defer func() {
+		if err := recover(); err != nil {
+			// handle?
+		}
+	}()
+
 	// todo: rename the setting...should be SamplingIntervalSeconds
 	samplingInterval := time.Duration(mm.settings.XStatsSampleRateSeconds.GetValue() * float64(time.Second))
 	samplesToAverage := mm.settings.XStatsSamplesToAverage.GetValue()
@@ -123,7 +131,7 @@ func (mm *MetricsMonitor) Monitor() {
 			return
 		case <-tickChan:
 			fmt.Println("TICK")
-			time.Sleep(1 * time.Second)
+			// time.Sleep(1 * time.Second)
 			fmt.Println("current time:", time.Now().Format(time.RFC3339Nano))
 			for _, metric := range mm.metrics {
 				metric.Sample()
@@ -165,6 +173,7 @@ func (mm *MetricsMonitor) aggregate() map[string]float64 {
 func (mm *MetricsMonitor) Stop() {
 	mm.logger.Info("Stopping metrics monitor")
 	fmt.Println("Stopping metrics monitor")
+	close(mm.outChan)
 	mm.cancel()
 	fmt.Println("Cancel called")
 	mm.wg.Wait()

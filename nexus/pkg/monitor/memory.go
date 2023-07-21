@@ -87,7 +87,7 @@ func NewMemory(
 ) *Memory {
 	metrics := []Metric{
 		&MemoryPercent{
-			name:    "memory",
+			name:    "memory_percent",
 			samples: []float64{},
 		},
 		&MemoryAvailable{

@@ -103,7 +103,7 @@ func (s *Stream) Start() {
 	//  a pattern to handle multiple writers
 
 	// init the system monitor
-	systemMonitorChan := make(chan *service.Record, 100)
+	systemMonitorChan := make(chan *service.Record, BufferSize)
 	systemMonitor := monitor.NewSystemMonitor(s.ctx, systemMonitorChan, s.settings, s.logger)
 
 	// handle the client requests
