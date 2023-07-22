@@ -1,8 +1,9 @@
 package monitor
 
 import (
-	"github.com/shirou/gopsutil/v3/disk"
 	"sync"
+
+	"github.com/shirou/gopsutil/v3/disk"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
 )
