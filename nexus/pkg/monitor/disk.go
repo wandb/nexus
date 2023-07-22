@@ -41,6 +41,8 @@ func (d *Disk) SampleMetrics() {
 		)
 	}
 
+	// todo: IO counters
+	// ioCounters, err := disk.IOCounters("/")
 }
 
 func (d *Disk) AggregateMetrics() map[string]float64 {
@@ -71,6 +73,10 @@ func (d *Disk) IsAvailable() bool { return true }
 
 func (d *Disk) Probe() map[string]map[string]interface{} {
 	info := make(map[string]map[string]interface{})
-	// todo: add cpu info
+	usage, err := disk.Usage("/")
+	if err == nil {
+		info["disk"]["total"] = usage.Total / 1024 / 1024 / 1024
+		info["disk"]["used"] = usage.Used / 1024 / 1024 / 1024
+	}
 	return info
 }
