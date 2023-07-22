@@ -6,6 +6,7 @@ import (
 	"github.com/wandb/wandb/nexus/pkg/service"
 
 	"github.com/shirou/gopsutil/v3/mem"
+	"github.com/shirou/gopsutil/v3/process"
 )
 
 type Memory struct {
@@ -36,8 +37,18 @@ func (m *Memory) SampleMetrics() {
 	virtualMem, _ := mem.VirtualMemory()
 
 	// process-related metrics
-	// process := process.Process{int32(m.settings.XStatsPid.GetValue())}
-
+	proc := process.Process{Pid: int32(m.settings.XStatsPid.GetValue())}
+	procMem, _ := proc.MemoryInfo()
+	// process memory usage in MB
+	m.metrics["proc.memory.rssMB"] = append(
+		m.metrics["proc.memory.rssMB"],
+		float64(procMem.RSS)/1024/1024,
+	)
+	// process memory usage in percent
+	m.metrics["proc.memory.percent"] = append(
+		m.metrics["proc.memory.percent"],
+		float64(procMem.RSS)/float64(virtualMem.Total)*100,
+	)
 	// total system memory usage in percent
 	m.metrics["memory_percent"] = append(
 		m.metrics["memory_percent"],
