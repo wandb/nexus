@@ -158,27 +158,32 @@ func (sm *SystemMonitor) Monitor(asset Asset) {
 
 	samplesCollected := int32(0)
 
-	for range tickChan {
-		asset.SampleMetrics()
-		samplesCollected++
+	for {
+		select {
+		case <-sm.ctx.Done():
+			return
+		case <-tickChan:
+			asset.SampleMetrics()
+			samplesCollected++
 
-		if samplesCollected == samplesToAverage {
-			aggregatedMetrics := asset.AggregateMetrics()
-			if len(aggregatedMetrics) > 0 {
-				// publish metrics
-				record := makeStatsRecord(aggregatedMetrics)
-				// ensure that the context is not done before sending the record
-				select {
-				case <-sm.ctx.Done():
-					return
-				default:
-					sm.OutChan <- record
+			if samplesCollected == samplesToAverage {
+				aggregatedMetrics := asset.AggregateMetrics()
+				if len(aggregatedMetrics) > 0 {
+					// publish metrics
+					record := makeStatsRecord(aggregatedMetrics)
+					// ensure that the context is not done before sending the record
+					select {
+					case <-sm.ctx.Done():
+						return
+					default:
+						sm.OutChan <- record
+					}
+					asset.ClearMetrics()
 				}
-				asset.ClearMetrics()
-			}
 
-			// reset samplesCollected
-			samplesCollected = int32(0)
+				// reset samplesCollected
+				samplesCollected = int32(0)
+			}
 		}
 	}
 
