@@ -104,6 +104,7 @@ func NewSystemMonitor(
 		NewMemory(settings),
 		NewCPU(settings),
 		NewDisk(settings),
+		NewNetwork(settings),
 	}
 
 	// if asset is available, add it to the list of assets to monitor

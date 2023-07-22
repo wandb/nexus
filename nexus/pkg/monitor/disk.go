@@ -18,13 +18,13 @@ type Disk struct {
 func NewDisk(settings *service.Settings) *Disk {
 	metrics := map[string][]float64{}
 
-	processor := &Disk{
+	d := &Disk{
 		name:     "disk",
 		metrics:  metrics,
 		settings: settings,
 	}
 
-	return processor
+	return d
 }
 
 func (d *Disk) Name() string { return d.name }
@@ -35,7 +35,7 @@ func (d *Disk) SampleMetrics() {
 
 	usage, err := disk.Usage("/")
 	if err == nil {
-		// total system memory usage in percent
+		// used disk space as a percentage
 		d.metrics["disk"] = append(
 			d.metrics["disk"],
 			usage.UsedPercent,
@@ -53,11 +53,7 @@ func (d *Disk) AggregateMetrics() map[string]float64 {
 	aggregates := make(map[string]float64)
 	for metric, samples := range d.metrics {
 		if len(samples) > 0 {
-			if metric == "proc.cpu.threads" {
-				aggregates[metric] = samples[len(samples)-1]
-				continue
-			}
-			aggregates[metric] = Average(samples)
+			aggregates[metric] = samples[len(samples)-1]
 		}
 	}
 	return aggregates
