@@ -2,8 +2,9 @@ package monitor
 
 import (
 	"fmt"
-	"github.com/shirou/gopsutil/v3/cpu"
 	"sync"
+
+	"github.com/shirou/gopsutil/v3/cpu"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
 
