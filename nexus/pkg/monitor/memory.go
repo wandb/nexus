@@ -59,7 +59,6 @@ func (m *Memory) SampleMetrics() {
 		m.metrics["proc.memory.availableMB"],
 		float64(virtualMem.Available)/1024/1024,
 	)
-	//
 }
 
 func (m *Memory) AggregateMetrics() map[string]float64 {
