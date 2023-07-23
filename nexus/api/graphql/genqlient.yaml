@@ -12,3 +12,5 @@ bindings:
     type: string
   DateTime:
     type: time.Time
+  Int64:
+    type: int

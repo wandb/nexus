@@ -9,6 +9,125 @@ import (
 	"github.com/Khan/genqlient/graphql"
 )
 
+type ArtifactAliasInput struct {
+	ArtifactCollectionName string `json:"artifactCollectionName"`
+	Alias                  string `json:"alias"`
+}
+
+// GetArtifactCollectionName returns ArtifactAliasInput.ArtifactCollectionName, and is useful for accessing the field via an interface.
+func (v *ArtifactAliasInput) GetArtifactCollectionName() string { return v.ArtifactCollectionName }
+
+// GetAlias returns ArtifactAliasInput.Alias, and is useful for accessing the field via an interface.
+func (v *ArtifactAliasInput) GetAlias() string { return v.Alias }
+
+type ArtifactState string
+
+const (
+	ArtifactStatePending   ArtifactState = "PENDING"
+	ArtifactStateCommitted ArtifactState = "COMMITTED"
+	ArtifactStateDeleted   ArtifactState = "DELETED"
+)
+
+// CreateArtifactCreateArtifactCreateArtifactPayload includes the requested fields of the GraphQL type CreateArtifactPayload.
+type CreateArtifactCreateArtifactCreateArtifactPayload struct {
+	Artifact CreateArtifactCreateArtifactCreateArtifactPayloadArtifact `json:"artifact"`
+}
+
+// GetArtifact returns CreateArtifactCreateArtifactCreateArtifactPayload.Artifact, and is useful for accessing the field via an interface.
+func (v *CreateArtifactCreateArtifactCreateArtifactPayload) GetArtifact() CreateArtifactCreateArtifactCreateArtifactPayloadArtifact {
+	return v.Artifact
+}
+
+// CreateArtifactCreateArtifactCreateArtifactPayloadArtifact includes the requested fields of the GraphQL type Artifact.
+type CreateArtifactCreateArtifactCreateArtifactPayloadArtifact struct {
+	Id               string                                                                          `json:"id"`
+	Digest           string                                                                          `json:"digest"`
+	State            ArtifactState                                                                   `json:"state"`
+	Aliases          []CreateArtifactCreateArtifactCreateArtifactPayloadArtifactAliasesArtifactAlias `json:"aliases"`
+	ArtifactSequence CreateArtifactCreateArtifactCreateArtifactPayloadArtifactArtifactSequence       `json:"artifactSequence"`
+}
+
+// GetId returns CreateArtifactCreateArtifactCreateArtifactPayloadArtifact.Id, and is useful for accessing the field via an interface.
+func (v *CreateArtifactCreateArtifactCreateArtifactPayloadArtifact) GetId() string { return v.Id }
+
+// GetDigest returns CreateArtifactCreateArtifactCreateArtifactPayloadArtifact.Digest, and is useful for accessing the field via an interface.
+func (v *CreateArtifactCreateArtifactCreateArtifactPayloadArtifact) GetDigest() string {
+	return v.Digest
+}
+
+// GetState returns CreateArtifactCreateArtifactCreateArtifactPayloadArtifact.State, and is useful for accessing the field via an interface.
+func (v *CreateArtifactCreateArtifactCreateArtifactPayloadArtifact) GetState() ArtifactState {
+	return v.State
+}
+
+// GetAliases returns CreateArtifactCreateArtifactCreateArtifactPayloadArtifact.Aliases, and is useful for accessing the field via an interface.
+func (v *CreateArtifactCreateArtifactCreateArtifactPayloadArtifact) GetAliases() []CreateArtifactCreateArtifactCreateArtifactPayloadArtifactAliasesArtifactAlias {
+	return v.Aliases
+}
+
+// GetArtifactSequence returns CreateArtifactCreateArtifactCreateArtifactPayloadArtifact.ArtifactSequence, and is useful for accessing the field via an interface.
+func (v *CreateArtifactCreateArtifactCreateArtifactPayloadArtifact) GetArtifactSequence() CreateArtifactCreateArtifactCreateArtifactPayloadArtifactArtifactSequence {
+	return v.ArtifactSequence
+}
+
+// CreateArtifactCreateArtifactCreateArtifactPayloadArtifactAliasesArtifactAlias includes the requested fields of the GraphQL type ArtifactAlias.
+type CreateArtifactCreateArtifactCreateArtifactPayloadArtifactAliasesArtifactAlias struct {
+	ArtifactCollectionName string `json:"artifactCollectionName"`
+	Alias                  string `json:"alias"`
+}
+
+// GetArtifactCollectionName returns CreateArtifactCreateArtifactCreateArtifactPayloadArtifactAliasesArtifactAlias.ArtifactCollectionName, and is useful for accessing the field via an interface.
+func (v *CreateArtifactCreateArtifactCreateArtifactPayloadArtifactAliasesArtifactAlias) GetArtifactCollectionName() string {
+	return v.ArtifactCollectionName
+}
+
+// GetAlias returns CreateArtifactCreateArtifactCreateArtifactPayloadArtifactAliasesArtifactAlias.Alias, and is useful for accessing the field via an interface.
+func (v *CreateArtifactCreateArtifactCreateArtifactPayloadArtifactAliasesArtifactAlias) GetAlias() string {
+	return v.Alias
+}
+
+// CreateArtifactCreateArtifactCreateArtifactPayloadArtifactArtifactSequence includes the requested fields of the GraphQL type ArtifactSequence.
+type CreateArtifactCreateArtifactCreateArtifactPayloadArtifactArtifactSequence struct {
+	Id             string                                                                                   `json:"id"`
+	LatestArtifact *CreateArtifactCreateArtifactCreateArtifactPayloadArtifactArtifactSequenceLatestArtifact `json:"latestArtifact"`
+}
+
+// GetId returns CreateArtifactCreateArtifactCreateArtifactPayloadArtifactArtifactSequence.Id, and is useful for accessing the field via an interface.
+func (v *CreateArtifactCreateArtifactCreateArtifactPayloadArtifactArtifactSequence) GetId() string {
+	return v.Id
+}
+
+// GetLatestArtifact returns CreateArtifactCreateArtifactCreateArtifactPayloadArtifactArtifactSequence.LatestArtifact, and is useful for accessing the field via an interface.
+func (v *CreateArtifactCreateArtifactCreateArtifactPayloadArtifactArtifactSequence) GetLatestArtifact() *CreateArtifactCreateArtifactCreateArtifactPayloadArtifactArtifactSequenceLatestArtifact {
+	return v.LatestArtifact
+}
+
+// CreateArtifactCreateArtifactCreateArtifactPayloadArtifactArtifactSequenceLatestArtifact includes the requested fields of the GraphQL type Artifact.
+type CreateArtifactCreateArtifactCreateArtifactPayloadArtifactArtifactSequenceLatestArtifact struct {
+	Id           string `json:"id"`
+	VersionIndex *int   `json:"versionIndex"`
+}
+
+// GetId returns CreateArtifactCreateArtifactCreateArtifactPayloadArtifactArtifactSequenceLatestArtifact.Id, and is useful for accessing the field via an interface.
+func (v *CreateArtifactCreateArtifactCreateArtifactPayloadArtifactArtifactSequenceLatestArtifact) GetId() string {
+	return v.Id
+}
+
+// GetVersionIndex returns CreateArtifactCreateArtifactCreateArtifactPayloadArtifactArtifactSequenceLatestArtifact.VersionIndex, and is useful for accessing the field via an interface.
+func (v *CreateArtifactCreateArtifactCreateArtifactPayloadArtifactArtifactSequenceLatestArtifact) GetVersionIndex() *int {
+	return v.VersionIndex
+}
+
+// CreateArtifactResponse is returned by CreateArtifact on success.
+type CreateArtifactResponse struct {
+	CreateArtifact *CreateArtifactCreateArtifactCreateArtifactPayload `json:"createArtifact"`
+}
+
+// GetCreateArtifact returns CreateArtifactResponse.CreateArtifact, and is useful for accessing the field via an interface.
+func (v *CreateArtifactResponse) GetCreateArtifact() *CreateArtifactCreateArtifactCreateArtifactPayload {
+	return v.CreateArtifact
+}
+
 // RunUploadUrlsModelProject includes the requested fields of the GraphQL type Project.
 type RunUploadUrlsModelProject struct {
 	Bucket *RunUploadUrlsModelProjectBucketRun `json:"bucket"`
@@ -243,6 +362,74 @@ func (v *ViewerViewerUserTeamsEntityConnectionEdgesEntityEdgeNodeEntity) GetName
 	return v.Name
 }
 
+// __CreateArtifactInput is used internally by genqlient
+type __CreateArtifactInput struct {
+	ArtifactTypeName          string               `json:"artifactTypeName"`
+	ArtifactCollectionNames   []string             `json:"artifactCollectionNames"`
+	EntityName                string               `json:"entityName"`
+	ProjectName               string               `json:"projectName"`
+	RunName                   *string              `json:"runName"`
+	Description               *string              `json:"description"`
+	Digest                    string               `json:"digest"`
+	Labels                    *string              `json:"labels"`
+	Aliases                   []ArtifactAliasInput `json:"aliases"`
+	Metadata                  *string              `json:"metadata"`
+	HistoryStep               int                  `json:"historyStep"`
+	DistributedID             *string              `json:"distributedID"`
+	ClientID                  string               `json:"clientID"`
+	SequenceClientID          string               `json:"sequenceClientID"`
+	EnableDigestDeduplication *bool                `json:"enableDigestDeduplication"`
+}
+
+// GetArtifactTypeName returns __CreateArtifactInput.ArtifactTypeName, and is useful for accessing the field via an interface.
+func (v *__CreateArtifactInput) GetArtifactTypeName() string { return v.ArtifactTypeName }
+
+// GetArtifactCollectionNames returns __CreateArtifactInput.ArtifactCollectionNames, and is useful for accessing the field via an interface.
+func (v *__CreateArtifactInput) GetArtifactCollectionNames() []string {
+	return v.ArtifactCollectionNames
+}
+
+// GetEntityName returns __CreateArtifactInput.EntityName, and is useful for accessing the field via an interface.
+func (v *__CreateArtifactInput) GetEntityName() string { return v.EntityName }
+
+// GetProjectName returns __CreateArtifactInput.ProjectName, and is useful for accessing the field via an interface.
+func (v *__CreateArtifactInput) GetProjectName() string { return v.ProjectName }
+
+// GetRunName returns __CreateArtifactInput.RunName, and is useful for accessing the field via an interface.
+func (v *__CreateArtifactInput) GetRunName() *string { return v.RunName }
+
+// GetDescription returns __CreateArtifactInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateArtifactInput) GetDescription() *string { return v.Description }
+
+// GetDigest returns __CreateArtifactInput.Digest, and is useful for accessing the field via an interface.
+func (v *__CreateArtifactInput) GetDigest() string { return v.Digest }
+
+// GetLabels returns __CreateArtifactInput.Labels, and is useful for accessing the field via an interface.
+func (v *__CreateArtifactInput) GetLabels() *string { return v.Labels }
+
+// GetAliases returns __CreateArtifactInput.Aliases, and is useful for accessing the field via an interface.
+func (v *__CreateArtifactInput) GetAliases() []ArtifactAliasInput { return v.Aliases }
+
+// GetMetadata returns __CreateArtifactInput.Metadata, and is useful for accessing the field via an interface.
+func (v *__CreateArtifactInput) GetMetadata() *string { return v.Metadata }
+
+// GetHistoryStep returns __CreateArtifactInput.HistoryStep, and is useful for accessing the field via an interface.
+func (v *__CreateArtifactInput) GetHistoryStep() int { return v.HistoryStep }
+
+// GetDistributedID returns __CreateArtifactInput.DistributedID, and is useful for accessing the field via an interface.
+func (v *__CreateArtifactInput) GetDistributedID() *string { return v.DistributedID }
+
+// GetClientID returns __CreateArtifactInput.ClientID, and is useful for accessing the field via an interface.
+func (v *__CreateArtifactInput) GetClientID() string { return v.ClientID }
+
+// GetSequenceClientID returns __CreateArtifactInput.SequenceClientID, and is useful for accessing the field via an interface.
+func (v *__CreateArtifactInput) GetSequenceClientID() string { return v.SequenceClientID }
+
+// GetEnableDigestDeduplication returns __CreateArtifactInput.EnableDigestDeduplication, and is useful for accessing the field via an interface.
+func (v *__CreateArtifactInput) GetEnableDigestDeduplication() *bool {
+	return v.EnableDigestDeduplication
+}
+
 // __RunUploadUrlsInput is used internally by genqlient
 type __RunUploadUrlsInput struct {
 	Name        string    `json:"name"`
@@ -346,6 +533,84 @@ func (v *__UpsertBucketInput) GetTags() []string { return v.Tags }
 
 // GetSummaryMetrics returns __UpsertBucketInput.SummaryMetrics, and is useful for accessing the field via an interface.
 func (v *__UpsertBucketInput) GetSummaryMetrics() *string { return v.SummaryMetrics }
+
+// The query or mutation executed by CreateArtifact.
+const CreateArtifact_Operation = `
+mutation CreateArtifact ($artifactTypeName: String!, $artifactCollectionNames: [String!], $entityName: String!, $projectName: String!, $runName: String, $description: String, $digest: String!, $labels: JSONString, $aliases: [ArtifactAliasInput!], $metadata: JSONString, $historyStep: Int64!, $distributedID: String, $clientID: ID!, $sequenceClientID: ID!, $enableDigestDeduplication: Boolean) {
+	createArtifact(input: {artifactTypeName:$artifactTypeName,artifactCollectionNames:$artifactCollectionNames,entityName:$entityName,projectName:$projectName,runName:$runName,description:$description,digest:$digest,digestAlgorithm:MANIFEST_MD5,labels:$labels,aliases:$aliases,metadata:$metadata,historyStep:$historyStep,distributedID:$distributedID,clientID:$clientID,sequenceClientID:$sequenceClientID,enableDigestDeduplication:$enableDigestDeduplication}) {
+		artifact {
+			id
+			digest
+			state
+			aliases {
+				artifactCollectionName
+				alias
+			}
+			artifactSequence {
+				id
+				latestArtifact {
+					id
+					versionIndex
+				}
+			}
+		}
+	}
+}
+`
+
+func CreateArtifact(
+	ctx context.Context,
+	client graphql.Client,
+	artifactTypeName string,
+	artifactCollectionNames []string,
+	entityName string,
+	projectName string,
+	runName *string,
+	description *string,
+	digest string,
+	labels *string,
+	aliases []ArtifactAliasInput,
+	metadata *string,
+	historyStep int,
+	distributedID *string,
+	clientID string,
+	sequenceClientID string,
+	enableDigestDeduplication *bool,
+) (*CreateArtifactResponse, error) {
+	req := &graphql.Request{
+		OpName: "CreateArtifact",
+		Query:  CreateArtifact_Operation,
+		Variables: &__CreateArtifactInput{
+			ArtifactTypeName:          artifactTypeName,
+			ArtifactCollectionNames:   artifactCollectionNames,
+			EntityName:                entityName,
+			ProjectName:               projectName,
+			RunName:                   runName,
+			Description:               description,
+			Digest:                    digest,
+			Labels:                    labels,
+			Aliases:                   aliases,
+			Metadata:                  metadata,
+			HistoryStep:               historyStep,
+			DistributedID:             distributedID,
+			ClientID:                  clientID,
+			SequenceClientID:          sequenceClientID,
+			EnableDigestDeduplication: enableDigestDeduplication,
+		},
+	}
+	var err error
+
+	var data CreateArtifactResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
 
 // The query or mutation executed by RunUploadUrls.
 const RunUploadUrls_Operation = `
