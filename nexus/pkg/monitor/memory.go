@@ -3,129 +3,85 @@ package monitor
 import (
 	"sync"
 
-	"github.com/shirou/gopsutil/v3/mem"
-	"github.com/wandb/wandb/nexus/pkg/observability"
 	"github.com/wandb/wandb/nexus/pkg/service"
+
+	"github.com/shirou/gopsutil/v3/mem"
+	"github.com/shirou/gopsutil/v3/process"
 )
 
-// Metrics
-
-// MemoryPercent is total system memory usage in percent
-type MemoryPercent struct {
-	name    string
-	samples []float64
-	mutex   sync.RWMutex
-}
-
-func (mp *MemoryPercent) Name() string { return mp.name }
-
-func (mp *MemoryPercent) Sample() {
-	// implementation of sample goes here
-	virtualMem, _ := mem.VirtualMemory()
-	mp.samples = append(mp.samples, virtualMem.UsedPercent)
-}
-
-func (mp *MemoryPercent) Clear() {
-	// implementation of clear goes here
-	mp.mutex.RLock()
-	defer mp.mutex.RUnlock()
-
-	mp.samples = []float64{}
-}
-
-func (mp *MemoryPercent) Aggregate() float64 {
-	// return sum(mp.samples) / float64(len(mp.samples))
-	mp.mutex.RLock()
-	defer mp.mutex.RUnlock()
-
-	return Average(mp.samples)
-}
-
-// MemoryAvailable is total system memory available in MB
-type MemoryAvailable struct {
-	name    string
-	samples []float64
-	mutex   sync.RWMutex
-}
-
-func (mp *MemoryAvailable) Name() string { return mp.name }
-
-func (mp *MemoryAvailable) Sample() {
-	// implementation of sample goes here
-	virtualMem, _ := mem.VirtualMemory()
-	mp.samples = append(mp.samples, float64(virtualMem.Available)/1024/1024)
-}
-
-func (mp *MemoryAvailable) Clear() {
-	// implementation of clear goes here
-	mp.mutex.RLock()
-	defer mp.mutex.RUnlock()
-
-	mp.samples = []float64{}
-}
-
-func (mp *MemoryAvailable) Aggregate() float64 {
-	// return sum(mp.samples) / float64(len(mp.samples))
-	mp.mutex.RLock()
-	defer mp.mutex.RUnlock()
-
-	return Average(mp.samples)
-}
-
-// Asset
-
 type Memory struct {
-	name           string
-	metrics        []Metric
-	metricsMonitor *MetricsMonitor
+	name     string
+	metrics  map[string][]float64
+	settings *service.Settings
+	mutex    sync.RWMutex
 }
 
-func NewMemory(
-	settings *service.Settings,
-	logger *observability.NexusLogger,
-	outChan chan<- *service.Record,
-) *Memory {
-	metrics := []Metric{
-		&MemoryPercent{
-			name:    "memory_percent",
-			samples: []float64{},
-		},
-		&MemoryAvailable{
-			name:    "proc.memory.availableMB",
-			samples: []float64{},
-		},
+func NewMemory(settings *service.Settings) *Memory {
+	metrics := map[string][]float64{}
+
+	memory := &Memory{
+		name:     "memory",
+		metrics:  metrics,
+		settings: settings,
 	}
 
-	metricsMonitor := NewMetricsMonitor(
-		metrics,
-		settings,
-		logger,
-		outChan,
-	)
-
-	return &Memory{
-		name:           "memory",
-		metrics:        metrics,
-		metricsMonitor: metricsMonitor,
-	}
+	return memory
 }
 
 func (m *Memory) Name() string { return m.name }
 
-func (m *Memory) Metrics() []Metric { return m.metrics }
+func (m *Memory) SampleMetrics() {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
-func (m *Memory) IsAvailable() bool { return true }
+	virtualMem, _ := mem.VirtualMemory()
 
-func (m *Memory) Start() {
-	m.metricsMonitor.wg.Add(1)
-
-	go func() {
-		m.metricsMonitor.Monitor()
-		m.metricsMonitor.wg.Done()
-	}()
+	// process-related metrics
+	proc := process.Process{Pid: int32(m.settings.XStatsPid.GetValue())}
+	procMem, _ := proc.MemoryInfo()
+	// process memory usage in MB
+	m.metrics["proc.memory.rssMB"] = append(
+		m.metrics["proc.memory.rssMB"],
+		float64(procMem.RSS)/1024/1024,
+	)
+	// process memory usage in percent
+	m.metrics["proc.memory.percent"] = append(
+		m.metrics["proc.memory.percent"],
+		float64(procMem.RSS)/float64(virtualMem.Total)*100,
+	)
+	// total system memory usage in percent
+	m.metrics["memory_percent"] = append(
+		m.metrics["memory_percent"],
+		virtualMem.UsedPercent,
+	)
+	// total system memory available in MB
+	m.metrics["proc.memory.availableMB"] = append(
+		m.metrics["proc.memory.availableMB"],
+		float64(virtualMem.Available)/1024/1024,
+	)
 }
 
-func (m *Memory) Stop() { m.metricsMonitor.Stop() }
+func (m *Memory) AggregateMetrics() map[string]float64 {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	aggregates := make(map[string]float64)
+	for metric, samples := range m.metrics {
+		if len(samples) > 0 {
+			aggregates[metric] = Average(samples)
+		}
+	}
+	return aggregates
+}
+
+func (m *Memory) ClearMetrics() {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	m.metrics = map[string][]float64{}
+}
+
+func (m *Memory) IsAvailable() bool { return true }
 
 func (m *Memory) Probe() map[string]map[string]interface{} {
 	info := make(map[string]map[string]interface{})
