@@ -1,0 +1,6 @@
+[book]
+authors = ["wandb"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Nexus Documentation"
