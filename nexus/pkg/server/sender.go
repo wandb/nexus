@@ -291,7 +291,8 @@ func (s *Sender) sendSystemMetrics(record *service.Record, _ *service.StatsRecor
 
 func (s *Sender) sendOutputRaw(record *service.Record, outputRaw *service.OutputRawRecord) {
 	// TODO: match logic handling of lines to the one in the python version
-	// todo: handle carriage returns (for tqdm-like progress bars)
+	// - handle carriage returns (for tqdm-like progress bars)
+	// - handle caching multiple (non-new lines) and sending them in one chunk
 
 	// ignore empty "new lines"
 	if outputRaw.Line == "\n" {
