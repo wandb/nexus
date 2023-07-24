@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/wandb/wandb/nexus/pkg/observability"
 	"os"
 	"path/filepath"
-
-	"github.com/wandb/wandb/nexus/pkg/observability"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/wandb/wandb/nexus/pkg/service"
@@ -288,7 +288,20 @@ func (s *Sender) sendSystemMetrics(record *service.Record, _ *service.StatsRecor
 	}
 }
 
-func (s *Sender) sendOutputRaw(record *service.Record, _ *service.OutputRawRecord) {
+func (s *Sender) sendOutputRaw(record *service.Record, outputRaw *service.OutputRawRecord) {
+	// TODO: match logic handling of lines to the one in the python version
+	// todo: handle carriage returns (for tqdm-like progress bars)
+
+	// ignore empty "new lines"
+	if outputRaw.Line == "\n" {
+		return
+	}
+	t := time.Now().UTC().Format(time.RFC3339)
+	outputRaw.Line = fmt.Sprintf("%s %s", t, outputRaw.Line)
+	if outputRaw.OutputType == service.OutputRawRecord_STDERR {
+		outputRaw.Line = fmt.Sprintf("ERROR %s", outputRaw.Line)
+	}
+
 	if s.fileStream != nil {
 		s.fileStream.StreamRecord(record)
 	}
