@@ -293,6 +293,7 @@ func (s *Sender) sendOutputRaw(record *service.Record, outputRaw *service.Output
 	// TODO: match logic handling of lines to the one in the python version
 	// - handle carriage returns (for tqdm-like progress bars)
 	// - handle caching multiple (non-new lines) and sending them in one chunk
+	// - handle lines longer than ~60_000 characters
 
 	// ignore empty "new lines"
 	if outputRaw.Line == "\n" {
