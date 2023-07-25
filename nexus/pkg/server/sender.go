@@ -402,7 +402,7 @@ func (s *Sender) sendFile(name string) {
 }
 
 func (s *Sender) sendLogArtifact(record *service.Record, msg *service.LogArtifactRequest) {
-	saver := ArtifactSaver{}
+	saver := ArtifactSaver{Artifact: msg.Artifact}
 	saverResult := saver.save()
 
 	result := &service.Result{
