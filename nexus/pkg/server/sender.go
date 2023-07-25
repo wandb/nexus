@@ -109,7 +109,7 @@ func (s *Sender) sendRecord(record *service.Record) {
 }
 
 // sendRequest sends a request
-func (s *Sender) sendRequest(_ *service.Record, request *service.Request) {
+func (s *Sender) sendRequest(record *service.Record, request *service.Request) {
 
 	switch x := request.RequestType.(type) {
 	case *service.Request_RunStart:
@@ -120,6 +120,8 @@ func (s *Sender) sendRequest(_ *service.Record, request *service.Request) {
 		s.sendDefer(x.Defer)
 	case *service.Request_Metadata:
 		s.sendMetadata(x.Metadata)
+	case *service.Request_LogArtifact:
+		s.sendLogArtifact(record, x.LogArtifact)
 	default:
 		// TODO: handle errors
 	}
@@ -397,4 +399,24 @@ func (s *Sender) sendFile(name string) {
 		task := &UploadTask{fullPath, *e.GetNode().GetUrl()}
 		s.uploader.AddTask(task)
 	}
+}
+
+func (s *Sender) sendLogArtifact(record *service.Record, msg *service.LogArtifactRequest) {
+	saver := ArtifactSaver{}
+	saverResult := saver.save()
+
+	result := &service.Result{
+		ResultType: &service.Result_Response{
+			Response: &service.Response{
+				ResponseType: &service.Response_LogArtifactResponse{
+					LogArtifactResponse: &service.LogArtifactResponse{
+						ArtifactId: saverResult.ArtifactId,
+					},
+				},
+			},
+		},
+		Control: record.Control,
+		Uuid:    record.Uuid,
+	}
+	s.resultChan <- result
 }

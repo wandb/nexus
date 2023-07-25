@@ -204,9 +204,8 @@ func (h *Handler) handleDefer(record *service.Record) {
 	h.sendRecord(record)
 }
 
-func (h *Handler) handleLogArtifact(rec *service.Record, msg *service.LogArtifactRequest, resp *service.Response) {
-	r := service.LogArtifactResponse{}
-	resp.ResponseType = &service.Response_LogArtifactResponse{LogArtifactResponse: &r}
+func (h *Handler) handleLogArtifact(record *service.Record, msg *service.LogArtifactRequest, resp *service.Response) {
+	h.sendRecord(record)
 }
 
 func (h *Handler) handleRunStart(record *service.Record, request *service.RunStartRequest) {
