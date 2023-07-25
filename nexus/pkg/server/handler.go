@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/wandb/wandb/nexus/pkg/monitor"
+
 	"github.com/wandb/wandb/nexus/pkg/observability"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
@@ -46,14 +48,23 @@ type Handler struct {
 	// historyRecord is the history record used to track
 	// current active history record for the stream
 	historyRecord *service.HistoryRecord
+
+	// systemMonitor is the system monitor for the stream
+	systemMonitor *monitor.SystemMonitor
 }
 
 // NewHandler creates a new handler
-func NewHandler(ctx context.Context, settings *service.Settings, logger *observability.NexusLogger) *Handler {
+func NewHandler(
+	ctx context.Context,
+	settings *service.Settings,
+	logger *observability.NexusLogger,
+	systemMonitor *monitor.SystemMonitor,
+) *Handler {
 	h := &Handler{
-		ctx:      ctx,
-		settings: settings,
-		logger:   logger,
+		ctx:           ctx,
+		settings:      settings,
+		logger:        logger,
+		systemMonitor: systemMonitor,
 	}
 	return h
 }
@@ -100,6 +111,7 @@ func (h *Handler) handleRecord(record *service.Record) {
 	h.logger.Debug("handle: got a message", "record", record)
 	switch x := record.RecordType.(type) {
 	case *service.Record_Alert:
+		h.handleAlert(record)
 	case *service.Record_Artifact:
 	case *service.Record_Config:
 	case *service.Record_Exit:
@@ -114,12 +126,14 @@ func (h *Handler) handleRecord(record *service.Record) {
 	case *service.Record_Metric:
 	case *service.Record_Output:
 	case *service.Record_OutputRaw:
+		h.handleOutputRaw(record)
 	case *service.Record_Preempting:
 	case *service.Record_Request:
 		h.handleRequest(record)
 	case *service.Record_Run:
 		h.handleRun(record)
 	case *service.Record_Stats:
+		h.handleSystemMetrics(record)
 	case *service.Record_Summary:
 	case *service.Record_Tbrecord:
 	case *service.Record_Telemetry:
@@ -170,6 +184,7 @@ func (h *Handler) handleDefer(record *service.Record) {
 	switch request.State {
 	case service.DeferRequest_BEGIN:
 	case service.DeferRequest_FLUSH_STATS:
+		h.systemMonitor.Stop()
 	case service.DeferRequest_FLUSH_PARTIAL_HISTORY:
 		h.flushHistory(h.historyRecord)
 	case service.DeferRequest_FLUSH_TB:
@@ -213,6 +228,9 @@ func (h *Handler) handleRunStart(record *service.Record, request *service.RunSta
 	//  attempting to do this before the run start request arrives in the sender
 	//  will cause a segfault because the sender's uploader is not initialized yet.
 	h.handleMetadata(record, request)
+
+	// start the system monitor
+	h.systemMonitor.Do()
 }
 
 func (h *Handler) handleAttach(_ *service.Record, response *service.Response) {
@@ -241,7 +259,19 @@ func (h *Handler) handleMetadata(_ *service.Record, req *service.RunStartRequest
 	h.sendRecord(record)
 }
 
+func (h *Handler) handleSystemMetrics(record *service.Record) {
+	h.sendRecord(record)
+}
+
+func (h *Handler) handleOutputRaw(record *service.Record) {
+	h.sendRecord(record)
+}
+
 func (h *Handler) handleRun(record *service.Record) {
+	h.sendRecord(record)
+}
+
+func (h *Handler) handleAlert(record *service.Record) {
 	h.sendRecord(record)
 }
 

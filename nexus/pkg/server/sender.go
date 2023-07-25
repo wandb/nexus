@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/wandb/wandb/nexus/pkg/observability"
 
@@ -86,10 +87,16 @@ func (s *Sender) sendRecord(record *service.Record) {
 		s.sendRun(record, x.Run)
 	case *service.Record_Exit:
 		s.sendExit(record, x.Exit)
+	case *service.Record_Alert:
+		s.sendAlert(record, x.Alert)
 	case *service.Record_Files:
 		s.sendFiles(record, x.Files)
 	case *service.Record_History:
 		s.sendHistory(record, x.History)
+	case *service.Record_Stats:
+		s.sendSystemMetrics(record, x.Stats)
+	case *service.Record_OutputRaw:
+		s.sendOutputRaw(record, x.OutputRaw)
 	case *service.Record_Request:
 		s.sendRequest(record, x.Request)
 	case nil:
@@ -278,6 +285,59 @@ func (s *Sender) sendHistory(record *service.Record, _ *service.HistoryRecord) {
 	}
 }
 
+func (s *Sender) sendSystemMetrics(record *service.Record, _ *service.StatsRecord) {
+	if s.fileStream != nil {
+		s.fileStream.StreamRecord(record)
+	}
+}
+
+func (s *Sender) sendOutputRaw(record *service.Record, outputRaw *service.OutputRawRecord) {
+	// TODO: match logic handling of lines to the one in the python version
+	// - handle carriage returns (for tqdm-like progress bars)
+	// - handle caching multiple (non-new lines) and sending them in one chunk
+	// - handle lines longer than ~60_000 characters
+
+	// ignore empty "new lines"
+	if outputRaw.Line == "\n" {
+		return
+	}
+	t := time.Now().UTC().Format(time.RFC3339)
+	outputRaw.Line = fmt.Sprintf("%s %s", t, outputRaw.Line)
+	if outputRaw.OutputType == service.OutputRawRecord_STDERR {
+		outputRaw.Line = fmt.Sprintf("ERROR %s", outputRaw.Line)
+	}
+
+	if s.fileStream != nil {
+		s.fileStream.StreamRecord(record)
+	}
+}
+
+func (s *Sender) sendAlert(_ *service.Record, alert *service.AlertRecord) {
+
+	// TODO: handle invalid alert levels
+	severity := AlertSeverity(alert.Level)
+	waitDuration := time.Duration(alert.WaitDuration) * time.Second
+
+	data, err := NotifyScriptableRunAlert(
+		s.ctx,
+		s.graphqlClient,
+		s.RunRecord.Entity,
+		s.RunRecord.Project,
+		s.RunRecord.RunId,
+		alert.Title,
+		alert.Text,
+		&severity,
+		&waitDuration,
+	)
+	if err != nil {
+		err = fmt.Errorf("sender: sendAlert: failed to notify scriptable run alert: %s", err)
+		s.logger.CaptureError("sender received error", err)
+	} else {
+		s.logger.Info("sender: sendAlert: notified scriptable run alert", "data", data)
+	}
+
+}
+
 // sendExit sends an exit record to the server and triggers the shutdown of the stream
 func (s *Sender) sendExit(record *service.Record, _ *service.RunExitRecord) {
 	if s.fileStream != nil {
@@ -298,7 +358,8 @@ func (s *Sender) sendExit(record *service.Record, _ *service.RunExitRecord) {
 		Control:    record.Control,
 		Uuid:       record.Uuid,
 	}
-	s.sendRecord(rec)
+	// s.sendRecord(rec)
+	s.recordChan <- rec
 }
 
 // sendFiles iterates over the files in the FilesRecord and sends them to
