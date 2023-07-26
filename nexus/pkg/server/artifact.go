@@ -39,7 +39,7 @@ type ManifestV1 struct {
 	Contents            map[string]ManifestEntry    `json:"contents"`
 }
 
-func (as *ArtifactSaver) createArtifact() string {
+func (as *ArtifactSaver) createArtifact() (string, *string) {
 	enableDedup := false
 	aliases := []ArtifactAliasInput{}
 	for _, alias := range as.Artifact.Aliases {
@@ -75,12 +75,17 @@ func (as *ArtifactSaver) createArtifact() string {
 		as.Logger.CaptureFatalAndPanic("Artifact saver error", err)
 	}
 	artifact := data.GetCreateArtifact().GetArtifact()
-	// latest := artifact.ArtifactSequence.GetLatestArtifact()
-	// fmt.Printf("GOT RESP: %+v latest:%+v\n", artifact, latest)
-	return artifact.Id
+	latest := artifact.ArtifactSequence.GetLatestArtifact()
+
+	var baseId *string
+	if latest != nil {
+		baseId = &latest.Id
+	}
+	// fmt.Printf("GOT RESP: %+v latest:%+v\n", artifact, baseId)
+	return artifact.Id, baseId
 }
 
-func (as *ArtifactSaver) createManifest(artifactId string) {
+func (as *ArtifactSaver) createManifest(artifactId string, baseArtifactId *string, includeUpload bool) {
 	manifestType := ArtifactManifestTypeFull
 	manifestFilename := "wandb_manifest.json"
 
@@ -91,11 +96,11 @@ func (as *ArtifactSaver) createManifest(artifactId string) {
 		manifestFilename,
 		"",
 		artifactId,
-		nil, // baseArtifactID
+		baseArtifactId,
 		as.Artifact.Entity,
 		as.Artifact.Project,
 		as.Artifact.RunId,
-		false, // includeUpload
+		includeUpload, // includeUpload
 		&manifestType,
 	)
 	if err != nil {
@@ -162,8 +167,12 @@ func (as *ArtifactSaver) commitArtifact(artifactId string) {
 }
 
 func (as *ArtifactSaver) save() ArtifactSaverResult {
-	artifactId := as.createArtifact()
-	as.createManifest(artifactId)
+	artifactId, baseArtifactId := as.createArtifact()
+	// create manifest to get manifest id for file uploads
+	as.createManifest(artifactId, baseArtifactId, false)
+	// TODO file uploads
+	// create manifest to get manifest for commit
+	as.createManifest(artifactId, baseArtifactId, true)
 	as.sendManifest()
 	as.commitArtifact(artifactId)
 
