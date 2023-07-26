@@ -3,7 +3,9 @@ package server
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"net"
+	"os"
 	"sync"
 
 	"golang.org/x/exp/slog"
@@ -50,6 +52,12 @@ func NewServer(ctx context.Context, addr string, portFile string) *Server {
 
 	port := s.listener.Addr().(*net.TCPAddr).Port
 	writePortFile(portFile, port)
+	// set env var for address of server
+	err = os.Setenv("WANDB_NEXUS_ADDR", fmt.Sprintf("%s:%d", addr, port))
+	if err != nil {
+		slog.Error("can not set env var", "error", err)
+	}
+
 	s.wg.Add(1)
 	go s.Serve()
 	return s
