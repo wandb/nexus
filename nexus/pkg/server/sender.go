@@ -402,7 +402,12 @@ func (s *Sender) sendFile(name string) {
 }
 
 func (s *Sender) sendLogArtifact(record *service.Record, msg *service.LogArtifactRequest) {
-	saver := ArtifactSaver{Artifact: msg.Artifact}
+	saver := ArtifactSaver{
+		Ctx:           s.ctx,
+		Logger:        s.logger,
+		Artifact:      msg.Artifact,
+		GraphqlClient: s.graphqlClient,
+	}
 	saverResult := saver.save()
 
 	result := &service.Result{

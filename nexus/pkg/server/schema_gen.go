@@ -656,8 +656,6 @@ type __CreateArtifactInput struct {
 	Labels                    *string              `json:"labels"`
 	Aliases                   []ArtifactAliasInput `json:"aliases"`
 	Metadata                  *string              `json:"metadata"`
-	HistoryStep               int                  `json:"historyStep"`
-	DistributedID             *string              `json:"distributedID"`
 	ClientID                  string               `json:"clientID"`
 	SequenceClientID          string               `json:"sequenceClientID"`
 	EnableDigestDeduplication *bool                `json:"enableDigestDeduplication"`
@@ -694,12 +692,6 @@ func (v *__CreateArtifactInput) GetAliases() []ArtifactAliasInput { return v.Ali
 
 // GetMetadata returns __CreateArtifactInput.Metadata, and is useful for accessing the field via an interface.
 func (v *__CreateArtifactInput) GetMetadata() *string { return v.Metadata }
-
-// GetHistoryStep returns __CreateArtifactInput.HistoryStep, and is useful for accessing the field via an interface.
-func (v *__CreateArtifactInput) GetHistoryStep() int { return v.HistoryStep }
-
-// GetDistributedID returns __CreateArtifactInput.DistributedID, and is useful for accessing the field via an interface.
-func (v *__CreateArtifactInput) GetDistributedID() *string { return v.DistributedID }
 
 // GetClientID returns __CreateArtifactInput.ClientID, and is useful for accessing the field via an interface.
 func (v *__CreateArtifactInput) GetClientID() string { return v.ClientID }
@@ -930,8 +922,8 @@ func CommitArtifact(
 
 // The query or mutation executed by CreateArtifact.
 const CreateArtifact_Operation = `
-mutation CreateArtifact ($artifactTypeName: String!, $artifactCollectionNames: [String!], $entityName: String!, $projectName: String!, $runName: String, $description: String, $digest: String!, $labels: JSONString, $aliases: [ArtifactAliasInput!], $metadata: JSONString, $historyStep: Int64!, $distributedID: String, $clientID: ID!, $sequenceClientID: ID!, $enableDigestDeduplication: Boolean) {
-	createArtifact(input: {artifactTypeName:$artifactTypeName,artifactCollectionNames:$artifactCollectionNames,entityName:$entityName,projectName:$projectName,runName:$runName,description:$description,digest:$digest,digestAlgorithm:MANIFEST_MD5,labels:$labels,aliases:$aliases,metadata:$metadata,historyStep:$historyStep,distributedID:$distributedID,clientID:$clientID,sequenceClientID:$sequenceClientID,enableDigestDeduplication:$enableDigestDeduplication}) {
+mutation CreateArtifact ($artifactTypeName: String!, $artifactCollectionNames: [String!], $entityName: String!, $projectName: String!, $runName: String, $description: String, $digest: String!, $labels: JSONString, $aliases: [ArtifactAliasInput!], $metadata: JSONString, $clientID: ID!, $sequenceClientID: ID!, $enableDigestDeduplication: Boolean) {
+	createArtifact(input: {artifactTypeName:$artifactTypeName,artifactCollectionNames:$artifactCollectionNames,entityName:$entityName,projectName:$projectName,runName:$runName,description:$description,digest:$digest,digestAlgorithm:MANIFEST_MD5,labels:$labels,aliases:$aliases,metadata:$metadata,clientID:$clientID,sequenceClientID:$sequenceClientID,enableDigestDeduplication:$enableDigestDeduplication}) {
 		artifact {
 			id
 			digest
@@ -965,8 +957,6 @@ func CreateArtifact(
 	labels *string,
 	aliases []ArtifactAliasInput,
 	metadata *string,
-	historyStep int,
-	distributedID *string,
 	clientID string,
 	sequenceClientID string,
 	enableDigestDeduplication *bool,
@@ -985,8 +975,6 @@ func CreateArtifact(
 			Labels:                    labels,
 			Aliases:                   aliases,
 			Metadata:                  metadata,
-			HistoryStep:               historyStep,
-			DistributedID:             distributedID,
 			ClientID:                  clientID,
 			SequenceClientID:          sequenceClientID,
 			EnableDigestDeduplication: enableDigestDeduplication,
