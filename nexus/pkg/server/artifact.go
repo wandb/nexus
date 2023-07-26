@@ -177,7 +177,7 @@ func (as *ArtifactSaver) save() ArtifactSaverResult {
 	fmt.Printf("manid %+v\n", manifestId)
 	// TODO file uploads
 	// create manifest to get manifest for commit
-	manifestDigest := ""  // TODO compute
+	manifestDigest := "" // TODO compute
 	as.createManifest(artifactId, baseArtifactId, manifestDigest, true)
 	as.sendFiles(manifestDigest)
 	as.sendManifest()
