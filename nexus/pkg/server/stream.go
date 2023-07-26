@@ -222,5 +222,7 @@ func (s *Stream) Close(force bool) {
 
 func (s *Stream) PrintFooter() {
 	run := s.GetRun()
-	PrintHeadFoot(run, s.settings)
+	if run != nil {
+		PrintHeadFoot(run, s.settings)
+	}
 }
