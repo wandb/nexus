@@ -85,7 +85,7 @@ func (as *ArtifactSaver) createArtifact() (string, *string) {
 	return artifact.Id, baseId
 }
 
-func (as *ArtifactSaver) createManifest(artifactId string, baseArtifactId *string, includeUpload bool) {
+func (as *ArtifactSaver) createManifest(artifactId string, baseArtifactId *string, manifestDigest string, includeUpload bool) string {
 	manifestType := ArtifactManifestTypeFull
 	manifestFilename := "wandb_manifest.json"
 
@@ -94,7 +94,7 @@ func (as *ArtifactSaver) createManifest(artifactId string, baseArtifactId *strin
 		as.Ctx,
 		as.GraphqlClient,
 		manifestFilename,
-		"",
+		manifestDigest,
 		artifactId,
 		baseArtifactId,
 		as.Artifact.Entity,
@@ -107,9 +107,13 @@ func (as *ArtifactSaver) createManifest(artifactId string, baseArtifactId *strin
 		err = fmt.Errorf("artifact manifest: %s, error: %+v data: %+v", as.Artifact.Name, err, got)
 		as.Logger.CaptureFatalAndPanic("Artifact saver error", err)
 	}
-	// createManifest := got.GetCreateArtifactManifest()
-	// manifest := createManifest.ArtifactManifest
+	createManifest := got.GetCreateArtifactManifest()
+	manifest := createManifest.ArtifactManifest
 	// fmt.Printf("GOT ART MAN RESP: %+v %+v %+v\n", manifest, manifest.Id, manifest.File)
+	return manifest.Id
+}
+
+func (as *ArtifactSaver) sendFiles(manifestId string) {
 }
 
 func (as *ArtifactSaver) sendManifest() {
@@ -169,10 +173,13 @@ func (as *ArtifactSaver) commitArtifact(artifactId string) {
 func (as *ArtifactSaver) save() ArtifactSaverResult {
 	artifactId, baseArtifactId := as.createArtifact()
 	// create manifest to get manifest id for file uploads
-	as.createManifest(artifactId, baseArtifactId, false)
+	manifestId := as.createManifest(artifactId, baseArtifactId, "", false)
+	fmt.Printf("manid %+v\n", manifestId)
 	// TODO file uploads
 	// create manifest to get manifest for commit
-	as.createManifest(artifactId, baseArtifactId, true)
+	manifestDigest := ""  // compute
+	as.createManifest(artifactId, baseArtifactId, manifestDigest, true)
+	as.sendFiles(manifestDigest)
 	as.sendManifest()
 	as.commitArtifact(artifactId)
 
