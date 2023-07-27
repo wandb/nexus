@@ -396,7 +396,7 @@ func (s *Sender) sendFile(name string) {
 	fullPath := filepath.Join(s.settings.GetFilesDir().GetValue(), name)
 	edges := data.GetModel().GetBucket().GetFiles().GetEdges()
 	for _, e := range edges {
-		task := &UploadTask{fullPath, *e.GetNode().GetUrl()}
+		task := &UploadTask{path: fullPath, url: *e.GetNode().GetUrl()}
 		s.uploader.AddTask(task)
 	}
 }

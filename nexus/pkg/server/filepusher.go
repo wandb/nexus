@@ -22,6 +22,9 @@ type UploadTask struct {
 
 	// url is the endpoint to upload to
 	url string
+
+	// response channel
+	respondChan chan bool
 }
 
 type fileCounts struct {
@@ -114,11 +117,20 @@ func (u *Uploader) upload(task *UploadTask) error {
 		file,
 	)
 	if err != nil {
+		if task.respondChan != nil {
+			task.respondChan <- false
+		}
 		return err
 	}
 
 	if _, err = u.retryClient.Do(req); err != nil {
+		if task.respondChan != nil {
+			task.respondChan <- false
+		}
 		return err
+	}
+	if task.respondChan != nil {
+		task.respondChan <- true
 	}
 	return nil
 }

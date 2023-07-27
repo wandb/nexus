@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/wandb/wandb/nexus/pkg/observability"
@@ -201,12 +200,17 @@ func (as *ArtifactSaver) sendManifest(uploadUrl *string) {
 		panic(err)
 	}
 
+	response := make(chan bool)
 	upload := UploadTask{
 		url:  *uploadUrl,
 		path: f.Name(),
+		respondChan: response,
 	}
 	as.uploader.AddTask(&upload)
-	time.Sleep(5 * time.Second)
+	worked := <- response
+	if !worked {
+		panic("manifest not saved")
+	}
 }
 
 func (as *ArtifactSaver) commitArtifact(artifactId string) {
