@@ -121,11 +121,11 @@ func (as *ArtifactSaver) sendFiles(artifactID string, manifestID string) {
 	for _, entry := range man.Contents {
 		// fmt.Printf("Got %+v\n", entry)
 		md5Checksum := ""
-		artifactFiles = append(artifactFiles, 
+		artifactFiles = append(artifactFiles,
 			CreateArtifactFileSpecInput{
-				ArtifactID: artifactID,
-				Name: entry.Path,
-				Md5: md5Checksum,
+				ArtifactID:         artifactID,
+				Name:               entry.Path,
+				Md5:                md5Checksum,
 				ArtifactManifestID: &manifestID,
 			})
 	}
@@ -139,7 +139,8 @@ func (as *ArtifactSaver) sendFiles(artifactID string, manifestID string) {
 		err = fmt.Errorf("artifact files: %s, error: %+v data: %+v", as.artifact.Name, err, got)
 		as.logger.CaptureFatalAndPanic("Artifact files error", err)
 	}
-	for _, _ = range got.GetCreateArtifactFiles().GetFiles().Edges {
+	for _, edge := range got.GetCreateArtifactFiles().GetFiles().Edges {
+		as.logger.Info("Create artifact files", "artifact", artifactID, "filespec", edge.Node)
 		// fmt.Printf("FILES:::::: %+v\n", edge.Node)
 	}
 	// use uploader to send files
