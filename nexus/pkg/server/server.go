@@ -3,13 +3,15 @@ package server
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"net"
+	"os"
 	"sync"
-
-	"golang.org/x/exp/slog"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
 	"google.golang.org/protobuf/proto"
+
+	"golang.org/x/exp/slog"
 )
 
 const BufferSize = 32
@@ -50,9 +52,20 @@ func NewServer(ctx context.Context, addr string, portFile string) *Server {
 
 	port := s.listener.Addr().(*net.TCPAddr).Port
 	writePortFile(portFile, port)
+	// set env var for address of server
+	err = os.Setenv("WANDB_NEXUS_ADDR", fmt.Sprintf("%s:%d", addr, port))
+	if err != nil {
+		slog.Error("can not set env var", "error", err)
+	}
+	fmt.Printf("server addr: %s\n", s.listener.Addr().String())
+
 	s.wg.Add(1)
 	go s.Serve()
 	return s
+}
+
+func (s *Server) GetAddr() *net.TCPAddr {
+	return s.listener.Addr().(*net.TCPAddr)
 }
 
 // Serve serves the server
@@ -97,7 +110,7 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 
 	scanner := bufio.NewScanner(conn)
 	tokenizer := &Tokenizer{}
-	scanner.Split(tokenizer.split)
+	scanner.Split(tokenizer.Split)
 	for scanner.Scan() {
 		msg := &service.ServerRequest{}
 		if err := proto.Unmarshal(scanner.Bytes(), msg); err != nil {
@@ -112,41 +125,3 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 	}
 	close(nc.inChan)
 }
-
-/*
-// handleConnection handles a single connection
-func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
-	nc := NewConnection(ctx, conn, s.teardownChan)
-
-	scanner := bufio.NewScanner(conn)
-	tokenizer := &Tokenizer{}
-	scanner.Split(tokenizer.split)
-
-	// Create a buffered channel with a size of your choice
-	bytesChan := make(chan []byte, 100)
-
-	go func() {
-		defer close(bytesChan)
-		for scanner.Scan() {
-			bytesChan <- scanner.Bytes()
-		}
-	}()
-
-	go func() {
-		for bytes := range bytesChan {
-			msg := &service.ServerRequest{}
-			if err := proto.Unmarshal(bytes, msg); err != nil {
-				slog.Error(
-					"unmarshalling error",
-					"err", err,
-					"conn", conn.RemoteAddr())
-			} else {
-				slog.Debug("received message", "msg", msg, "conn", conn.RemoteAddr())
-				nc.inChan <- msg
-			}
-		}
-		close(nc.inChan)
-	}()
-}
-
-*/

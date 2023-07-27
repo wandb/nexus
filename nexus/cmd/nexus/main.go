@@ -6,6 +6,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"runtime"
+	"runtime/trace"
 
 	"github.com/getsentry/sentry-go"
 	"github.com/wandb/wandb/nexus/pkg/observability"
@@ -44,7 +45,7 @@ func main() {
 
 	logger.LogAttrs(
 		ctx,
-		slog.LevelDebug,
+		slog.LevelInfo,
 		"Flags",
 		slog.String("fname", *portFilename),
 		slog.Int("pid", *pid),
@@ -66,11 +67,11 @@ func main() {
 		}
 	}()
 
-	// if err = trace.Start(f); err != nil {
-	//	 slog.Error("failed to start trace", "err", err)
-	//	 panic(err)
-	// }
-	// defer trace.Stop()
+	if err = trace.Start(f); err != nil {
+		slog.Error("failed to start trace", "err", err)
+		panic(err)
+	}
+	defer trace.Stop()
 
 	nexus := server.NewServer(ctx, "127.0.0.1:0", *portFilename)
 	nexus.Close()

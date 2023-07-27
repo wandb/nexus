@@ -21,10 +21,20 @@ func PrintHeadFoot(run *service.RunRecord, settings *service.Settings) {
 	colorBrightBlue := "\033[1;34m"
 	colorBlue := "\033[34m"
 	colorYellow := "\033[33m"
+	colorPink := "\033[35m"
 
 	appURL := strings.Replace(settings.GetBaseUrl().GetValue(), "//api.", "//", 1)
-	url := fmt.Sprintf("%v/%v/%v/runs/%v", appURL, run.Entity, run.Project, run.RunId)
-	fmt.Printf("%vwandb%v: 🚀 View run %v%v%v at: %v%v%v\n", colorBrightBlue, colorReset, colorYellow, run.DisplayName, colorReset, colorBlue, url, colorReset)
+	syncDir := settings.GetSyncDir().GetValue()
+	runID := settings.GetRunId().GetValue()
+
+	if settings.GetXOffline().GetValue() {
+		fmt.Printf("%vwandb[%v]%v: Run is in offline mode, data was not synced to %v.\n", colorBrightBlue, runID, colorReset, appURL)
+		fmt.Printf("%vwandb[%v]%v: Run data is saved locally in %v%v%v\n", colorBrightBlue, run.RunId, colorReset, colorPink, syncDir, colorReset)
+		return
+	} else {
+		url := fmt.Sprintf("%v/%v/%v/runs/%v", appURL, run.Entity, run.Project, run.RunId)
+		fmt.Printf("%vwandb[%v]%v: 🚀View run %v%v%v at: %v%v%v\n", colorBrightBlue, runID, colorReset, colorYellow, run.DisplayName, colorReset, colorBlue, url, colorReset)
+	}
 }
 
 func LogError(log *slog.Logger, msg string, err error) {

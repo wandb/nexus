@@ -18,7 +18,7 @@ type Tokenizer struct {
 	headerValid  bool
 }
 
-func (x *Tokenizer) split(data []byte, _ bool) (advance int, token []byte, err error) {
+func (x *Tokenizer) Split(data []byte, _ bool) (advance int, token []byte, err error) {
 	if x.headerLength == 0 {
 		x.headerLength = binary.Size(x.header)
 	}
@@ -30,7 +30,7 @@ func (x *Tokenizer) split(data []byte, _ bool) (advance int, token []byte, err e
 			return
 		}
 		buf := bytes.NewReader(data)
-		err := binary.Read(buf, binary.LittleEndian, &x.header)
+		err = binary.Read(buf, binary.LittleEndian, &x.header)
 		if err != nil {
 			slog.Error("cant read token", "err", err)
 			return 0, nil, err

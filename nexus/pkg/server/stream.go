@@ -96,15 +96,19 @@ func (s *Stream) handleRespond(result *service.Result) {
 // We use Stream's wait group to ensure that all of these components are cleanly
 // finalized and closed when the stream is closed in Stream.Close().
 func (s *Stream) Start() {
-	// defer s.wg.Done()
-	// s.logger.Info("created new stream", "id", s.settings.RunId)
+
+	s.logger.Info("created new stream", "id", s.settings.RunId)
 
 	// TODO: fix input channel, either remove the defer state machine or make
 	//  a pattern to handle multiple writers
 
 	// init the system monitor
-	systemMonitorChan := make(chan *service.Record, BufferSize)
-	systemMonitor := monitor.NewSystemMonitor(systemMonitorChan, s.settings, s.logger)
+	var systemMonitorChan chan *service.Record = nil
+	var systemMonitor *monitor.SystemMonitor = nil
+	if !s.settings.GetXDisableStats().GetValue() {
+		systemMonitorChan = make(chan *service.Record, BufferSize)
+		systemMonitor = monitor.NewSystemMonitor(systemMonitorChan, s.settings, s.logger)
+	}
 
 	// handle the client requests
 	s.handler = NewHandler(s.ctx, s.settings, s.logger, systemMonitor)
@@ -189,7 +193,7 @@ func (s *Stream) HandleRecord(rec *service.Record) {
 }
 
 func (s *Stream) GetRun() *service.RunRecord {
-	return s.handler.GetRun()
+	return s.sender.RunRecord
 }
 
 // Close closes the stream's handler, writer, sender, and dispatcher.
@@ -214,13 +218,16 @@ func (s *Stream) Close(force bool) {
 	}
 	close(s.inChan)
 	s.wg.Wait()
-	if force {
-		s.PrintFooter()
-	}
+	// if force {
+	//
+	// }
+	s.PrintFooter()
 	s.logger.Info("closed stream", "id", s.settings.RunId)
 }
 
 func (s *Stream) PrintFooter() {
 	run := s.GetRun()
-	PrintHeadFoot(run, s.settings)
+	if run != nil {
+		PrintHeadFoot(run, s.settings)
+	}
 }

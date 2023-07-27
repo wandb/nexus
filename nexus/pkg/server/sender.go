@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"google.golang.org/protobuf/types/known/wrapperspb"
+
 	"github.com/wandb/wandb/nexus/pkg/observability"
 
 	"github.com/Khan/genqlient/graphql"
@@ -54,14 +56,17 @@ type Sender struct {
 
 // NewSender creates a new Sender with the given settings
 func NewSender(ctx context.Context, settings *service.Settings, logger *observability.NexusLogger) *Sender {
-	url := fmt.Sprintf("%s/graphql", settings.GetBaseUrl().GetValue())
-	apiKey := settings.GetApiKey().GetValue()
-	return &Sender{
-		ctx:           ctx,
-		settings:      settings,
-		logger:        logger,
-		graphqlClient: newGraphqlClient(url, apiKey, logger),
+	sender := &Sender{
+		ctx:      ctx,
+		settings: settings,
+		logger:   logger,
 	}
+	if !settings.GetXOffline().GetValue() {
+		url := fmt.Sprintf("%s/graphql", settings.GetBaseUrl().GetValue())
+		apiKey := settings.GetApiKey().GetValue()
+		sender.graphqlClient = newGraphqlClient(url, apiKey, logger)
+	}
+	return sender
 }
 
 // do sending of messages to the server
@@ -72,73 +77,86 @@ func (s *Sender) do(inChan <-chan *service.Record) (<-chan *service.Result, <-ch
 
 	go func() {
 		for record := range inChan {
-			s.sendRecord(record)
+			s.handleRecord(record)
 		}
 		s.logger.Info("sender: closed", "stream_id", s.settings.RunId)
 	}()
 	return s.resultChan, s.recordChan
 }
 
-// sendRecord sends a record
-func (s *Sender) sendRecord(record *service.Record) {
-	s.logger.Debug("sender: sendRecord", "record", record, "stream_id", s.settings.RunId)
+// handleRecord sends a record
+func (s *Sender) handleRecord(record *service.Record) {
+	s.logger.Debug("sender: handleRecord", "record", record, "stream_id", s.settings.RunId)
 	switch x := record.RecordType.(type) {
 	case *service.Record_Run:
-		s.sendRun(record, x.Run)
+		s.handleRun(record, x.Run)
 	case *service.Record_Exit:
-		s.sendExit(record, x.Exit)
+		s.handleExit(record, x.Exit)
 	case *service.Record_Alert:
-		s.sendAlert(record, x.Alert)
+		s.handleAlert(record, x.Alert)
 	case *service.Record_Files:
-		s.sendFiles(record, x.Files)
+		s.handleFiles(record, x.Files)
 	case *service.Record_History:
-		s.sendHistory(record, x.History)
+		s.handleHistory(record, x.History)
 	case *service.Record_Stats:
-		s.sendSystemMetrics(record, x.Stats)
+		s.handleStats(record, x.Stats)
 	case *service.Record_OutputRaw:
-		s.sendOutputRaw(record, x.OutputRaw)
+		s.handleOutputRaw(record, x.OutputRaw)
 	case *service.Record_Request:
-		s.sendRequest(record, x.Request)
+		s.handleRequest(record, x.Request)
 	case nil:
-		err := fmt.Errorf("sender: sendRecord: nil RecordType")
-		s.logger.CaptureFatalAndPanic("sender: sendRecord: nil RecordType", err)
+		err := fmt.Errorf("sender: handleRecord: nil RecordType")
+		s.logger.CaptureFatalAndPanic("sender: handleRecord: nil RecordType", err)
 	default:
-		err := fmt.Errorf("sender: sendRecord: unexpected type %T", x)
-		s.logger.CaptureFatalAndPanic("sender: sendRecord: unexpected type", err)
+		err := fmt.Errorf("sender: handleRecord: unexpected type %T", x)
+		s.logger.CaptureFatalAndPanic("sender: handleRecord: unexpected type", err)
 	}
 }
 
-// sendRequest sends a request
-func (s *Sender) sendRequest(_ *service.Record, request *service.Request) {
-
+// handleRequest sends a request
+func (s *Sender) handleRequest(_ *service.Record, request *service.Request) {
 	switch x := request.RequestType.(type) {
 	case *service.Request_RunStart:
-		s.sendRunStart(x.RunStart)
+		s.handleRunStart(x.RunStart)
 	case *service.Request_NetworkStatus:
-		s.sendNetworkStatusRequest(x.NetworkStatus)
+		s.handleNetworkStatus(x.NetworkStatus)
 	case *service.Request_Defer:
-		s.sendDefer(x.Defer)
+		s.handleDefer(x.Defer)
 	case *service.Request_Metadata:
-		s.sendMetadata(x.Metadata)
+		s.handleMetadata(x.Metadata)
 	default:
 		// TODO: handle errors
 	}
 }
 
-// sendRun starts up all the resources for a run
-func (s *Sender) sendRunStart(_ *service.RunStartRequest) {
-	if !s.settings.GetXOffline().GetValue() {
-		fsPath := fmt.Sprintf("%s/files/%s/%s/%s/file_stream",
-			s.settings.GetBaseUrl().GetValue(), s.RunRecord.Entity, s.RunRecord.Project, s.RunRecord.RunId)
-		s.fileStream = NewFileStream(fsPath, s.settings, s.logger)
+// sendResponse sends a result
+func (s *Sender) sendResponse(result *service.Result) {
+	s.logger.Debug("sender: sendResponse", "result", result, "stream_id", s.settings.RunId)
+	s.resultChan <- result
+}
+
+// sendRecord sends a record
+func (s *Sender) sendRecord(record *service.Record) {
+	s.logger.Debug("sender: sendRecord", "record", record, "stream_id", s.settings.RunId)
+	s.recordChan <- record
+}
+
+// handleRun starts up all the resources for a run
+func (s *Sender) handleRunStart(_ *service.RunStartRequest) {
+	if s.settings.GetXOffline().GetValue() {
+		return
 	}
+
+	fsPath := fmt.Sprintf("%s/files/%s/%s/%s/file_stream",
+		s.settings.GetBaseUrl().GetValue(), s.RunRecord.Entity, s.RunRecord.Project, s.RunRecord.RunId)
+	s.fileStream = NewFileStream(fsPath, s.settings, s.logger)
 	s.uploader = NewUploader(s.ctx, s.logger)
 }
 
-func (s *Sender) sendNetworkStatusRequest(_ *service.NetworkStatusRequest) {
+func (s *Sender) handleNetworkStatus(_ *service.NetworkStatusRequest) {
 }
 
-func (s *Sender) sendMetadata(request *service.MetadataRequest) {
+func (s *Sender) handleMetadata(request *service.MetadataRequest) {
 	mo := protojson.MarshalOptions{
 		Indent: "  ",
 		// EmitUnpopulated: true,
@@ -148,10 +166,12 @@ func (s *Sender) sendMetadata(request *service.MetadataRequest) {
 	s.sendFile(MetaFilename)
 }
 
-func (s *Sender) sendDefer(request *service.DeferRequest) {
+func (s *Sender) handleDefer(request *service.DeferRequest) {
 	switch request.State {
 	case service.DeferRequest_FLUSH_FP:
-		s.uploader.Close()
+		if s.uploader != nil {
+			s.uploader.Close()
+		}
 		request.State++
 		s.sendRequestDefer(request)
 	case service.DeferRequest_FLUSH_FS:
@@ -170,13 +190,13 @@ func (s *Sender) sendDefer(request *service.DeferRequest) {
 }
 
 func (s *Sender) sendRequestDefer(request *service.DeferRequest) {
-	rec := &service.Record{
+	record := &service.Record{
 		RecordType: &service.Record_Request{Request: &service.Request{
 			RequestType: &service.Request_Defer{Defer: request},
 		}},
 		Control: &service.Control{AlwaysSend: true},
 	}
-	s.recordChan <- rec
+	s.sendRecord(record)
 }
 
 func (s *Sender) parseConfigUpdate(config *service.ConfigRecord) map[string]interface{} {
@@ -215,57 +235,69 @@ func (s *Sender) getValueConfig(config map[string]interface{}) map[string]map[st
 	return datas
 }
 
-func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
+func (s *Sender) handleRun(record *service.Record, run *service.RunRecord) {
 
 	var ok bool
 	s.RunRecord, ok = proto.Clone(run).(*service.RunRecord)
 	if !ok {
-		err := fmt.Errorf("sender: sendRun: failed to clone RunRecord")
+		err := fmt.Errorf("sender: handleRun: failed to clone RunRecord")
 		s.logger.CaptureFatalAndPanic("sender received error", err)
 	}
 
-	config := s.parseConfigUpdate(run.Config)
-	s.updateConfigTelemetry(config)
-	valueConfig := s.getValueConfig(config)
-	configJson, err := json.Marshal(valueConfig)
-	if err != nil {
-		err = fmt.Errorf("sender: sendRun: failed to marshal config: %s", err)
-		s.logger.CaptureFatalAndPanic("sender received error", err)
-	}
-	configString := string(configJson)
-
-	var tags []string
-	data, err := UpsertBucket(
-		s.ctx,           // ctx
-		s.graphqlClient, // client
-		nil,             // id
-		&run.RunId,      // name
-		nil,             // project
-		nil,             // entity
-		nil,             // groupName
-		nil,             // description
-		nil,             // displayName
-		nil,             // notes
-		nil,             // commit
-		&configString,   // config
-		nil,             // host
-		nil,             // debug
-		nil,             // program
-		nil,             // repo
-		nil,             // jobType
-		nil,             // state
-		nil,             // sweep
-		tags,            // tags []string,
-		nil,             // summaryMetrics
-	)
-	if err != nil {
-		err = fmt.Errorf("sender: sendRun: failed to upsert bucket: %s", err)
-		s.logger.CaptureFatalAndPanic("sender received error", err)
+	var configString string
+	if run.Config != nil {
+		config := s.parseConfigUpdate(run.Config)
+		s.updateConfigTelemetry(config)
+		valueConfig := s.getValueConfig(config)
+		configJson, err := json.Marshal(valueConfig)
+		if err != nil {
+			err = fmt.Errorf("sender: handleRun: failed to marshal config: %s", err)
+			s.logger.CaptureFatalAndPanic("sender received error", err)
+		}
+		configString = string(configJson)
+	} else {
+		configString = "{}"
 	}
 
-	s.RunRecord.DisplayName = *data.UpsertBucket.Bucket.DisplayName
-	s.RunRecord.Project = data.UpsertBucket.Bucket.Project.Name
-	s.RunRecord.Entity = data.UpsertBucket.Bucket.Project.Entity.Name
+	if s.graphqlClient != nil {
+
+		var tags []string
+		data, err := UpsertBucket(
+			s.ctx,           // ctx
+			s.graphqlClient, // client
+			nil,             // id
+			&run.RunId,      // name
+			nil,             // project
+			nil,             // entity
+			nil,             // groupName
+			nil,             // description
+			nil,             // displayName
+			nil,             // notes
+			nil,             // commit
+			&configString,   // config
+			nil,             // host
+			nil,             // debug
+			nil,             // program
+			nil,             // repo
+			nil,             // jobType
+			nil,             // state
+			nil,             // sweep
+			tags,            // tags []string,
+			nil,             // summaryMetrics
+		)
+		if err != nil {
+			err = fmt.Errorf("sender: handleRun: failed to upsert bucket: %s", err)
+			s.logger.CaptureFatalAndPanic("sender received error", err)
+		}
+
+		s.RunRecord.DisplayName = *data.UpsertBucket.Bucket.DisplayName
+		s.RunRecord.Project = data.UpsertBucket.Bucket.Project.Name
+		s.RunRecord.Entity = data.UpsertBucket.Bucket.Project.Entity.Name
+
+		// TODO: remove this
+		s.settings.Project = &wrapperspb.StringValue{Value: data.UpsertBucket.Bucket.Project.Name}
+		s.settings.Entity = &wrapperspb.StringValue{Value: data.UpsertBucket.Bucket.Project.Entity.Name}
+	}
 
 	result := &service.Result{
 		ResultType: &service.Result_RunResult{
@@ -274,28 +306,32 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 		Control: record.Control,
 		Uuid:    record.Uuid,
 	}
-	s.resultChan <- result
+	s.sendResponse(result)
 }
 
-// sendHistory sends a history record to the file stream,
+// handleHistory sends a history record to the file stream,
 // which will then send it to the server
-func (s *Sender) sendHistory(record *service.Record, _ *service.HistoryRecord) {
+func (s *Sender) handleHistory(record *service.Record, _ *service.HistoryRecord) {
 	if s.fileStream != nil {
 		s.fileStream.StreamRecord(record)
 	}
 }
 
-func (s *Sender) sendSystemMetrics(record *service.Record, _ *service.StatsRecord) {
+func (s *Sender) handleStats(record *service.Record, _ *service.StatsRecord) {
 	if s.fileStream != nil {
 		s.fileStream.StreamRecord(record)
 	}
 }
 
-func (s *Sender) sendOutputRaw(record *service.Record, outputRaw *service.OutputRawRecord) {
+func (s *Sender) handleOutputRaw(record *service.Record, outputRaw *service.OutputRawRecord) {
 	// TODO: match logic handling of lines to the one in the python version
 	// - handle carriage returns (for tqdm-like progress bars)
 	// - handle caching multiple (non-new lines) and sending them in one chunk
 	// - handle lines longer than ~60_000 characters
+
+	if s.fileStream == nil {
+		return
+	}
 
 	// ignore empty "new lines"
 	if outputRaw.Line == "\n" {
@@ -306,13 +342,14 @@ func (s *Sender) sendOutputRaw(record *service.Record, outputRaw *service.Output
 	if outputRaw.OutputType == service.OutputRawRecord_STDERR {
 		outputRaw.Line = fmt.Sprintf("ERROR %s", outputRaw.Line)
 	}
+	s.fileStream.StreamRecord(record)
 
-	if s.fileStream != nil {
-		s.fileStream.StreamRecord(record)
-	}
 }
 
-func (s *Sender) sendAlert(_ *service.Record, alert *service.AlertRecord) {
+func (s *Sender) handleAlert(_ *service.Record, alert *service.AlertRecord) {
+	if s.graphqlClient == nil {
+		return
+	}
 
 	// TODO: handle invalid alert levels
 	severity := AlertSeverity(alert.Level)
@@ -330,16 +367,16 @@ func (s *Sender) sendAlert(_ *service.Record, alert *service.AlertRecord) {
 		&waitDuration,
 	)
 	if err != nil {
-		err = fmt.Errorf("sender: sendAlert: failed to notify scriptable run alert: %s", err)
+		err = fmt.Errorf("sender: handleAlert: failed to notify scriptable run alert: %s", err)
 		s.logger.CaptureError("sender received error", err)
 	} else {
-		s.logger.Info("sender: sendAlert: notified scriptable run alert", "data", data)
+		s.logger.Info("sender: handleAlert: notified scriptable run alert", "data", data)
 	}
 
 }
 
-// sendExit sends an exit record to the server and triggers the shutdown of the stream
-func (s *Sender) sendExit(record *service.Record, _ *service.RunExitRecord) {
+// handleExit sends an exit record to the server and triggers the shutdown of the stream
+func (s *Sender) handleExit(record *service.Record, _ *service.RunExitRecord) {
 	if s.fileStream != nil {
 		s.fileStream.StreamRecord(record)
 	}
@@ -348,7 +385,7 @@ func (s *Sender) sendExit(record *service.Record, _ *service.RunExitRecord) {
 		Control:    record.Control,
 		Uuid:       record.Uuid,
 	}
-	s.resultChan <- result
+	s.sendResponse(result)
 
 	request := &service.Request{RequestType: &service.Request_Defer{
 		Defer: &service.DeferRequest{State: service.DeferRequest_BEGIN}},
@@ -357,13 +394,13 @@ func (s *Sender) sendExit(record *service.Record, _ *service.RunExitRecord) {
 		RecordType: &service.Record_Request{Request: request},
 		Control:    record.Control,
 		Uuid:       record.Uuid,
+		XInfo:      record.XInfo,
 	}
-	// s.sendRecord(rec)
-	s.recordChan <- rec
+	s.sendRecord(rec)
 }
 
-// sendFiles iterates over the files in the FilesRecord and sends them to
-func (s *Sender) sendFiles(_ *service.Record, filesRecord *service.FilesRecord) {
+// handleFiles iterates over the files in the FilesRecord and sends them to
+func (s *Sender) handleFiles(_ *service.Record, filesRecord *service.FilesRecord) {
 	files := filesRecord.GetFiles()
 	for _, file := range files {
 		s.sendFile(file.GetPath())
@@ -372,6 +409,10 @@ func (s *Sender) sendFiles(_ *service.Record, filesRecord *service.FilesRecord) 
 
 // sendFile sends a file to the server
 func (s *Sender) sendFile(name string) {
+	if s.graphqlClient == nil || s.uploader == nil {
+		return
+	}
+
 	if s.RunRecord == nil {
 		err := fmt.Errorf("sender: sendFile: RunRecord not set")
 		s.logger.CaptureFatalAndPanic("sender received error", err)
