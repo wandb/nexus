@@ -202,12 +202,12 @@ func (as *ArtifactSaver) sendManifest(uploadUrl *string) {
 
 	response := make(chan bool)
 	upload := UploadTask{
-		url:  *uploadUrl,
-		path: f.Name(),
+		url:         *uploadUrl,
+		path:        f.Name(),
 		respondChan: response,
 	}
 	as.uploader.AddTask(&upload)
-	worked := <- response
+	worked := <-response
 	if !worked {
 		panic("manifest not saved")
 	}
