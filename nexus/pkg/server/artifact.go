@@ -2,10 +2,10 @@ package server
 
 import (
 	"context"
-	"time"
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/wandb/wandb/nexus/pkg/observability"
@@ -153,7 +153,7 @@ func (as *ArtifactSaver) sendFiles(artifactID string, manifestID string) {
 		// fmt.Printf("FILES:::::: %+v\n", edge.Node)
 		// {"time":"2023-07-27T09:25:58.589701-04:00","level":"INFO","msg":"Create artifact files","run_id":"zxc2r7mz","run_url":"","project":"","entity":"","artifact":"QXJ0aWZhY3Q6NTI0OTA3NzEw","filespec":{"id":"QXJ0aWZhY3RGaWxlOjUyNDkwNzcxMDppbWFnZS5pbWFnZS1maWxlLmpzb24=","name":"image.image-file.json","displayName":"image.image-file.json","uploadUrl":"https://storage.googleapis.com/wandb-artifacts-prod/wandb_artifacts/85831262/524907710/?Expires=1690550758&GoogleAccessId=gorilla-files-url-signer-man%40wandb-production.iam.gserviceaccount.com&Signature=GQZQ%2B%2FMdJ8RPoQn5v4x0WYOQK0o%2BWXpRz7ji0aVwXnJMMWGQAE%2BpA2qPk9F3I5LExF0auKM53iVAMx%2FbhWEnfzr%2B2HfxqFMDHVQxc7LqVtIfdxVM%2Fuasr8xksrJo0PE180kbQ9lZWs8F3LbuKoMVX1sMIEBj2uR%2FAoNuYTTwmsTXlhXelPhofk490xFSaCwsBLcerE%2BlRCYnXWLrnam9iFqjuzfpLpfSGbujzsYlrE95B9p0ZJZ5pxIwtv09HfRiXFFFFwVEAR7HO4YMcA8WnOCmnR4wHVpdPGYu1760cBjn1tkoqbK5Ht%2FJXgvi6d1lUDLfX%2BPfC15x0CBDUHMWsg%3D%3D","uploadHeaders":["Content-MD5:","Content-Type:application/json"],"artifact":{"id":"QXJ0aWZhY3Q6NTI0OTA3NzEw"}}}
 		upload := UploadTask{
-			url: *edge.Node.GetUploadUrl(), 
+			url:  *edge.Node.GetUploadUrl(),
 			path: man.Contents[n].LocalPath,
 		}
 		as.uploader.AddTask(&upload)
@@ -202,7 +202,7 @@ func (as *ArtifactSaver) sendManifest(uploadUrl *string) {
 	}
 
 	upload := UploadTask{
-		url: *uploadUrl,
+		url:  *uploadUrl,
 		path: f.Name(),
 	}
 	as.uploader.AddTask(&upload)
