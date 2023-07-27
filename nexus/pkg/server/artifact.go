@@ -114,7 +114,37 @@ func (as *ArtifactSaver) createManifest(artifactId string, baseArtifactId *strin
 	return manifest.Id
 }
 
-func (as *ArtifactSaver) sendFiles(manifestId string) {
+func (as *ArtifactSaver) sendFiles(artifactID string, manifestID string) {
+	// TODO iterate over all entries...
+	artifactFiles := []CreateArtifactFileSpecInput{}
+	man := as.artifact.Manifest
+	for _, entry := range man.Contents {
+		// fmt.Printf("Got %+v\n", entry)
+		md5Checksum := ""
+		artifactFiles = append(artifactFiles, 
+			CreateArtifactFileSpecInput{
+				ArtifactID: artifactID,
+				Name: entry.Path,
+				Md5: md5Checksum,
+				ArtifactManifestID: &manifestID,
+			})
+	}
+	got, err := CreateArtifactFiles(
+		as.ctx,
+		as.graphqlClient,
+		ArtifactStorageLayoutV2,
+		artifactFiles,
+	)
+	if err != nil {
+		err = fmt.Errorf("artifact files: %s, error: %+v data: %+v", as.artifact.Name, err, got)
+		as.logger.CaptureFatalAndPanic("Artifact files error", err)
+	}
+	for _, _ = range got.GetCreateArtifactFiles().GetFiles().Edges {
+		// fmt.Printf("FILES:::::: %+v\n", edge.Node)
+	}
+	// use uploader to send files
+	// wait for upload responses
+	// update manifest checksums/artifact info
 }
 
 func (as *ArtifactSaver) sendManifest() {
@@ -175,12 +205,12 @@ func (as *ArtifactSaver) save() ArtifactSaverResult {
 	artifactId, baseArtifactId := as.createArtifact()
 	// create manifest to get manifest id for file uploads
 	manifestId := as.createManifest(artifactId, baseArtifactId, "", false)
-	fmt.Printf("manid %+v\n", manifestId)
+	// fmt.Printf("manid %+v\n", manifestId)
 	// TODO file uploads
 	// create manifest to get manifest for commit
-	manifestDigest := "" // TODO compute
+	manifestDigest := "" // TODO compute?
 	as.createManifest(artifactId, baseArtifactId, manifestDigest, true)
-	as.sendFiles(manifestDigest)
+	as.sendFiles(artifactId, manifestId)
 	as.sendManifest()
 	as.commitArtifact(artifactId)
 
