@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"time"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -86,7 +87,7 @@ func (as *ArtifactSaver) createArtifact() (string, *string) {
 	return artifact.Id, baseId
 }
 
-func (as *ArtifactSaver) createManifest(artifactId string, baseArtifactId *string, manifestDigest string, includeUpload bool) string {
+func (as *ArtifactSaver) createManifest(artifactId string, baseArtifactId *string, manifestDigest string, includeUpload bool) (string, *string) {
 	manifestType := ArtifactManifestTypeFull
 	manifestFilename := "wandb_manifest.json"
 
@@ -110,8 +111,15 @@ func (as *ArtifactSaver) createManifest(artifactId string, baseArtifactId *strin
 	}
 	createManifest := got.GetCreateArtifactManifest()
 	manifest := createManifest.ArtifactManifest
+	as.logger.Info("createamanifest", "manifest", manifest)
 	// fmt.Printf("GOT ART MAN RESP: %+v %+v %+v\n", manifest, manifest.Id, manifest.File)
-	return manifest.Id
+
+	var upload *string
+	if includeUpload {
+		upload = manifest.File.GetUploadUrl()
+	}
+
+	return manifest.Id, upload
 }
 
 func (as *ArtifactSaver) sendFiles(artifactID string, manifestID string) {
@@ -119,6 +127,7 @@ func (as *ArtifactSaver) sendFiles(artifactID string, manifestID string) {
 	artifactFiles := []CreateArtifactFileSpecInput{}
 	man := as.artifact.Manifest
 	for _, entry := range man.Contents {
+		as.logger.Info("sendfiles", "entry", entry)
 		// fmt.Printf("Got %+v\n", entry)
 		md5Checksum := ""
 		artifactFiles = append(artifactFiles,
@@ -139,16 +148,22 @@ func (as *ArtifactSaver) sendFiles(artifactID string, manifestID string) {
 		err = fmt.Errorf("artifact files: %s, error: %+v data: %+v", as.artifact.Name, err, got)
 		as.logger.CaptureFatalAndPanic("Artifact files error", err)
 	}
-	for _, edge := range got.GetCreateArtifactFiles().GetFiles().Edges {
+	for n, edge := range got.GetCreateArtifactFiles().GetFiles().Edges {
 		as.logger.Info("Create artifact files", "artifact", artifactID, "filespec", edge.Node)
 		// fmt.Printf("FILES:::::: %+v\n", edge.Node)
+		// {"time":"2023-07-27T09:25:58.589701-04:00","level":"INFO","msg":"Create artifact files","run_id":"zxc2r7mz","run_url":"","project":"","entity":"","artifact":"QXJ0aWZhY3Q6NTI0OTA3NzEw","filespec":{"id":"QXJ0aWZhY3RGaWxlOjUyNDkwNzcxMDppbWFnZS5pbWFnZS1maWxlLmpzb24=","name":"image.image-file.json","displayName":"image.image-file.json","uploadUrl":"https://storage.googleapis.com/wandb-artifacts-prod/wandb_artifacts/85831262/524907710/?Expires=1690550758&GoogleAccessId=gorilla-files-url-signer-man%40wandb-production.iam.gserviceaccount.com&Signature=GQZQ%2B%2FMdJ8RPoQn5v4x0WYOQK0o%2BWXpRz7ji0aVwXnJMMWGQAE%2BpA2qPk9F3I5LExF0auKM53iVAMx%2FbhWEnfzr%2B2HfxqFMDHVQxc7LqVtIfdxVM%2Fuasr8xksrJo0PE180kbQ9lZWs8F3LbuKoMVX1sMIEBj2uR%2FAoNuYTTwmsTXlhXelPhofk490xFSaCwsBLcerE%2BlRCYnXWLrnam9iFqjuzfpLpfSGbujzsYlrE95B9p0ZJZ5pxIwtv09HfRiXFFFFwVEAR7HO4YMcA8WnOCmnR4wHVpdPGYu1760cBjn1tkoqbK5Ht%2FJXgvi6d1lUDLfX%2BPfC15x0CBDUHMWsg%3D%3D","uploadHeaders":["Content-MD5:","Content-Type:application/json"],"artifact":{"id":"QXJ0aWZhY3Q6NTI0OTA3NzEw"}}}
+		upload := UploadTask{
+			url: *edge.Node.GetUploadUrl(), 
+			path: man.Contents[n].LocalPath,
+		}
+		as.uploader.AddTask(&upload)
 	}
 	// use uploader to send files
 	// wait for upload responses
 	// update manifest checksums/artifact info
 }
 
-func (as *ArtifactSaver) sendManifest() {
+func (as *ArtifactSaver) sendManifest(uploadUrl *string) {
 	man := as.artifact.Manifest
 
 	m := &ManifestV1{
@@ -180,11 +195,18 @@ func (as *ArtifactSaver) sendManifest() {
 
 	defer f.Close()
 	// fmt.Printf("FFF: %+v\n", f.Name())
-	defer os.Remove(f.Name())
+	// defer os.Remove(f.Name())
 
 	if _, err := f.Write(jsonBytes); err != nil {
 		panic(err)
 	}
+
+	upload := UploadTask{
+		url: *uploadUrl,
+		path: f.Name(),
+	}
+	as.uploader.AddTask(&upload)
+	time.Sleep(5 * time.Second)
 }
 
 func (as *ArtifactSaver) commitArtifact(artifactId string) {
@@ -205,14 +227,14 @@ func (as *ArtifactSaver) commitArtifact(artifactId string) {
 func (as *ArtifactSaver) save() ArtifactSaverResult {
 	artifactId, baseArtifactId := as.createArtifact()
 	// create manifest to get manifest id for file uploads
-	manifestId := as.createManifest(artifactId, baseArtifactId, "", false)
+	manifestId, _ := as.createManifest(artifactId, baseArtifactId, "", false)
 	// fmt.Printf("manid %+v\n", manifestId)
 	// TODO file uploads
 	// create manifest to get manifest for commit
 	manifestDigest := "" // TODO compute?
-	as.createManifest(artifactId, baseArtifactId, manifestDigest, true)
 	as.sendFiles(artifactId, manifestId)
-	as.sendManifest()
+	_, uploadUrl := as.createManifest(artifactId, baseArtifactId, manifestDigest, true)
+	as.sendManifest(uploadUrl)
 	as.commitArtifact(artifactId)
 
 	result := ArtifactSaverResult{
