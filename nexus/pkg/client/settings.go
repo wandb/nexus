@@ -11,7 +11,21 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-func NewSettings() *service.Settings {
+type SettingsWrap struct {
+	*service.Settings
+}
+
+func randomString(length int) string {
+	randomBytes := make([]byte, length)
+	if _, err := rand.Read(randomBytes); err != nil {
+		return "test"
+	}
+	return base64.URLEncoding.EncodeToString(randomBytes)[:length]
+}
+
+func NewSettings(args ...any) *SettingsWrap {
+
+	runID := randomString(8)
 
 	rootDir, err := os.Getwd()
 	if err != nil {
@@ -21,18 +35,9 @@ func NewSettings() *service.Settings {
 	timeStamp := time.Now().Format("20060102_150405")
 	runMode := "run"
 
-	length := 8
-	randomBytes := make([]byte, length)
-
-	var runID string
-	if _, err = rand.Read(randomBytes); err != nil {
-		runID = "test"
-	} else {
-		runID = base64.URLEncoding.EncodeToString(randomBytes)[:length]
-	}
-
 	syncDir := filepath.Join(wandbDir, runMode+"-"+timeStamp+"-"+runID)
 	logDir := filepath.Join(syncDir, "logs")
+	tmpDir := filepath.Join(syncDir, "tmp")
 
 	settings := &service.Settings{
 		RunId: &wrapperspb.StringValue{
@@ -74,12 +79,30 @@ func NewSettings() *service.Settings {
 		FilesDir: &wrapperspb.StringValue{
 			Value: filepath.Join(syncDir, "files"),
 		},
+		TmpDir: &wrapperspb.StringValue{
+			Value: tmpDir,
+		},
+		XTmpCodeDir: &wrapperspb.StringValue{
+			Value: filepath.Join(tmpDir, "code"),
+		},
 		XDisableStats: &wrapperspb.BoolValue{
 			Value: true,
 		},
 		XOffline: &wrapperspb.BoolValue{
 			Value: true,
 		},
+		XFileStreamTimeoutSeconds: &wrapperspb.DoubleValue{
+			Value: 60,
+		},
+		XStatsSamplesToAverage: &wrapperspb.Int32Value{
+			Value: 15,
+		},
+		XStatsSampleRateSeconds: &wrapperspb.DoubleValue{
+			Value: 2,
+		},
+		XStatsJoinAssets: &wrapperspb.BoolValue{
+			Value: true,
+		},
 	}
-	return settings
+	return &SettingsWrap{settings}
 }

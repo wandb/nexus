@@ -287,7 +287,7 @@ func (fs *FileStream) streamSystemMetrics(msg *service.StatsRecord) {
 		var val interface{}
 		if err := json.Unmarshal([]byte(item.ValueJson), &val); err != nil {
 			e := fmt.Errorf("json unmarshal error: %v, items: %v", err, item)
-			errMsg := fmt.Sprintf("sender: sendSystemMetrics: failed to marshal value: %s for key: %s", item.ValueJson, item.Key)
+			errMsg := fmt.Sprintf("sender: handleStats: failed to marshal value: %s for key: %s", item.ValueJson, item.Key)
 			fs.logger.CaptureError(errMsg, e)
 			continue
 		}
@@ -298,7 +298,7 @@ func (fs *FileStream) streamSystemMetrics(msg *service.StatsRecord) {
 	// marshal the row
 	line, err := json.Marshal(row)
 	if err != nil {
-		fs.logger.CaptureError("sender: sendSystemMetrics: failed to marshal system metrics", err)
+		fs.logger.CaptureError("sender: handleStats: failed to marshal system metrics", err)
 		return
 	}
 

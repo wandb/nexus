@@ -96,8 +96,8 @@ func (s *Stream) handleRespond(result *service.Result) {
 // We use Stream's wait group to ensure that all of these components are cleanly
 // finalized and closed when the stream is closed in Stream.Close().
 func (s *Stream) Start() {
-	// defer s.wg.Done()
-	// s.logger.Info("created new stream", "id", s.settings.RunId)
+
+	s.logger.Info("created new stream", "id", s.settings.RunId)
 
 	// TODO: fix input channel, either remove the defer state machine or make
 	//  a pattern to handle multiple writers
@@ -193,7 +193,7 @@ func (s *Stream) HandleRecord(rec *service.Record) {
 }
 
 func (s *Stream) GetRun() *service.RunRecord {
-	return s.handler.GetRun()
+	return s.sender.RunRecord
 }
 
 // Close closes the stream's handler, writer, sender, and dispatcher.
@@ -218,9 +218,10 @@ func (s *Stream) Close(force bool) {
 	}
 	close(s.inChan)
 	s.wg.Wait()
-	if force {
-		s.PrintFooter()
-	}
+	// if force {
+	//
+	// }
+	s.PrintFooter()
 	s.logger.Info("closed stream", "id", s.settings.RunId)
 }
 

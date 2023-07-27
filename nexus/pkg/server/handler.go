@@ -318,11 +318,11 @@ func (h *Handler) flushHistory(history *service.HistoryRecord) {
 		&service.HistoryItem{Key: "_step", ValueJson: fmt.Sprintf("%d", history.GetStep().GetNum())},
 	)
 
-	rec := &service.Record{
+	record := &service.Record{
 		RecordType: &service.Record_History{History: history},
 	}
 	h.updateSummary(history)
-	h.sendRecord(rec)
+	h.sendRecord(record)
 }
 
 func (h *Handler) handlePartialHistory(_ *service.Record, request *service.PartialHistoryRequest) {
