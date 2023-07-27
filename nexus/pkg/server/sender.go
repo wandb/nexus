@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	"os"
 	"path/filepath"
 	"time"
@@ -131,8 +132,9 @@ func (s *Sender) sendRunStart(_ *service.RunStartRequest) {
 		fsPath := fmt.Sprintf("%s/files/%s/%s/%s/file_stream",
 			s.settings.GetBaseUrl().GetValue(), s.RunRecord.Entity, s.RunRecord.Project, s.RunRecord.RunId)
 		s.fileStream = NewFileStream(fsPath, s.settings, s.logger)
+		s.uploader = NewUploader(s.ctx, s.logger)
 	}
-	s.uploader = NewUploader(s.ctx, s.logger)
+
 }
 
 func (s *Sender) sendNetworkStatusRequest(_ *service.NetworkStatusRequest) {
@@ -226,15 +228,20 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 		s.logger.CaptureFatalAndPanic("sender received error", err)
 	}
 
-	config := s.parseConfigUpdate(run.Config)
-	s.updateConfigTelemetry(config)
-	valueConfig := s.getValueConfig(config)
-	configJson, err := json.Marshal(valueConfig)
-	if err != nil {
-		err = fmt.Errorf("sender: sendRun: failed to marshal config: %s", err)
-		s.logger.CaptureFatalAndPanic("sender received error", err)
+	var configString string
+	if run.Config != nil {
+		config := s.parseConfigUpdate(run.Config)
+		s.updateConfigTelemetry(config)
+		valueConfig := s.getValueConfig(config)
+		configJson, err := json.Marshal(valueConfig)
+		if err != nil {
+			err = fmt.Errorf("sender: sendRun: failed to marshal config: %s", err)
+			s.logger.CaptureFatalAndPanic("sender received error", err)
+		}
+		configString = string(configJson)
+	} else {
+		configString = "{}"
 	}
-	configString := string(configJson)
 
 	var tags []string
 	data, err := UpsertBucket(
@@ -268,6 +275,10 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 	s.RunRecord.DisplayName = *data.UpsertBucket.Bucket.DisplayName
 	s.RunRecord.Project = data.UpsertBucket.Bucket.Project.Name
 	s.RunRecord.Entity = data.UpsertBucket.Bucket.Project.Entity.Name
+
+	// TODO: remove this
+	s.settings.Project = &wrapperspb.StringValue{Value: data.UpsertBucket.Bucket.Project.Name}
+	s.settings.Entity = &wrapperspb.StringValue{Value: data.UpsertBucket.Bucket.Project.Entity.Name}
 
 	result := &service.Result{
 		ResultType: &service.Result_RunResult{
@@ -359,6 +370,7 @@ func (s *Sender) sendExit(record *service.Record, _ *service.RunExitRecord) {
 		RecordType: &service.Record_Request{Request: request},
 		Control:    record.Control,
 		Uuid:       record.Uuid,
+		XInfo:      record.XInfo,
 	}
 	// s.sendRecord(rec)
 	s.recordChan <- rec
@@ -374,6 +386,10 @@ func (s *Sender) sendFiles(_ *service.Record, filesRecord *service.FilesRecord) 
 
 // sendFile sends a file to the server
 func (s *Sender) sendFile(name string) {
+	if s.graphqlClient == nil || s.uploader == nil {
+		return
+	}
+
 	if s.RunRecord == nil {
 		err := fmt.Errorf("sender: sendFile: RunRecord not set")
 		s.logger.CaptureFatalAndPanic("sender received error", err)

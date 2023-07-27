@@ -3,14 +3,14 @@ package main
 import (
 	"context"
 	"flag"
-	_ "net/http/pprof"
-	"os"
-	"runtime"
-
 	"github.com/getsentry/sentry-go"
 	"github.com/wandb/wandb/nexus/pkg/observability"
 	"github.com/wandb/wandb/nexus/pkg/server"
 	"golang.org/x/exp/slog"
+	_ "net/http/pprof"
+	"os"
+	"runtime"
+	"runtime/trace"
 )
 
 // this is set by the build script and used by the observability package
@@ -44,7 +44,7 @@ func main() {
 
 	logger.LogAttrs(
 		ctx,
-		slog.LevelDebug,
+		slog.LevelInfo,
 		"Flags",
 		slog.String("fname", *portFilename),
 		slog.Int("pid", *pid),
@@ -66,11 +66,11 @@ func main() {
 		}
 	}()
 
-	// if err = trace.Start(f); err != nil {
-	//	 slog.Error("failed to start trace", "err", err)
-	//	 panic(err)
-	// }
-	// defer trace.Stop()
+	if err = trace.Start(f); err != nil {
+		slog.Error("failed to start trace", "err", err)
+		panic(err)
+	}
+	defer trace.Stop()
 
 	nexus := server.NewServer(ctx, "127.0.0.1:0", *portFilename)
 	nexus.Close()

@@ -103,8 +103,12 @@ func (s *Stream) Start() {
 	//  a pattern to handle multiple writers
 
 	// init the system monitor
-	systemMonitorChan := make(chan *service.Record, BufferSize)
-	systemMonitor := monitor.NewSystemMonitor(systemMonitorChan, s.settings, s.logger)
+	var systemMonitorChan chan *service.Record = nil
+	var systemMonitor *monitor.SystemMonitor = nil
+	if !s.settings.GetXDisableStats().GetValue() {
+		systemMonitorChan = make(chan *service.Record, BufferSize)
+		systemMonitor = monitor.NewSystemMonitor(systemMonitorChan, s.settings, s.logger)
+	}
 
 	// handle the client requests
 	s.handler = NewHandler(s.ctx, s.settings, s.logger, systemMonitor)

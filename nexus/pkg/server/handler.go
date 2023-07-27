@@ -182,7 +182,9 @@ func (h *Handler) handleDefer(record *service.Record) {
 	switch request.State {
 	case service.DeferRequest_BEGIN:
 	case service.DeferRequest_FLUSH_STATS:
-		h.systemMonitor.Stop()
+		if h.systemMonitor != nil {
+			h.systemMonitor.Stop()
+		}
 	case service.DeferRequest_FLUSH_PARTIAL_HISTORY:
 		h.flushHistory(h.historyRecord)
 	case service.DeferRequest_FLUSH_TB:
@@ -222,8 +224,10 @@ func (h *Handler) handleRunStart(record *service.Record, request *service.RunSta
 	//  will cause a segfault because the sender's uploader is not initialized yet.
 	h.handleMetadata(record, request)
 
-	// start the system monitor
-	h.systemMonitor.Do()
+	if h.systemMonitor != nil {
+		// start the system monitor
+		h.systemMonitor.Do()
+	}
 }
 
 func (h *Handler) handleAttach(_ *service.Record, response *service.Response) {
