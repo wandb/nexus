@@ -396,7 +396,6 @@ func (s *Sender) handleExit(record *service.Record, _ *service.RunExitRecord) {
 		Uuid:       record.Uuid,
 		XInfo:      record.XInfo,
 	}
-	// s.handleRecord(rec)
 	s.sendRecord(rec)
 }
 
