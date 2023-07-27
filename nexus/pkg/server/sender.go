@@ -403,10 +403,11 @@ func (s *Sender) sendFile(name string) {
 
 func (s *Sender) sendLogArtifact(record *service.Record, msg *service.LogArtifactRequest) {
 	saver := ArtifactSaver{
-		Ctx:           s.ctx,
-		Logger:        s.logger,
-		Artifact:      msg.Artifact,
-		GraphqlClient: s.graphqlClient,
+		ctx:           s.ctx,
+		logger:        s.logger,
+		artifact:      msg.Artifact,
+		graphqlClient: s.graphqlClient,
+		uploader:      s.uploader,
 	}
 	saverResult := saver.save()
 

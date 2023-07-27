@@ -12,10 +12,11 @@ import (
 )
 
 type ArtifactSaver struct {
-	Ctx           context.Context
-	Logger        *observability.NexusLogger
-	Artifact      *service.ArtifactRecord
-	GraphqlClient graphql.Client
+	ctx           context.Context
+	logger        *observability.NexusLogger
+	artifact      *service.ArtifactRecord
+	graphqlClient graphql.Client
+	uploader      *Uploader
 }
 
 type ArtifactSaverResult struct {
@@ -42,37 +43,37 @@ type ManifestV1 struct {
 func (as *ArtifactSaver) createArtifact() (string, *string) {
 	enableDedup := false
 	aliases := []ArtifactAliasInput{}
-	for _, alias := range as.Artifact.Aliases {
+	for _, alias := range as.artifact.Aliases {
 		aliases = append(aliases,
 			ArtifactAliasInput{
-				ArtifactCollectionName: as.Artifact.Name,
+				ArtifactCollectionName: as.artifact.Name,
 				Alias:                  alias,
 			},
 		)
 	}
-	// fmt.Printf("SSSS: %+v\n", as.Artifact)
+	// fmt.Printf("SSSS: %+v\n", as.artifact)
 	data, err := CreateArtifact(
-		as.Ctx,
-		as.GraphqlClient,
-		as.Artifact.Type,
-		[]string{as.Artifact.Name},
-		as.Artifact.Entity,
-		as.Artifact.Project,
-		&as.Artifact.RunId,
-		&as.Artifact.Description,
-		as.Artifact.Digest,
+		as.ctx,
+		as.graphqlClient,
+		as.artifact.Type,
+		[]string{as.artifact.Name},
+		as.artifact.Entity,
+		as.artifact.Project,
+		&as.artifact.RunId,
+		&as.artifact.Description,
+		as.artifact.Digest,
 		nil, // Labels
 		aliases,
 		nil, // metadata
 		// 0,   // historyStep
-		// &as.Artifact.DistributedId,
-		as.Artifact.ClientId,
-		as.Artifact.SequenceClientId,
+		// &as.artifact.DistributedId,
+		as.artifact.ClientId,
+		as.artifact.SequenceClientId,
 		&enableDedup, // enableDigestDeduplication
 	)
 	if err != nil {
-		err = fmt.Errorf("createartifact: %s, error: %+v data: %+v", as.Artifact.Name, err, data)
-		as.Logger.CaptureFatalAndPanic("Artifact saver error", err)
+		err = fmt.Errorf("createartifact: %s, error: %+v data: %+v", as.artifact.Name, err, data)
+		as.logger.CaptureFatalAndPanic("Artifact saver error", err)
 	}
 	artifact := data.GetCreateArtifact().GetArtifact()
 	latest := artifact.ArtifactSequence.GetLatestArtifact()
@@ -91,21 +92,21 @@ func (as *ArtifactSaver) createManifest(artifactId string, baseArtifactId *strin
 
 	// ---
 	got, err := CreateArtifactManifest(
-		as.Ctx,
-		as.GraphqlClient,
+		as.ctx,
+		as.graphqlClient,
 		manifestFilename,
 		manifestDigest,
 		artifactId,
 		baseArtifactId,
-		as.Artifact.Entity,
-		as.Artifact.Project,
-		as.Artifact.RunId,
+		as.artifact.Entity,
+		as.artifact.Project,
+		as.artifact.RunId,
 		includeUpload, // includeUpload
 		&manifestType,
 	)
 	if err != nil {
-		err = fmt.Errorf("artifact manifest: %s, error: %+v data: %+v", as.Artifact.Name, err, got)
-		as.Logger.CaptureFatalAndPanic("Artifact saver error", err)
+		err = fmt.Errorf("artifact manifest: %s, error: %+v data: %+v", as.artifact.Name, err, got)
+		as.logger.CaptureFatalAndPanic("Artifact saver error", err)
 	}
 	createManifest := got.GetCreateArtifactManifest()
 	manifest := createManifest.ArtifactManifest
@@ -117,7 +118,7 @@ func (as *ArtifactSaver) sendFiles(manifestId string) {
 }
 
 func (as *ArtifactSaver) sendManifest() {
-	man := as.Artifact.Manifest
+	man := as.artifact.Manifest
 
 	m := &ManifestV1{
 		Version:       man.Version,
@@ -158,13 +159,13 @@ func (as *ArtifactSaver) sendManifest() {
 func (as *ArtifactSaver) commitArtifact(artifactId string) {
 	// ---
 	com, err := CommitArtifact(
-		as.Ctx,
-		as.GraphqlClient,
+		as.ctx,
+		as.graphqlClient,
 		artifactId,
 	)
 	if err != nil {
-		err = fmt.Errorf("artifact commit: %s, error: %+v data: %+v", as.Artifact.Name, err, com)
-		as.Logger.CaptureFatalAndPanic("Artifact commit error", err)
+		err = fmt.Errorf("artifact commit: %s, error: %+v data: %+v", as.artifact.Name, err, com)
+		as.logger.CaptureFatalAndPanic("Artifact commit error", err)
 	}
 	// commitArtifact := com.GetCommitArtifact()
 	// fmt.Printf("GOT ART COM RESP: %+v\n", commitArtifact)
