@@ -2,11 +2,12 @@ package client
 
 import (
 	"context"
-	"github.com/wandb/wandb/nexus/pkg/service"
-	"golang.org/x/exp/slog"
 	"os"
 	"strconv"
 	"sync"
+
+	"github.com/wandb/wandb/nexus/pkg/service"
+	"golang.org/x/exp/slog"
 )
 
 type Settings map[string]interface{}
@@ -151,14 +152,14 @@ func (r *Run) Finish() {
 		return
 	}
 
-	//serverRecord = service.ServerRequest{
-	//	ServerRequestType: &service.ServerRequest_InformFinish{InformFinish: &service.ServerInformFinishRequest{
-	//		XInfo: &service.XRecordInfo{StreamId: r.settings.GetRunId().GetValue()},
-	//	}},
-	//}
-	//err = r.conn.Send(&serverRecord)
-	//if err != nil {
-	//	return
-	//}
+	serverRecord = service.ServerRequest{
+		ServerRequestType: &service.ServerRequest_InformFinish{InformFinish: &service.ServerInformFinishRequest{
+			XInfo: &service.XRecordInfo{StreamId: r.settings.GetRunId().GetValue()},
+		}},
+	}
+	err = r.conn.Send(&serverRecord)
+	if err != nil {
+		return
+	}
 	r.wg.Wait()
 }

@@ -3,10 +3,11 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/wandb/wandb/nexus/pkg/client"
-	"golang.org/x/exp/slog"
 	"os"
 	"runtime/trace"
+
+	"github.com/wandb/wandb/nexus/pkg/client"
+	"golang.org/x/exp/slog"
 )
 
 func main() {
@@ -49,5 +50,5 @@ func main() {
 	}
 	run.Finish()
 
-	//manager.Close()
+	manager.Close()
 }

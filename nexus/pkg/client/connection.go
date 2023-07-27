@@ -5,12 +5,13 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+
 	"github.com/wandb/wandb/nexus/pkg/server"
 	"github.com/wandb/wandb/nexus/pkg/service"
-	//"github.com/wandb/wandb/nexus/pkg/service"
-	"google.golang.org/protobuf/proto"
+
 	"net"
-	"sync"
+
+	"google.golang.org/protobuf/proto"
 )
 
 // Connection is a connection to the server.
@@ -20,8 +21,6 @@ type Connection struct {
 
 	// Conn is the connection to the server
 	net.Conn
-
-	writerPool sync.Pool
 }
 
 // NewConnection creates a new connection to the server.
@@ -35,12 +34,6 @@ func NewConnection(ctx context.Context, addr string) (*Connection, error) {
 		ctx:  ctx,
 		Conn: conn,
 	}
-
-	connection.writerPool = sync.Pool{
-		New: func() interface{} {
-			return bufio.NewWriterSize(nil, 1024)
-		},
-	}
 	return connection, nil
 }
 
@@ -50,8 +43,6 @@ func (c *Connection) Send(msg proto.Message) error {
 	if err != nil {
 		return fmt.Errorf("error marshaling message: %w", err)
 	}
-	//writer := c.writerPool.Get().(*bufio.Writer)
-	//defer c.writerPool.Put(writer)
 	writer := bufio.NewWriterSize(c, 16384)
 
 	header := server.Header{Magic: byte('W'), DataLength: uint32(len(data))}

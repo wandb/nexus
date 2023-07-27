@@ -4,11 +4,12 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"github.com/wandb/wandb/nexus/pkg/service"
-	"google.golang.org/protobuf/proto"
 	"net"
 	"os"
 	"sync"
+
+	"github.com/wandb/wandb/nexus/pkg/service"
+	"google.golang.org/protobuf/proto"
 
 	"golang.org/x/exp/slog"
 )

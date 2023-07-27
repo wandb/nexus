@@ -363,7 +363,7 @@ func (fs *FileStream) send(data interface{}) {
 		fs.logger.CaptureFatalAndPanic("filestream: error creating HTTP request", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	//req.Header.Set("X-WANDB-USE-ASYNC-FILESTREAM", "true")
+	// req.Header.Set("X-WANDB-USE-ASYNC-FILESTREAM", "true")
 	resp, err := fs.httpClient.Do(req)
 	if err != nil {
 		fs.logger.CaptureFatalAndPanic("filestream: error making HTTP request", err)

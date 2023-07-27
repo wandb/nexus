@@ -3,11 +3,12 @@ package client
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"github.com/wandb/wandb/nexus/pkg/service"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/wandb/wandb/nexus/pkg/service"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func NewSettings() *service.Settings {
