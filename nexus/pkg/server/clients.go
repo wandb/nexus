@@ -4,9 +4,6 @@ import (
 	"encoding/base64"
 	"net/http"
 
-	// "fmt"
-	// "net/http/httputil"
-
 	"golang.org/x/exp/slog"
 
 	"github.com/wandb/wandb/nexus/pkg/observability"
@@ -28,22 +25,7 @@ type authedTransport struct {
 func (t *authedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req.Header.Set("Authorization", "Basic "+basicAuth("api", t.key))
 	req.Header.Set("User-Agent", "wandb-nexus")
-	// req.Header.Set("X-WANDB-USERNAME", "jeff")
-	// req.Header.Set("X-WANDB-USER-EMAIL", "jeff@wandb.com")
-	// fmt.Printf("req: %+v\n", req)
-	res, err := t.wrapped.RoundTrip(req)
-
-	/*
-		fmt.Printf("rsp: %+v %+v\n", res, err)
-		if res.StatusCode == 500 {
-			b, err := httputil.DumpResponse(res, true)
-			if err != nil {
-				panic("bad")
-			}
-			fmt.Printf("RESP body: %+v\n\n", string(b))
-		}
-	*/
-	return res, err
+	return t.wrapped.RoundTrip(req)
 }
 
 // newRetryClient creates a new http client

@@ -125,7 +125,7 @@ func (as *ArtifactSaver) createManifest(artifactId string, baseArtifactId *strin
 	return manifest.Id, upload, headers
 }
 
-func (as *ArtifactSaver) sendFiles(artifactID string, manifestID string) {
+func (as *ArtifactSaver) sendManifestFiles(artifactID string, manifestID string) {
 	// TODO iterate over all entries...
 	artifactFiles := []CreateArtifactFileSpecInput{}
 	man := as.artifact.Manifest
@@ -165,7 +165,7 @@ func (as *ArtifactSaver) sendFiles(artifactID string, manifestID string) {
 	// update manifest checksums/artifact info
 }
 
-func (as *ArtifactSaver) writeManifest() string {
+func (as *ArtifactSaver) generateManifest() (string, string) {
 	man := as.artifact.Manifest
 
 	m := &ManifestV1{
@@ -196,13 +196,13 @@ func (as *ArtifactSaver) writeManifest() string {
 
 	defer f.Close()
 	// TODO: remove this later
-	// defer os.Remove(f.Name())
 
 	if _, err := f.Write(jsonBytes); err != nil {
 		panic(err)
 	}
 
-	return f.Name()
+	manifestDigest := computeB64MD5(f.Name())
+	return f.Name(), manifestDigest
 }
 
 func (as *ArtifactSaver) sendManifest(manifestFile string, uploadUrl *string, uploadHeaders []string) {
@@ -247,21 +247,22 @@ func computeB64MD5(manifestFile string) string {
 }
 
 func (as *ArtifactSaver) save() ArtifactSaverResult {
+	// create the artifact
 	artifactId, baseArtifactId := as.createArtifact()
 	// create manifest to get manifest id for file uploads
 	manifestId, _, _ := as.createManifest(artifactId, baseArtifactId, "", false)
-	// fmt.Printf("manid %+v\n", manifestId)
-	// TODO file uploads
-	// create manifest to get manifest for commit
-	as.sendFiles(artifactId, manifestId)
-	manifestFile := as.writeManifest()
-	manifestDigest := computeB64MD5(manifestFile)
+	// send files in manifest
+	as.sendManifestFiles(artifactId, manifestId)
+	// generate manifest file
+	manifestFile, manifestDigest := as.generateManifest()
+	// remove the manifest when we are done
+	defer os.Remove(manifestFile)
+	// update manifest
 	_, uploadUrl, uploadHeaders := as.createManifest(artifactId, baseArtifactId, manifestDigest, true)
+	// send manifest to the server
 	as.sendManifest(manifestFile, uploadUrl, uploadHeaders)
+	// commit manifest
 	as.commitArtifact(artifactId)
 
-	result := ArtifactSaverResult{
-		ArtifactId: "artid",
-	}
-	return result
+	return ArtifactSaverResult{ArtifactId: artifactId}
 }
