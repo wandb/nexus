@@ -32,8 +32,8 @@ func (t *authedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	// req.Header.Set("X-WANDB-USER-EMAIL", "jeff@wandb.com")
 	// fmt.Printf("req: %+v\n", req)
 	res, err := t.wrapped.RoundTrip(req)
-	/*
 
+	/*
 		fmt.Printf("rsp: %+v %+v\n", res, err)
 		if res.StatusCode == 500 {
 			b, err := httputil.DumpResponse(res, true)

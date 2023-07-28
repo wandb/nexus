@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 	"time"
+	"strings"
 
 	"golang.org/x/exp/slog"
 
@@ -22,6 +23,9 @@ type UploadTask struct {
 
 	// url is the endpoint to upload to
 	url string
+
+	// headers to send on the upload
+	headers []string
 
 	// response channel
 	respondChan chan bool
@@ -116,6 +120,12 @@ func (u *Uploader) upload(task *UploadTask) error {
 		task.url,
 		file,
 	)
+
+	for _, header := range task.headers {
+		parts := strings.Split(header, ":")
+		req.Header.Set(parts[0], parts[1])
+	}
+
 	if err != nil {
 		if task.respondChan != nil {
 			task.respondChan <- false
