@@ -27,8 +27,8 @@ type UploadTask struct {
 	// headers to send on the upload
 	headers []string
 
-	// response channel
-	respondChan chan bool
+	// allow tasks to wait for completion (failed or success)
+	wgOutstanding *sync.WaitGroup
 }
 
 type fileCounts struct {
@@ -57,6 +57,20 @@ type Uploader struct {
 
 	// wg is the wait group
 	wg *sync.WaitGroup
+}
+
+func (t *UploadTask) outstandingAdd() {
+	if t.wgOutstanding == nil {
+		return
+	}
+	t.wgOutstanding.Add(1)
+}
+
+func (t *UploadTask) outstandingDone() {
+	if t.wgOutstanding == nil {
+		return
+	}
+	t.wgOutstanding.Done()
 }
 
 // NewUploader creates a new uploader
@@ -96,6 +110,7 @@ func (u *Uploader) do() {
 
 // AddTask adds a task to the uploader
 func (u *Uploader) AddTask(task *UploadTask) {
+	task.outstandingAdd()
 	u.logger.Debug("uploader: adding task", "path", task.path, "url", task.url)
 	u.inChan <- task
 }
@@ -127,20 +142,14 @@ func (u *Uploader) upload(task *UploadTask) error {
 	}
 
 	if err != nil {
-		if task.respondChan != nil {
-			task.respondChan <- false
-		}
+		task.outstandingDone()
 		return err
 	}
 
 	if _, err = u.retryClient.Do(req); err != nil {
-		if task.respondChan != nil {
-			task.respondChan <- false
-		}
+		task.outstandingDone()
 		return err
 	}
-	if task.respondChan != nil {
-		task.respondChan <- true
-	}
+	task.outstandingDone()
 	return nil
 }

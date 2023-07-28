@@ -409,7 +409,10 @@ func (s *Sender) sendLogArtifact(record *service.Record, msg *service.LogArtifac
 		graphqlClient: s.graphqlClient,
 		uploader:      s.uploader,
 	}
-	saverResult := saver.save()
+	saverResult, err := saver.save()
+	if err != nil {
+		s.logger.CaptureFatalAndPanic("sender: sendLogArtifact: save failure", err)
+	}
 
 	result := &service.Result{
 		ResultType: &service.Result_Response{

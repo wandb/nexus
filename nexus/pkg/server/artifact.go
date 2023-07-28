@@ -6,6 +6,7 @@ import (
 	b64 "encoding/base64"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"os"
 
 	"github.com/Khan/genqlient/graphql"
@@ -19,6 +20,7 @@ type ArtifactSaver struct {
 	artifact      *service.ArtifactRecord
 	graphqlClient graphql.Client
 	uploader      *Uploader
+	wgOutstanding sync.WaitGroup
 }
 
 type ArtifactSaverResult struct {
@@ -42,6 +44,17 @@ type ManifestV1 struct {
 	Contents            map[string]ManifestEntry    `json:"contents"`
 }
 
+func computeB64MD5(manifestFile string) (string, error) {
+	file, err := os.ReadFile(manifestFile)
+	if err != nil {
+		return "", err
+	}
+	hasher := md5.New()
+	hasher.Write(file)
+	encodedString := b64.StdEncoding.EncodeToString(hasher.Sum(nil))
+	return encodedString, nil
+}
+
 func (as *ArtifactSaver) createArtifact() (string, *string) {
 	enableDedup := false
 	aliases := []ArtifactAliasInput{}
@@ -53,8 +66,8 @@ func (as *ArtifactSaver) createArtifact() (string, *string) {
 			},
 		)
 	}
-	// fmt.Printf("SSSS: %+v\n", as.artifact)
-	data, err := CreateArtifact(
+
+	response, err := CreateArtifact(
 		as.ctx,
 		as.graphqlClient,
 		as.artifact.Type,
@@ -74,26 +87,24 @@ func (as *ArtifactSaver) createArtifact() (string, *string) {
 		&enableDedup, // enableDigestDeduplication
 	)
 	if err != nil {
-		err = fmt.Errorf("createartifact: %s, error: %+v data: %+v", as.artifact.Name, err, data)
-		as.logger.CaptureFatalAndPanic("Artifact saver error", err)
+		err = fmt.Errorf("CreateArtifact: %s, error: %+v response: %+v", as.artifact.Name, err, response)
+		as.logger.CaptureFatalAndPanic("createArtifact", err)
 	}
-	artifact := data.GetCreateArtifact().GetArtifact()
+	artifact := response.GetCreateArtifact().GetArtifact()
 	latest := artifact.ArtifactSequence.GetLatestArtifact()
 
 	var baseId *string
 	if latest != nil {
 		baseId = &latest.Id
 	}
-	// fmt.Printf("GOT RESP: %+v latest:%+v\n", artifact, baseId)
 	return artifact.Id, baseId
 }
 
 func (as *ArtifactSaver) createManifest(artifactId string, baseArtifactId *string, manifestDigest string, includeUpload bool) (string, *string, []string) {
+	const manifestFilename = "wandb_manifest.json"
 	manifestType := ArtifactManifestTypeFull
-	manifestFilename := "wandb_manifest.json"
 
-	// ---
-	got, err := CreateArtifactManifest(
+	response, err := CreateArtifactManifest(
 		as.ctx,
 		as.graphqlClient,
 		manifestFilename,
@@ -103,17 +114,15 @@ func (as *ArtifactSaver) createManifest(artifactId string, baseArtifactId *strin
 		as.artifact.Entity,
 		as.artifact.Project,
 		as.artifact.RunId,
-		includeUpload, // includeUpload
+		includeUpload,
 		&manifestType,
 	)
 	if err != nil {
-		err = fmt.Errorf("artifact manifest: %s, error: %+v data: %+v", as.artifact.Name, err, got)
-		as.logger.CaptureFatalAndPanic("Artifact saver error", err)
+		err = fmt.Errorf("CreateArtifactManifest: %s, error: %+v response: %+v", as.artifact.Name, err, response)
+		as.logger.CaptureFatalAndPanic("createManifest", err)
 	}
-	createManifest := got.GetCreateArtifactManifest()
+	createManifest := response.GetCreateArtifactManifest()
 	manifest := createManifest.ArtifactManifest
-	as.logger.Info("createamanifest", "manifest", manifest)
-	// fmt.Printf("GOT ART MAN RESP: %+v %+v %+v\n", manifest, manifest.Id, manifest.File)
 
 	var upload *string
 	var headers []string
@@ -126,12 +135,10 @@ func (as *ArtifactSaver) createManifest(artifactId string, baseArtifactId *strin
 }
 
 func (as *ArtifactSaver) sendManifestFiles(artifactID string, manifestID string) {
-	// TODO iterate over all entries...
 	artifactFiles := []CreateArtifactFileSpecInput{}
 	man := as.artifact.Manifest
 	for _, entry := range man.Contents {
 		as.logger.Info("sendfiles", "entry", entry)
-		// fmt.Printf("Got %+v\n", entry)
 		md5Checksum := ""
 		artifactFiles = append(artifactFiles,
 			CreateArtifactFileSpecInput{
@@ -141,31 +148,27 @@ func (as *ArtifactSaver) sendManifestFiles(artifactID string, manifestID string)
 				ArtifactManifestID: &manifestID,
 			})
 	}
-	got, err := CreateArtifactFiles(
+	response, err := CreateArtifactFiles(
 		as.ctx,
 		as.graphqlClient,
 		ArtifactStorageLayoutV2,
 		artifactFiles,
 	)
 	if err != nil {
-		err = fmt.Errorf("artifact files: %s, error: %+v data: %+v", as.artifact.Name, err, got)
-		as.logger.CaptureFatalAndPanic("Artifact files error", err)
+		err = fmt.Errorf("CreateArtifactFiles: %s, error: %+v response: %+v", as.artifact.Name, err, response)
+		as.logger.CaptureFatalAndPanic("sendManifestFiles", err)
 	}
-	for n, edge := range got.GetCreateArtifactFiles().GetFiles().Edges {
-		as.logger.Info("Create artifact files", "artifact", artifactID, "filespec", edge.Node)
-		// fmt.Printf("FILES:::::: %+v\n", edge.Node)
+	for n, edge := range response.GetCreateArtifactFiles().GetFiles().Edges {
 		upload := UploadTask{
 			url:  *edge.Node.GetUploadUrl(),
 			path: man.Contents[n].LocalPath,
+			wgOutstanding: &as.wgOutstanding,
 		}
 		as.uploader.AddTask(&upload)
 	}
-	// use uploader to send files
-	// wait for upload responses
-	// update manifest checksums/artifact info
 }
 
-func (as *ArtifactSaver) generateManifest() (string, string) {
+func (as *ArtifactSaver) writeManifest() (string, error) {
 	man := as.artifact.Manifest
 
 	m := &ManifestV1{
@@ -178,12 +181,9 @@ func (as *ArtifactSaver) generateManifest() (string, string) {
 	}
 
 	for _, entry := range man.Contents {
-		// digest := entry.Digest
-		// digest := "junk"
 		m.Contents[entry.Path] = ManifestEntry{
 			Digest: entry.Digest,
 			Size:   entry.Size,
-			// BirthArtifactID: entry.Digest,
 		}
 	}
 
@@ -191,78 +191,58 @@ func (as *ArtifactSaver) generateManifest() (string, string) {
 
 	f, err := os.CreateTemp("", "tmpfile-")
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 
 	defer f.Close()
-	// TODO: remove this later
 
 	if _, err := f.Write(jsonBytes); err != nil {
-		panic(err)
+		return "", err
 	}
 
-	manifestDigest := computeB64MD5(f.Name())
-	return f.Name(), manifestDigest
+	return f.Name(), nil
 }
 
 func (as *ArtifactSaver) sendManifest(manifestFile string, uploadUrl *string, uploadHeaders []string) {
-	response := make(chan bool)
 	upload := UploadTask{
-		url:         *uploadUrl,
-		path:        manifestFile,
-		headers:     uploadHeaders,
-		respondChan: response,
+		url:           *uploadUrl,
+		path:          manifestFile,
+		headers:       uploadHeaders,
+		wgOutstanding: &as.wgOutstanding,
 	}
 	as.uploader.AddTask(&upload)
-	worked := <-response
-	if !worked {
-		panic("manifest not saved")
-	}
 }
 
 func (as *ArtifactSaver) commitArtifact(artifactId string) {
-	// ---
-	com, err := CommitArtifact(
+	response, err := CommitArtifact(
 		as.ctx,
 		as.graphqlClient,
 		artifactId,
 	)
 	if err != nil {
-		err = fmt.Errorf("artifact commit: %s, error: %+v data: %+v", as.artifact.Name, err, com)
-		as.logger.CaptureFatalAndPanic("Artifact commit error", err)
+		err = fmt.Errorf("CommitArtifact: %s, error: %+v response: %+v", as.artifact.Name, err, response)
+		as.logger.CaptureFatalAndPanic("commitArtifact", err)
 	}
-	// commitArtifact := com.GetCommitArtifact()
-	// fmt.Printf("GOT ART COM RESP: %+v\n", commitArtifact)
 }
 
-func computeB64MD5(manifestFile string) string {
-	file, err := os.ReadFile(manifestFile)
-	if err != nil {
-		panic("bad manifestfile")
-	}
-	hasher := md5.New()
-	hasher.Write(file)
-	encodedString := b64.StdEncoding.EncodeToString(hasher.Sum(nil))
-	return encodedString
-}
-
-func (as *ArtifactSaver) save() ArtifactSaverResult {
-	// create the artifact
+func (as *ArtifactSaver) save() (ArtifactSaverResult, error) {
 	artifactId, baseArtifactId := as.createArtifact()
-	// create manifest to get manifest id for file uploads
 	manifestId, _, _ := as.createManifest(artifactId, baseArtifactId, "", false)
-	// send files in manifest
 	as.sendManifestFiles(artifactId, manifestId)
-	// generate manifest file
-	manifestFile, manifestDigest := as.generateManifest()
-	// remove the manifest when we are done
+	manifestFile, err := as.writeManifest()
+	if err != nil {
+		return ArtifactSaverResult{}, err
+	}
+	manifestDigest, err := computeB64MD5(manifestFile)
+	if err != nil {
+		return ArtifactSaverResult{}, err
+	}
 	defer os.Remove(manifestFile)
-	// update manifest
 	_, uploadUrl, uploadHeaders := as.createManifest(artifactId, baseArtifactId, manifestDigest, true)
-	// send manifest to the server
 	as.sendManifest(manifestFile, uploadUrl, uploadHeaders)
-	// commit manifest
+	// wait on all outstanding requests before commit
+	as.wgOutstanding.Wait()
 	as.commitArtifact(artifactId)
 
-	return ArtifactSaverResult{ArtifactId: artifactId}
+	return ArtifactSaverResult{ArtifactId: artifactId}, nil
 }
