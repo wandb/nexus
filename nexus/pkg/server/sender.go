@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/wandb/wandb/nexus/internal/gql"
 	"github.com/wandb/wandb/nexus/pkg/observability"
 
 	"github.com/Khan/genqlient/graphql"
@@ -237,7 +238,7 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 	configString := string(configJson)
 
 	var tags []string
-	data, err := UpsertBucket(
+	data, err := gql.UpsertBucket(
 		s.ctx,           // ctx
 		s.graphqlClient, // client
 		nil,             // id
@@ -317,10 +318,10 @@ func (s *Sender) sendOutputRaw(record *service.Record, outputRaw *service.Output
 func (s *Sender) sendAlert(_ *service.Record, alert *service.AlertRecord) {
 
 	// TODO: handle invalid alert levels
-	severity := AlertSeverity(alert.Level)
+	severity := gql.AlertSeverity(alert.Level)
 	waitDuration := time.Duration(alert.WaitDuration) * time.Second
 
-	data, err := NotifyScriptableRunAlert(
+	data, err := gql.NotifyScriptableRunAlert(
 		s.ctx,
 		s.graphqlClient,
 		s.RunRecord.Entity,
@@ -379,7 +380,7 @@ func (s *Sender) sendFile(name string) {
 		s.logger.CaptureFatalAndPanic("sender received error", err)
 	}
 
-	data, err := RunUploadUrls(
+	data, err := gql.RunUploadUrls(
 		s.ctx,
 		s.graphqlClient,
 		s.RunRecord.Project,

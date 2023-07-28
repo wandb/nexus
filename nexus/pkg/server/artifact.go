@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/Khan/genqlient/graphql"
+	"github.com/wandb/wandb/nexus/internal/gql"
 	"github.com/wandb/wandb/nexus/pkg/observability"
 	"github.com/wandb/wandb/nexus/pkg/service"
 )
@@ -57,17 +58,17 @@ func computeB64MD5(manifestFile string) (string, error) {
 
 func (as *ArtifactSaver) createArtifact() (string, *string) {
 	enableDedup := false
-	aliases := []ArtifactAliasInput{}
+	aliases := []gql.ArtifactAliasInput{}
 	for _, alias := range as.artifact.Aliases {
 		aliases = append(aliases,
-			ArtifactAliasInput{
+			gql.ArtifactAliasInput{
 				ArtifactCollectionName: as.artifact.Name,
 				Alias:                  alias,
 			},
 		)
 	}
 
-	response, err := CreateArtifact(
+	response, err := gql.CreateArtifact(
 		as.ctx,
 		as.graphqlClient,
 		as.artifact.Type,
@@ -102,9 +103,9 @@ func (as *ArtifactSaver) createArtifact() (string, *string) {
 
 func (as *ArtifactSaver) createManifest(artifactId string, baseArtifactId *string, manifestDigest string, includeUpload bool) (string, *string, []string) {
 	const manifestFilename = "wandb_manifest.json"
-	manifestType := ArtifactManifestTypeFull
+	manifestType := gql.ArtifactManifestTypeFull
 
-	response, err := CreateArtifactManifest(
+	response, err := gql.CreateArtifactManifest(
 		as.ctx,
 		as.graphqlClient,
 		manifestFilename,
@@ -135,23 +136,23 @@ func (as *ArtifactSaver) createManifest(artifactId string, baseArtifactId *strin
 }
 
 func (as *ArtifactSaver) sendManifestFiles(artifactID string, manifestID string) {
-	artifactFiles := []CreateArtifactFileSpecInput{}
+	artifactFiles := []gql.CreateArtifactFileSpecInput{}
 	man := as.artifact.Manifest
 	for _, entry := range man.Contents {
 		as.logger.Info("sendfiles", "entry", entry)
 		md5Checksum := ""
 		artifactFiles = append(artifactFiles,
-			CreateArtifactFileSpecInput{
+			gql.CreateArtifactFileSpecInput{
 				ArtifactID:         artifactID,
 				Name:               entry.Path,
 				Md5:                md5Checksum,
 				ArtifactManifestID: &manifestID,
 			})
 	}
-	response, err := CreateArtifactFiles(
+	response, err := gql.CreateArtifactFiles(
 		as.ctx,
 		as.graphqlClient,
-		ArtifactStorageLayoutV2,
+		gql.ArtifactStorageLayoutV2,
 		artifactFiles,
 	)
 	if err != nil {
@@ -214,7 +215,7 @@ func (as *ArtifactSaver) sendManifest(manifestFile string, uploadUrl *string, up
 }
 
 func (as *ArtifactSaver) commitArtifact(artifactId string) {
-	response, err := CommitArtifact(
+	response, err := gql.CommitArtifact(
 		as.ctx,
 		as.graphqlClient,
 		artifactId,
