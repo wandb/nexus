@@ -171,7 +171,9 @@ func (fs *FileStream) doRecordProcess(inChan <-chan *service.Record) {
 }
 
 func (fs *FileStream) doChunkProcess(inChan <-chan chunkData) {
+
 	overflow := false
+
 	for active := true; active; {
 		var chunkMaps = make(map[string][]chunkData)
 		select {
