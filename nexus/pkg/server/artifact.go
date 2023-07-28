@@ -2,9 +2,9 @@ package server
 
 import (
 	"context"
-	"encoding/json"
+	"crypto/md5"
 	b64 "encoding/base64"
-    "crypto/md5"
+	"encoding/json"
 	"fmt"
 	"os"
 
