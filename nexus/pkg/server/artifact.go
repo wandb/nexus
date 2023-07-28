@@ -6,8 +6,8 @@ import (
 	b64 "encoding/base64"
 	"encoding/json"
 	"fmt"
-	"sync"
 	"os"
+	"sync"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/wandb/wandb/nexus/pkg/observability"
@@ -160,8 +160,8 @@ func (as *ArtifactSaver) sendManifestFiles(artifactID string, manifestID string)
 	}
 	for n, edge := range response.GetCreateArtifactFiles().GetFiles().Edges {
 		upload := UploadTask{
-			url:  *edge.Node.GetUploadUrl(),
-			path: man.Contents[n].LocalPath,
+			url:           *edge.Node.GetUploadUrl(),
+			path:          man.Contents[n].LocalPath,
 			wgOutstanding: &as.wgOutstanding,
 		}
 		as.uploader.AddTask(&upload)
