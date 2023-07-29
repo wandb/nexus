@@ -251,27 +251,27 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 
 	var tags []string
 	data, err := gql.UpsertBucket(
-		s.ctx,           // ctx
-		s.graphqlClient, // client
-		nil,             // id
-		&run.RunId,      // name
-		emptyAsNil(&run.Project),    // project
-		emptyAsNil(&run.Entity),     // entity
-		nil,             // groupName
-		nil,             // description
-		nil,             // displayName
-		nil,             // notes
-		nil,             // commit
-		&configString,   // config
-		nil,             // host
-		nil,             // debug
-		nil,             // program
-		nil,             // repo
-		nil,             // jobType
-		nil,             // state
-		nil,             // sweep
-		tags,            // tags []string,
-		nil,             // summaryMetrics
+		s.ctx,                    // ctx
+		s.graphqlClient,          // client
+		nil,                      // id
+		&run.RunId,               // name
+		emptyAsNil(&run.Project), // project
+		emptyAsNil(&run.Entity),  // entity
+		nil,                      // groupName
+		nil,                      // description
+		nil,                      // displayName
+		nil,                      // notes
+		nil,                      // commit
+		&configString,            // config
+		nil,                      // host
+		nil,                      // debug
+		nil,                      // program
+		nil,                      // repo
+		nil,                      // jobType
+		nil,                      // state
+		nil,                      // sweep
+		tags,                     // tags []string,
+		nil,                      // summaryMetrics
 	)
 	if err != nil {
 		err = fmt.Errorf("sender: sendRun: failed to upsert bucket: %s", err)
