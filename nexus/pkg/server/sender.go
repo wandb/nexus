@@ -55,6 +55,16 @@ type Sender struct {
 	RunRecord *service.RunRecord
 }
 
+func emptyAsNil(s *string) *string {
+	if s == nil {
+		return nil
+	}
+	if *s == "" {
+		return nil
+	}
+	return s
+}
+
 // NewSender creates a new Sender with the given settings
 func NewSender(ctx context.Context, settings *service.Settings, logger *observability.NexusLogger) *Sender {
 	url := fmt.Sprintf("%s/graphql", settings.GetBaseUrl().GetValue())
@@ -245,8 +255,8 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 		s.graphqlClient, // client
 		nil,             // id
 		&run.RunId,      // name
-		nil,             // project
-		nil,             // entity
+		emptyAsNil(&run.Project),    // project
+		emptyAsNil(&run.Entity),     // entity
 		nil,             // groupName
 		nil,             // description
 		nil,             // displayName
