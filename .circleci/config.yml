@@ -86,16 +86,16 @@ jobs:
             # run nexus-specific tests
             pytest -n=0 --durations=20 --reruns 3 --reruns-delay 1 --junitxml=test-results/junit.xml --cov-config=.coveragerc --cov --cov-report= --no-cov-on-fail --timeout 300 tests/pytest_tests/system_tests/test_nexus
   gotest:
-    executor:
-      name: go/default
-      tag: '1.20'
+    docker:
+      - image: cimg/go:1.20
     steps:
       - checkout
       - run:
-          name: run go tests
+          name: Run tests and collect coverage
           command: |
             cd nexus
             go test -coverprofile=coverage.txt -covermode=atomic ./...
+      - codecov/upload
 
 workflows:
   main:
