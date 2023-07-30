@@ -95,12 +95,11 @@ type FileStream struct {
 
 // NewFileStream creates a new filestream
 func NewFileStream(path string, settings *service.Settings, logger *observability.NexusLogger) *FileStream {
-	retryClient := newRetryClient(settings.GetApiKey().GetValue(), logger)
 	fs := FileStream{
 		path:       path,
 		settings:   settings,
 		logger:     logger,
-		httpClient: retryClient,
+		httpClient: newRetryClient(settings.GetApiKey().GetValue(), logger),
 		recordWait: &sync.WaitGroup{},
 		chunkWait:  &sync.WaitGroup{},
 		replyWait:  &sync.WaitGroup{},
@@ -108,7 +107,6 @@ func NewFileStream(path string, settings *service.Settings, logger *observabilit
 		chunkChan:  make(chan chunkData, BufferSize),
 		replyChan:  make(chan map[string]interface{}, BufferSize),
 	}
-	fs.Start()
 	return &fs
 }
 
