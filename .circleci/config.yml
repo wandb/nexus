@@ -92,10 +92,10 @@ jobs:
     working_directory: ~/project/nexus
     steps:
       - run:
-        name: "checkout"
-        command: |
-          cd ~/project
-          git clone -b "$CIRCLE_BRANCH" "$CIRCLE_REPOSITORY_URL"
+          name: "checkout"
+          command: |
+            cd ~/project
+            git clone -b "$CIRCLE_BRANCH" "$CIRCLE_REPOSITORY_URL"
       - go/load-cache
       - go/mod-download
       - go/save-cache
