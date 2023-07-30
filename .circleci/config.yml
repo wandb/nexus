@@ -1,7 +1,6 @@
 version: 2.1
 orbs:
   codecov: codecov/codecov@3
-  go: circleci/go@1.7.3
 
 parameters:
   wandb_server_tag:
