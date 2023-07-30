@@ -1,17 +1,17 @@
 package server
 
 import (
-	"testing"
 	"fmt"
+	"testing"
 
 	"github.com/Khan/genqlient/graphql"
-    "google.golang.org/protobuf/types/known/wrapperspb"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"github.com/wandb/wandb/nexus/pkg/observability"
-	"github.com/wandb/wandb/nexus/pkg/service"
 	"github.com/wandb/wandb/nexus/internal/gql"
 	"github.com/wandb/wandb/nexus/internal/nexustest"
-	"github.com/golang/mock/gomock"
+	"github.com/wandb/wandb/nexus/pkg/observability"
+	"github.com/wandb/wandb/nexus/pkg/service"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func makeSender(client graphql.Client, resultChan chan *service.Result) Sender {
@@ -22,7 +22,7 @@ func makeSender(client graphql.Client, resultChan chan *service.Result) Sender {
 			RunId: &wrapperspb.StringValue{Value: "run1"},
 		},
 		graphqlClient: client,
-		resultChan: resultChan,
+		resultChan:    resultChan,
 	}
 	return sender
 }
@@ -37,9 +37,9 @@ func TestSendRun(t *testing.T) {
 	run := &service.Record{
 		RecordType: &service.Record_Run{
 			Run: &service.RunRecord{
-				Config: to.MakeConfig(),
+				Config:  to.MakeConfig(),
 				Project: "testProject",
-				Entity: "testEntity",
+				Entity:  "testEntity",
 			}}}
 
 	respEncode := &graphql.Response{
@@ -62,7 +62,7 @@ func TestSendRun(t *testing.T) {
 		gomock.Any(), // *graphql.Request
 	).Return(nil).Do(nexustest.InjectResponse(
 		respEncode,
-		func (vars nexustest.RequestVars) {
+		func(vars nexustest.RequestVars) {
 			fmt.Printf("got: %+v\n", vars)
 			assert.Equal(t, "testEntity", vars["entity"])
 			assert.Equal(t, "testProject", vars["project"])
@@ -70,5 +70,5 @@ func TestSendRun(t *testing.T) {
 	))
 
 	sender.sendRecord(run)
-	result := <- sender.resultChan
+	result := <-sender.resultChan
 }

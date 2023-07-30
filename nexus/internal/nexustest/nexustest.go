@@ -2,27 +2,27 @@ package nexustest
 
 import (
 	"context"
-	"testing"
 	"encoding/json"
+	"testing"
 
 	"github.com/Khan/genqlient/graphql"
-	"github.com/wandb/wandb/nexus/pkg/service"
-	"github.com/wandb/wandb/nexus/pkg/observability"
-	"github.com/wandb/wandb/nexus/internal/gqltest"
 	"github.com/golang/mock/gomock"
+	"github.com/wandb/wandb/nexus/internal/gqltest"
+	"github.com/wandb/wandb/nexus/pkg/observability"
+	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
 type RequestVars = map[string]interface{}
 
 type TestObject struct {
-	t *testing.T
-	mockCtrl *gomock.Controller
+	t          *testing.T
+	mockCtrl   *gomock.Controller
 	MockClient *gqltest.MockClient
-	logger *observability.NexusLogger
+	logger     *observability.NexusLogger
 	resultChan chan *service.Result
 }
 
-func MakeTestObject(t *testing.T) TestObject{
+func MakeTestObject(t *testing.T) TestObject {
 	tst := TestObject{
 		t: t,
 	}
@@ -41,13 +41,13 @@ func (to *TestObject) TeardownTest() {
 
 func (to *TestObject) MakeConfig() *service.ConfigRecord {
 	config := &service.ConfigRecord{
-				Update: []*service.ConfigItem{
-					&service.ConfigItem{
-						Key: "_wandb",
-						ValueJson: "{}",
-					},
-				},
-			}
+		Update: []*service.ConfigItem{
+			&service.ConfigItem{
+				Key:       "_wandb",
+				ValueJson: "{}",
+			},
+		},
+	}
 	return config
 }
 
@@ -55,8 +55,8 @@ func StrPtr(s string) *string {
 	return &s
 }
 
-func InjectResponse(respEncode *graphql.Response, matchFunc func(RequestVars)) func (context.Context, *graphql.Request, *graphql.Response) {
-	return func (ctx context.Context, req *graphql.Request, resp *graphql.Response) {
+func InjectResponse(respEncode *graphql.Response, matchFunc func(RequestVars)) func(context.Context, *graphql.Request, *graphql.Response) {
+	return func(ctx context.Context, req *graphql.Request, resp *graphql.Response) {
 		// check request
 		if matchFunc != nil {
 			body, err := json.Marshal(req.Variables)
@@ -64,7 +64,7 @@ func InjectResponse(respEncode *graphql.Response, matchFunc func(RequestVars)) f
 				panic("bad")
 			}
 			var vars RequestVars
-    		json.Unmarshal(body, &vars)
+			json.Unmarshal(body, &vars)
 			matchFunc(vars)
 		}
 

@@ -5,6 +5,7 @@ go 1.20
 require (
 	github.com/Khan/genqlient v0.6.0
 	github.com/getsentry/sentry-go v0.22.0
+	github.com/golang/mock v1.6.0
 	github.com/hashicorp/go-retryablehttp v0.7.4
 	github.com/shirou/gopsutil/v3 v3.23.6
 	github.com/stretchr/testify v1.8.4
@@ -18,7 +19,6 @@ require (
 	github.com/alexflint/go-scalar v1.0.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
-	github.com/golang/mock v1.6.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
