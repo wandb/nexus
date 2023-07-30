@@ -89,7 +89,7 @@ jobs:
     executor:
       name: go/default
       tag: '1.20'
-      working_directory: ~/project/nexus/
+    working_directory: ~/project/nexus/
     steps:
       - checkout
       - go/load-cache
