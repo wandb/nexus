@@ -70,5 +70,5 @@ func TestSendRun(t *testing.T) {
 	))
 
 	sender.sendRecord(run)
-	result := <-sender.resultChan
+	_ = <-sender.resultChan
 }
