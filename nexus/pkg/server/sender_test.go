@@ -59,7 +59,7 @@ func TestSendRun(t *testing.T) {
 	to.MockClient.EXPECT().MakeRequest(
 		gomock.Any(), // context.Context
 		gomock.Any(), // *graphql.Request
-		gomock.Any(), // *graphql.Request
+		gomock.Any(), // *graphql.Response
 	).Return(nil).Do(nexustest.InjectResponse(
 		respEncode,
 		func(vars nexustest.RequestVars) {
