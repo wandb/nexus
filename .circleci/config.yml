@@ -1,6 +1,7 @@
 version: 2.1
 orbs:
   codecov: codecov/codecov@3
+  go: circleci/go@1.7.3
 
 parameters:
   wandb_server_tag:
@@ -85,16 +86,18 @@ jobs:
             # run nexus-specific tests
             pytest -n=0 --durations=20 --reruns 3 --reruns-delay 1 --junitxml=test-results/junit.xml --cov-config=.coveragerc --cov --cov-report= --no-cov-on-fail --timeout 300 tests/pytest_tests/system_tests/test_nexus
   gotest:
-    docker:
-      - image: cimg/go:1.18
+    executor:
+      name: go/default
+      tag: '1.20'
     steps:
       - checkout
-      - run:
-          name: Run tests and collect coverage
-          command: |
-            cd nexus
-            go test -coverprofile=coverage.txt -covermode=atomic ./...
-      - codecov/upload
+      - go/load-cache
+      - go/mod-download
+      - go/save-cache
+      - go/test:
+          covermode: atomic
+          failfast: true
+          race: true
 
 workflows:
   main:
