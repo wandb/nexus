@@ -18,8 +18,6 @@ type TestObject struct {
 	t          *testing.T
 	mockCtrl   *gomock.Controller
 	MockClient *gqltest.MockClient
-	logger     *observability.NexusLogger
-	resultChan chan *service.Result
 }
 
 func MakeTestObject(t *testing.T) TestObject {
@@ -64,7 +62,10 @@ func InjectResponse(respEncode *graphql.Response, matchFunc func(RequestVars)) f
 				panic("bad")
 			}
 			var vars RequestVars
-			json.Unmarshal(body, &vars)
+			err = json.Unmarshal(body, &vars)
+			if err != nil {
+				panic("bad")
+			}
 			matchFunc(vars)
 		}
 
