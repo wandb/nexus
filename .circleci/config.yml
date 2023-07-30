@@ -91,7 +91,9 @@ jobs:
       - checkout
       - run:
           name: Run tests and collect coverage
-          command: go test -coverprofile=coverage.txt -covermode=atomic
+          command: |
+            cd nexus
+            go test -coverprofile=coverage.txt -covermode=atomic
       - codecov/upload
 
 workflows:
