@@ -63,7 +63,6 @@ func TestSendRun(t *testing.T) {
 	).Return(nil).Do(nexustest.InjectResponse(
 		respEncode,
 		func(vars nexustest.RequestVars) {
-			fmt.Printf("got: %+v\n", vars)
 			assert.Equal(t, "testEntity", vars["entity"])
 			assert.Equal(t, "testProject", vars["project"])
 		},
