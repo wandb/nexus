@@ -8,7 +8,6 @@ import (
 	"github.com/Khan/genqlient/graphql"
 	"github.com/golang/mock/gomock"
 	"github.com/wandb/wandb/nexus/internal/gqltest"
-	"github.com/wandb/wandb/nexus/pkg/observability"
 	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
