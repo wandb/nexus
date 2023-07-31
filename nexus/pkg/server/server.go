@@ -97,7 +97,7 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 
 	scanner := bufio.NewScanner(conn)
 	tokenizer := &Tokenizer{}
-	scanner.Split(tokenizer.split)
+	scanner.Split(tokenizer.Split)
 	for scanner.Scan() {
 		msg := &service.ServerRequest{}
 		if err := proto.Unmarshal(scanner.Bytes(), msg); err != nil {
@@ -120,7 +120,7 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 
 	scanner := bufio.NewScanner(conn)
 	tokenizer := &Tokenizer{}
-	scanner.Split(tokenizer.split)
+	scanner.Split(tokenizer.Split)
 
 	// Create a buffered channel with a size of your choice
 	bytesChan := make(chan []byte, 100)
