@@ -189,7 +189,9 @@ func (s *Stream) HandleRecord(rec *service.Record) {
 }
 
 func (s *Stream) GetRun() *service.RunRecord {
-	return s.handler.GetRun()
+	// return s.handler.GetRun()
+	// todo: this is a hack to get the run record from the sender, fix!
+	return s.sender.RunRecord
 }
 
 // Close closes the stream's handler, writer, sender, and dispatcher.
@@ -214,9 +216,11 @@ func (s *Stream) Close(force bool) {
 	}
 	close(s.inChan)
 	s.wg.Wait()
-	if force {
-		s.PrintFooter()
-	}
+	s.PrintFooter()
+	// todo: fix me
+	// if force {
+	// 	s.PrintFooter()
+	// }
 	s.logger.Info("closed stream", "id", s.settings.RunId)
 }
 
