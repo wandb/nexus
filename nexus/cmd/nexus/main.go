@@ -55,7 +55,7 @@ func main() {
 		slog.Bool("serveGrpc", *serveGrpc),
 	)
 
-	f, err := os.Create("trace.out")
+	f, err := os.Create("trace1.out")
 	if err != nil {
 		slog.Error("failed to create trace output file", "err", err)
 		panic(err)

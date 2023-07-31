@@ -102,6 +102,10 @@ func (s *Sender) handleRecord(record *service.Record) {
 		s.handleStats(record, x.Stats)
 	case *service.Record_OutputRaw:
 		s.handleOutputRaw(record, x.OutputRaw)
+	case *service.Record_Config:
+		s.handleConfig(record, x.Config)
+	case *service.Record_Summary:
+		s.handleSummary(record, x.Summary)
 	case *service.Record_Request:
 		s.handleRequest(record, x.Request)
 	case nil:
@@ -244,20 +248,7 @@ func (s *Sender) handleRun(record *service.Record, run *service.RunRecord) {
 		s.logger.CaptureFatalAndPanic("sender received error", err)
 	}
 
-	var configString string
-	if run.Config != nil {
-		config := s.parseConfigUpdate(run.Config)
-		s.updateConfigTelemetry(config)
-		valueConfig := s.getValueConfig(config)
-		configJson, err := json.Marshal(valueConfig)
-		if err != nil {
-			err = fmt.Errorf("sender: handleRun: failed to marshal config: %s", err)
-			s.logger.CaptureFatalAndPanic("sender received error", err)
-		}
-		configString = string(configJson)
-	} else {
-		configString = "{}"
-	}
+	config := s.handleConfig(record, run.Config)
 
 	if s.graphqlClient != nil {
 
@@ -274,7 +265,7 @@ func (s *Sender) handleRun(record *service.Record, run *service.RunRecord) {
 			nil,             // displayName
 			nil,             // notes
 			nil,             // commit
-			&configString,   // config
+			&config,         // config
 			nil,             // host
 			nil,             // debug
 			nil,             // program
@@ -343,6 +334,28 @@ func (s *Sender) handleOutputRaw(record *service.Record, outputRaw *service.Outp
 		outputRaw.Line = fmt.Sprintf("ERROR %s", outputRaw.Line)
 	}
 	s.fileStream.StreamRecord(record)
+}
+
+func (s *Sender) handleConfig(_ *service.Record, config *service.ConfigRecord) string {
+	var configString string
+	if config != nil {
+		config := s.parseConfigUpdate(config)
+		s.updateConfigTelemetry(config)
+		valueConfig := s.getValueConfig(config)
+		configJson, err := json.Marshal(valueConfig)
+		if err != nil {
+			err = fmt.Errorf("sender: handleConfig: failed to marshal config: %s", err)
+			s.logger.CaptureError("sender received error", err)
+			return "{}"
+		}
+		configString = string(configJson)
+	} else {
+		configString = "{}"
+	}
+	return configString
+}
+
+func (s *Sender) handleSummary(_ *service.Record, _ *service.SummaryRecord) {
 
 }
 

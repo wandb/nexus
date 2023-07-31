@@ -89,7 +89,7 @@ func NewSettings(args ...any) *SettingsWrap {
 			Value: true,
 		},
 		XOffline: &wrapperspb.BoolValue{
-			Value: true,
+			Value: false,
 		},
 		XFileStreamTimeoutSeconds: &wrapperspb.DoubleValue{
 			Value: 60,
