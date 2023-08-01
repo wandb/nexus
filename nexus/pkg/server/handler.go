@@ -410,7 +410,7 @@ func (h *Handler) updateSummary(history *service.HistoryRecord) {
 		h.summary[historyItems[i].Key] = historyItems[i].ValueJson
 		summaryItems = append(summaryItems,
 			&service.SummaryItem{
-				Key: historyItems[i].Key,
+				Key:       historyItems[i].Key,
 				ValueJson: historyItems[i].ValueJson})
 	}
 
