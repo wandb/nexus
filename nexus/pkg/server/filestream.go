@@ -18,6 +18,7 @@ import (
 const (
 	EventsFileName  = "wandb-events.jsonl"
 	HistoryFileName = "wandb-history.jsonl"
+	SummaryFileName = "wandb-summary.json"
 	OutputFileName  = "output.log"
 	maxItemsPerPush = 5_000
 	delayProcess    = 20 * time.Millisecond
