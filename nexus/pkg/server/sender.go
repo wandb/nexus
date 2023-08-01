@@ -310,6 +310,7 @@ func (s *Sender) sendHistory(record *service.Record, _ *service.HistoryRecord) {
 func (s *Sender) sendSummary(_ *service.Record, summary *service.SummaryRecord) {
 	// TODO(network): buffer summary sending for network efficiency until we can send only updates
 	// TODO(compat): handle deletes, nested keys
+	// TODO(compat): write summary file
 
 	// track each key in the in memory summary store
 	// TODO(memory): avoid keeping summary for all distinct keys
