@@ -4,8 +4,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/wandb/wandb/nexus/pkg/client"
 	"math/rand"
+
+	"github.com/wandb/wandb/nexus/pkg/client"
 )
 
 func main() {
