@@ -36,6 +36,17 @@ func (m *Memory) SampleMetrics() {
 
 	virtualMem, _ := mem.VirtualMemory()
 
+	// total system memory usage in percent
+	m.metrics["memory_percent"] = append(
+		m.metrics["memory_percent"],
+		virtualMem.UsedPercent,
+	)
+	// total system memory available in MB
+	m.metrics["proc.memory.availableMB"] = append(
+		m.metrics["proc.memory.availableMB"],
+		float64(virtualMem.Available)/1024/1024,
+	)
+
 	// process-related metrics
 	proc := process.Process{Pid: int32(m.settings.XStatsPid.GetValue())}
 	procMem, _ := proc.MemoryInfo()
@@ -48,16 +59,6 @@ func (m *Memory) SampleMetrics() {
 	m.metrics["proc.memory.percent"] = append(
 		m.metrics["proc.memory.percent"],
 		float64(procMem.RSS)/float64(virtualMem.Total)*100,
-	)
-	// total system memory usage in percent
-	m.metrics["memory_percent"] = append(
-		m.metrics["memory_percent"],
-		virtualMem.UsedPercent,
-	)
-	// total system memory available in MB
-	m.metrics["proc.memory.availableMB"] = append(
-		m.metrics["proc.memory.availableMB"],
-		float64(virtualMem.Available)/1024/1024,
 	)
 }
 

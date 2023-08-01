@@ -36,6 +36,19 @@ func (c *CPU) SampleMetrics() {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
+	// todo: this somehow doesn't always work on an arm mac
+	// total system CPU usage in percent
+	utilization, err := cpu.Percent(0, true)
+	if err == nil {
+		for i, u := range utilization {
+			metricName := fmt.Sprintf("cpu.%d.cpu_percent", i)
+			c.metrics[metricName] = append(
+				c.metrics[metricName],
+				u,
+			)
+		}
+	}
+
 	// process-related metrics
 	proc := process.Process{Pid: int32(c.settings.XStatsPid.GetValue())}
 	// process CPU usage in percent
@@ -62,18 +75,6 @@ func (c *CPU) SampleMetrics() {
 			c.metrics["proc.cpu.threads"],
 			float64(procThreads),
 		)
-	}
-
-	// total system CPU usage in percent
-	utilization, err := cpu.Percent(0, true)
-	if err == nil {
-		for i, u := range utilization {
-			metricName := fmt.Sprintf("cpu.%d.cpu_percent", i)
-			c.metrics[metricName] = append(
-				c.metrics[metricName],
-				u,
-			)
-		}
 	}
 }
 

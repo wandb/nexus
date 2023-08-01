@@ -23,7 +23,13 @@ func PrintHeadFoot(run *service.RunRecord, settings *service.Settings) {
 	colorYellow := "\033[33m"
 	colorPink := "\033[35m"
 
-	appURL := strings.Replace(settings.GetBaseUrl().GetValue(), "//api.", "//", 1)
+	// if ends with "wandb.test", do the following:
+	appURL := settings.GetBaseUrl().GetValue()
+	if !strings.HasSuffix(appURL, "wandb.test") {
+		appURL = strings.Replace(appURL, "//api.", "//", 1)
+	} else {
+		appURL = strings.Replace(appURL, "api.", "app.", 1)
+	}
 	syncDir := settings.GetSyncDir().GetValue()
 	runID := settings.GetRunId().GetValue()
 

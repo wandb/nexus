@@ -43,8 +43,15 @@ func NewSettings(args ...any) *SettingsWrap {
 		RunId: &wrapperspb.StringValue{
 			Value: runID,
 		},
+		Project: &wrapperspb.StringValue{
+			Value: "prod-mon",
+		},
 		BaseUrl: &wrapperspb.StringValue{
-			Value: "https://api.wandb.ai",
+			// Value: "https://api.wandb.ai",
+			Value: "https://api.wandb.test",
+		},
+		Console: &wrapperspb.StringValue{
+			Value: "off",
 		},
 		RootDir: &wrapperspb.StringValue{
 			Value: rootDir,
@@ -95,13 +102,19 @@ func NewSettings(args ...any) *SettingsWrap {
 			Value: 60,
 		},
 		XStatsSamplesToAverage: &wrapperspb.Int32Value{
-			Value: 15,
+			Value: 1,
 		},
 		XStatsSampleRateSeconds: &wrapperspb.DoubleValue{
-			Value: 2,
+			Value: 1,
 		},
 		XStatsJoinAssets: &wrapperspb.BoolValue{
 			Value: true,
+		},
+		XStartTime: &wrapperspb.DoubleValue{
+			Value: float64(time.Now().UnixNano()) / 1e9,
+		},
+		XStatsPid: &wrapperspb.Int32Value{
+			Value: int32(os.Getpid()),
 		},
 	}
 	return &SettingsWrap{settings}

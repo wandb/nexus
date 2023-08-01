@@ -240,15 +240,20 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 		s.logger.CaptureFatalAndPanic("sender received error", err)
 	}
 
-	config := s.parseConfigUpdate(run.Config)
-	s.updateConfigTelemetry(config)
-	valueConfig := s.getValueConfig(config)
-	configJson, err := json.Marshal(valueConfig)
-	if err != nil {
-		err = fmt.Errorf("sender: sendRun: failed to marshal config: %s", err)
-		s.logger.CaptureFatalAndPanic("sender received error", err)
+	var configString string
+	if run.Config != nil {
+		config := s.parseConfigUpdate(run.Config)
+		s.updateConfigTelemetry(config)
+		valueConfig := s.getValueConfig(config)
+		configJson, err := json.Marshal(valueConfig)
+		if err != nil {
+			err = fmt.Errorf("sender: sendRun: failed to marshal config: %s", err)
+			s.logger.CaptureFatalAndPanic("sender received error", err)
+		}
+		configString = string(configJson)
+	} else {
+		configString = "{}"
 	}
-	configString := string(configJson)
 
 	var tags []string
 	data, err := gql.UpsertBucket(
@@ -312,6 +317,10 @@ func (s *Sender) sendOutputRaw(record *service.Record, outputRaw *service.Output
 	// - handle carriage returns (for tqdm-like progress bars)
 	// - handle caching multiple (non-new lines) and sending them in one chunk
 	// - handle lines longer than ~60_000 characters
+
+	if s.settings.Console.GetValue() == "off" {
+		return
+	}
 
 	// ignore empty "new lines"
 	if outputRaw.Line == "\n" {

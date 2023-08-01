@@ -3,8 +3,9 @@ package main
 import (
 	"context"
 	"flag"
-
+	"fmt"
 	"github.com/wandb/wandb/nexus/pkg/client"
+	"math/rand"
 )
 
 func main() {
@@ -22,11 +23,17 @@ func main() {
 	run.Init()
 	run.Start()
 
-	data := map[string]float64{
-		"loss": float64(100),
-	}
 	for i := 0; i < *samples; i++ {
+		data := map[string]float64{
+			// generate random float and assign to key "foo":
+			"loss": rand.Float64(),
+		}
+		if i%1000 == 0 {
+			fmt.Println(i)
+		}
 		run.Log(data)
+		// sleep for 0.1 seconds
+		// time.Sleep(100 * time.Millisecond)
 	}
 	run.Finish()
 

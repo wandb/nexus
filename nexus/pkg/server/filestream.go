@@ -15,13 +15,17 @@ import (
 	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
+// todo: we should make a separate channel for each file
+// such that they are independent and can be processed in parallel
 const (
 	EventsFileName  = "wandb-events.jsonl"
 	HistoryFileName = "wandb-history.jsonl"
 	OutputFileName  = "output.log"
 	maxItemsPerPush = 5_000
-	delayProcess    = 20 * time.Millisecond
-	heartbeatTime   = 2 * time.Second
+	// in the prodmon test, increasing this to 200 from 20 ms reduces runtime by a quarter
+	// the "optimal" value was found manually logging against a local wandb server
+	delayProcess  = 200 * time.Millisecond
+	heartbeatTime = 2 * time.Second
 )
 
 var (
@@ -361,7 +365,9 @@ func (fs *FileStream) send(data interface{}) {
 		fs.logger.CaptureFatalAndPanic("filestream: error creating HTTP request", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	// req.Header.Set("X-WANDB-USE-ASYNC-FILESTREAM", "true")
 	resp, err := fs.httpClient.Do(req)
+	// fmt.Println("resp", resp)
 	if err != nil {
 		fs.logger.CaptureFatalAndPanic("filestream: error making HTTP request", err)
 	}

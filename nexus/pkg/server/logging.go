@@ -16,6 +16,7 @@ func setupLogger(opts *slog.HandlerOptions, writers ...io.Writer) *slog.Logger {
 	if opts == nil {
 		opts = &slog.HandlerOptions{
 			Level: slog.LevelInfo,
+			// Level: slog.LevelDebug,
 		}
 	}
 	logger := slog.New(slog.NewJSONHandler(writer, opts))
