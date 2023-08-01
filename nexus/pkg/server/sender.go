@@ -106,6 +106,8 @@ func (s *Sender) sendRecord(record *service.Record) {
 		s.sendFiles(record, x.Files)
 	case *service.Record_History:
 		s.sendHistory(record, x.History)
+	case *service.Record_Summary:
+		s.sendSummary(record, x.Summary)
 	case *service.Record_Stats:
 		s.sendSystemMetrics(record, x.Stats)
 	case *service.Record_OutputRaw:
@@ -296,6 +298,13 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 // sendHistory sends a history record to the file stream,
 // which will then send it to the server
 func (s *Sender) sendHistory(record *service.Record, _ *service.HistoryRecord) {
+	if s.fileStream != nil {
+		s.fileStream.StreamRecord(record)
+	}
+}
+
+func (s *Sender) sendSummary(record *service.Record, _ *service.SummaryRecord) {
+	// TODO(network): buffer summary sending for network efficiency until we can send only updates
 	if s.fileStream != nil {
 		s.fileStream.StreamRecord(record)
 	}
