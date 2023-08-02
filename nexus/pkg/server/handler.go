@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/wandb/wandb/nexus/pkg/monitor"
-
-	"github.com/wandb/wandb/nexus/pkg/observability"
-
-	"github.com/wandb/wandb/nexus/pkg/service"
 	"google.golang.org/protobuf/proto"
-	// "time"
+
+	"github.com/wandb/wandb/nexus/internal/nexuslib"
+	"github.com/wandb/wandb/nexus/pkg/monitor"
+	"github.com/wandb/wandb/nexus/pkg/observability"
+	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
 // Handler is the handler for a stream
@@ -62,10 +61,10 @@ func NewHandler(
 	systemMonitor *monitor.SystemMonitor,
 ) *Handler {
 	h := &Handler{
-		ctx:           ctx,
-		settings:      settings,
-		logger:        logger,
-		systemMonitor: systemMonitor,
+		ctx:                 ctx,
+		settings:            settings,
+		logger:              logger,
+		systemMonitor:       systemMonitor,
 		consolidatedSummary: make(map[string]string),
 	}
 	return h
@@ -326,7 +325,7 @@ func (h *Handler) flushHistory(history *service.HistoryRecord) {
 	record := &service.Record{
 		RecordType: &service.Record_History{History: history},
 	}
-	summaryRecord := consolidateSummaryItems(h.consolidatedSummary, history.Item)
+	summaryRecord := nexuslib.ConsolidateSummaryItems(h.consolidatedSummary, history.Item)
 	h.sendRecord(summaryRecord)
 	h.sendRecord(record)
 }
@@ -402,31 +401,8 @@ func (h *Handler) handlePartialHistory(_ *service.Record, request *service.Parti
 	}
 }
 
-func consolidateSummaryItems[V genericItem](consolidatedSummary map[string]string, items []V) *service.Record {
-	var summaryItems []*service.SummaryItem
-
-	for i := 0; i < len(items); i++ {
-		key := items[i].GetKey()
-		value := items[i].GetValueJson()
-		consolidatedSummary[key] = value
-		summaryItems = append(summaryItems,
-			&service.SummaryItem{
-				Key:       key,
-				ValueJson: value})
-	}
-
-	record := &service.Record{
-		RecordType: &service.Record_Summary{
-			Summary: &service.SummaryRecord{
-				Update: summaryItems,
-			},
-		},
-	}
-	return record
-}
-
 func (h *Handler) handleSummary(record *service.Record, summary *service.SummaryRecord) {
-	summaryRecord := consolidateSummaryItems(h.consolidatedSummary, summary.Update)
+	summaryRecord := nexuslib.ConsolidateSummaryItems(h.consolidatedSummary, summary.Update)
 	h.sendRecord(summaryRecord)
 }
 
