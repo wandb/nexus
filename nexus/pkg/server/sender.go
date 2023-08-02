@@ -173,7 +173,9 @@ func (s *Sender) sendMetadata(request *service.MetadataRequest) {
 func (s *Sender) sendDefer(request *service.DeferRequest) {
 	switch request.State {
 	case service.DeferRequest_FLUSH_FP:
-		s.uploader.Close()
+		if s.uploader != nil {
+			s.uploader.Close()
+		}
 		request.State++
 		s.sendRequestDefer(request)
 	case service.DeferRequest_FLUSH_FS:
