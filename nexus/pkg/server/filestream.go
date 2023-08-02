@@ -234,12 +234,13 @@ func (fs *FileStream) doReplyProcess(inChan <-chan map[string]interface{}) {
 	}
 }
 
-type Item interface {
+// Generic item which works with summary and history
+type genericItem interface {
 	GetKey() string
 	GetValueJson() string
 }
 
-func jsonifyItems[V Item](items []V) (string, error) {
+func jsonifyItems[V genericItem](items []V) (string, error) {
 	jsonMap := make(map[string]interface{})
 
 	for _, item := range items {
