@@ -116,6 +116,8 @@ func (s *Sender) sendRecord(record *service.Record) {
 		s.sendSystemMetrics(record, x.Stats)
 	case *service.Record_OutputRaw:
 		s.sendOutputRaw(record, x.OutputRaw)
+	case *service.Record_Telemetry:
+		s.sendTelemetry(record, x.Telemetry)
 	case *service.Record_Request:
 		s.sendRequest(record, x.Request)
 	case nil:
@@ -235,6 +237,9 @@ func (s *Sender) getValueConfig(config map[string]interface{}) map[string]map[st
 		datas[key]["value"] = elem
 	}
 	return datas
+}
+
+func (s *Sender) sendTelemetry(record *service.Record, telemetry *service.TelemetryRecord) {
 }
 
 func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
