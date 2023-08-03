@@ -17,6 +17,9 @@ var m = make(map[int]*NexusStream)
 
 func PrintHeadFoot(run *service.RunRecord, settings *service.Settings) {
 	// fmt.Println("GOT", ns.runRecord)
+	if run == nil {
+		return
+	}
 	colorReset := "\033[0m"
 	colorBrightBlue := "\033[1;34m"
 	colorBlue := "\033[34m"

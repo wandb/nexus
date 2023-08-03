@@ -189,7 +189,9 @@ func (s *Sender) sendMetadata(request *service.MetadataRequest) {
 func (s *Sender) sendDefer(request *service.DeferRequest) {
 	switch request.State {
 	case service.DeferRequest_FLUSH_FP:
-		s.uploader.Close()
+		if s.uploader != nil {
+			s.uploader.Close()
+		}
 		request.State++
 		s.sendRequestDefer(request)
 	case service.DeferRequest_FLUSH_FS:
@@ -269,13 +271,18 @@ func (s *Sender) sendResume(run *service.RunRecord) error {
 		s.resumeState.Error = err
 		return err
 	}
-
+	fmt.Printf("got resume status: %v\n", data)
 	project := data.GetModel()
+	fmt.Printf("got resume status: %v\n", project)
+	if project != nil {
+		fmt.Printf("got resume status: %v\n", project.GetBucket())
+	}
+
 	// If we get that the run is not a resume run, we should fail if resume is set to must
 	// for any other case of resume status, it is fine to ignore it
 	// If we get that the run is a resume run, we should fail if resume is set to never
 	// for any other case of resume status, we should continue to process the resume response
-	if project == nil {
+	if data.GetModel() == nil || data.GetModel().GetBucket() == nil {
 		if s.settings.GetResume().GetValue() == "must" {
 			err = fmt.Errorf("run resume status not found but resume is set to must")
 			s.logger.Error("sender: sendResume:", "error", err)
@@ -440,7 +447,11 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 	s.RunRecord.Project = data.UpsertBucket.Bucket.Project.Name
 	s.RunRecord.Entity = data.UpsertBucket.Bucket.Project.Entity.Name
 	s.RunRecord.Resumed = s.resumeState.Resumed
-	s.RunRecord.StartingStep = s.resumeState.ResumeStep
+	// if we are resuming, we need to update the starting step
+	// to be the next step after the last step we ran
+	if s.RunRecord.Resumed && s.resumeState.ResumeStep > 0 {
+		s.RunRecord.StartingStep = s.resumeState.ResumeStep + 1
+	}
 	if s.resumeState.Summary != nil {
 		s.RunRecord.Summary = s.resumeState.Summary
 	}
