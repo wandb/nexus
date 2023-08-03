@@ -176,10 +176,13 @@ func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 			slog.Error("error parsing url", "err", err, "url", baseUrl)
 			panic(err)
 		}
-		host, _, err := net.SplitHostPort(u.Host)
-		if err != nil {
+
+		var host string
+		if host, _, err = net.SplitHostPort(u.Host); err != nil {
 			slog.Error("error split host", "err", err, "host", u.Host)
-			panic(err)
+			//panic(err)
+		} else {
+			host = u.Host
 		}
 		_, password, err := auth.GetNetrcLogin(host)
 		if err != nil {
