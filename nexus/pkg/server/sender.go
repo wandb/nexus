@@ -71,7 +71,7 @@ type Sender struct {
 	summaryMap map[string]*service.SummaryItem
 
 	// Keep track of config which is being updated incrementally
-	configMap map[string]*string
+	configMap map[string]interface{}
 }
 
 func emptyAsNil(s *string) *string {
@@ -388,31 +388,43 @@ func (s *Sender) checkAndUpdateResumeState(run *service.RunRecord) error {
 
 func (s *Sender) updateConfig(configRecord *service.ConfigRecord) {
 	//config := s.parseConfigUpdate(configRecord)
-	cfg := make(map[string]interface{})
-
-	// TODO: handle deletes and nested key updates
-	for _, d := range configRecord.GetUpdate() {
-		j := d.GetValueJson()
-		var data interface{}
-		if err := json.Unmarshal([]byte(j), &data); err != nil {
-			s.logger.CaptureFatalAndPanic("unmarshal problem", err)
-		}
-		cfg[d.GetKey()] = data
+	//cfg := make(map[string]interface{})
+	if s.configMap == nil {
+		s.configMap = make(map[string]interface{})
 	}
-	fmt.Println("cfg after parse config update", cfg)
+
+	// TODO: handle nested key updates and deletes
+	for _, d := range configRecord.GetUpdate() {
+		var value interface{}
+		if err := json.Unmarshal([]byte(d.GetValueJson()), &value); err != nil {
+			s.logger.CaptureError("unmarshal problem", err)
+			continue
+		}
+		s.configMap[d.GetKey()] = value
+	}
+	for _, d := range configRecord.GetRemove() {
+		delete(s.configMap, d.GetKey())
+	}
+
+	fmt.Println("cfg after parse config update", s.configMap)
 
 	//s.updateConfigTelemetry(config)
-	got := cfg["_wandb"]
-	switch v := got.(type) {
+	switch v := s.configMap["_wandb"].(type) {
 	case map[string]interface{}:
 		v["cli_version"] = CliVersion
 	default:
 		err := fmt.Errorf("can not parse config _wandb, saw: %v", v)
 		s.logger.CaptureFatalAndPanic("sender received error", err)
 	}
-	fmt.Println("cfg after update config telemetry", cfg)
+	fmt.Println("cfg after update config telemetry", s.configMap)
 
-	valueConfig := s.getValueConfig(cfg)
+	//valueConfig := s.getValueConfig(cfg)
+	// Prepare to send config to the server
+	valueConfig := make(map[string]map[string]interface{})
+	for key, elem := range s.configMap {
+		valueConfig[key] = make(map[string]interface{})
+		valueConfig[key]["value"] = elem
+	}
 	configJson, err := json.Marshal(valueConfig)
 	if err != nil {
 		err = fmt.Errorf("failed to marshal config: %s", err)
