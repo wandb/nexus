@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"net"
 	"sync"
 
@@ -58,6 +59,7 @@ func NewServer(ctx context.Context, addr string, portFile string) *Server {
 // Serve serves the server
 func (s *Server) Serve() {
 	defer s.wg.Done()
+	fmt.Println("serving nexus at", s.listener.Addr())
 	slog.Info("server is running", "addr", s.listener.Addr())
 	// Run a separate goroutine to handle incoming connections
 	for {
@@ -97,7 +99,7 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 
 	scanner := bufio.NewScanner(conn)
 	tokenizer := &Tokenizer{}
-	scanner.Split(tokenizer.split)
+	scanner.Split(tokenizer.Split)
 	for scanner.Scan() {
 		msg := &service.ServerRequest{}
 		if err := proto.Unmarshal(scanner.Bytes(), msg); err != nil {
@@ -112,41 +114,3 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 	}
 	close(nc.inChan)
 }
-
-/*
-// handleConnection handles a single connection
-func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
-	nc := NewConnection(ctx, conn, s.teardownChan)
-
-	scanner := bufio.NewScanner(conn)
-	tokenizer := &Tokenizer{}
-	scanner.Split(tokenizer.split)
-
-	// Create a buffered channel with a size of your choice
-	bytesChan := make(chan []byte, 100)
-
-	go func() {
-		defer close(bytesChan)
-		for scanner.Scan() {
-			bytesChan <- scanner.Bytes()
-		}
-	}()
-
-	go func() {
-		for bytes := range bytesChan {
-			msg := &service.ServerRequest{}
-			if err := proto.Unmarshal(bytes, msg); err != nil {
-				slog.Error(
-					"unmarshalling error",
-					"err", err,
-					"conn", conn.RemoteAddr())
-			} else {
-				slog.Debug("received message", "msg", msg, "conn", conn.RemoteAddr())
-				nc.inChan <- msg
-			}
-		}
-		close(nc.inChan)
-	}()
-}
-
-*/
