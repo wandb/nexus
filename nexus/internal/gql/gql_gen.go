@@ -176,11 +176,12 @@ func (v *CreateArtifactCreateArtifactCreateArtifactPayloadArtifactArtifactSequen
 }
 
 type CreateArtifactFileSpecInput struct {
-	ArtifactID         string  `json:"artifactID"`
-	Name               string  `json:"name"`
-	Md5                string  `json:"md5"`
-	Mimetype           *string `json:"mimetype"`
-	ArtifactManifestID *string `json:"artifactManifestID"`
+	ArtifactID         string             `json:"artifactID"`
+	Name               string             `json:"name"`
+	Md5                string             `json:"md5"`
+	Mimetype           *string            `json:"mimetype"`
+	ArtifactManifestID *string            `json:"artifactManifestID"`
+	UploadPartsInput   []UploadPartsInput `json:"uploadPartsInput"`
 }
 
 // GetArtifactID returns CreateArtifactFileSpecInput.ArtifactID, and is useful for accessing the field via an interface.
@@ -197,6 +198,11 @@ func (v *CreateArtifactFileSpecInput) GetMimetype() *string { return v.Mimetype 
 
 // GetArtifactManifestID returns CreateArtifactFileSpecInput.ArtifactManifestID, and is useful for accessing the field via an interface.
 func (v *CreateArtifactFileSpecInput) GetArtifactManifestID() *string { return v.ArtifactManifestID }
+
+// GetUploadPartsInput returns CreateArtifactFileSpecInput.UploadPartsInput, and is useful for accessing the field via an interface.
+func (v *CreateArtifactFileSpecInput) GetUploadPartsInput() []UploadPartsInput {
+	return v.UploadPartsInput
+}
 
 // CreateArtifactFilesCreateArtifactFilesCreateArtifactFilesPayload includes the requested fields of the GraphQL type CreateArtifactFilesPayload.
 type CreateArtifactFilesCreateArtifactFilesCreateArtifactFilesPayload struct {
@@ -368,6 +374,50 @@ func (v *CreateArtifactResponse) GetCreateArtifact() *CreateArtifactCreateArtifa
 	return v.CreateArtifact
 }
 
+// CreateRunFilesCreateRunFilesCreateRunFilesPayload includes the requested fields of the GraphQL type CreateRunFilesPayload.
+type CreateRunFilesCreateRunFilesCreateRunFilesPayload struct {
+	RunID         string                                                       `json:"runID"`
+	UploadHeaders []string                                                     `json:"uploadHeaders"`
+	Files         []CreateRunFilesCreateRunFilesCreateRunFilesPayloadFilesFile `json:"files"`
+}
+
+// GetRunID returns CreateRunFilesCreateRunFilesCreateRunFilesPayload.RunID, and is useful for accessing the field via an interface.
+func (v *CreateRunFilesCreateRunFilesCreateRunFilesPayload) GetRunID() string { return v.RunID }
+
+// GetUploadHeaders returns CreateRunFilesCreateRunFilesCreateRunFilesPayload.UploadHeaders, and is useful for accessing the field via an interface.
+func (v *CreateRunFilesCreateRunFilesCreateRunFilesPayload) GetUploadHeaders() []string {
+	return v.UploadHeaders
+}
+
+// GetFiles returns CreateRunFilesCreateRunFilesCreateRunFilesPayload.Files, and is useful for accessing the field via an interface.
+func (v *CreateRunFilesCreateRunFilesCreateRunFilesPayload) GetFiles() []CreateRunFilesCreateRunFilesCreateRunFilesPayloadFilesFile {
+	return v.Files
+}
+
+// CreateRunFilesCreateRunFilesCreateRunFilesPayloadFilesFile includes the requested fields of the GraphQL type File.
+type CreateRunFilesCreateRunFilesCreateRunFilesPayloadFilesFile struct {
+	Name      string  `json:"name"`
+	UploadUrl *string `json:"uploadUrl"`
+}
+
+// GetName returns CreateRunFilesCreateRunFilesCreateRunFilesPayloadFilesFile.Name, and is useful for accessing the field via an interface.
+func (v *CreateRunFilesCreateRunFilesCreateRunFilesPayloadFilesFile) GetName() string { return v.Name }
+
+// GetUploadUrl returns CreateRunFilesCreateRunFilesCreateRunFilesPayloadFilesFile.UploadUrl, and is useful for accessing the field via an interface.
+func (v *CreateRunFilesCreateRunFilesCreateRunFilesPayloadFilesFile) GetUploadUrl() *string {
+	return v.UploadUrl
+}
+
+// CreateRunFilesResponse is returned by CreateRunFiles on success.
+type CreateRunFilesResponse struct {
+	CreateRunFiles *CreateRunFilesCreateRunFilesCreateRunFilesPayload `json:"createRunFiles"`
+}
+
+// GetCreateRunFiles returns CreateRunFilesResponse.CreateRunFiles, and is useful for accessing the field via an interface.
+func (v *CreateRunFilesResponse) GetCreateRunFiles() *CreateRunFilesCreateRunFilesCreateRunFilesPayload {
+	return v.CreateRunFiles
+}
+
 // NotifyScriptableRunAlertNotifyScriptableRunAlertNotifyScriptableRunAlertPayload includes the requested fields of the GraphQL type NotifyScriptableRunAlertPayload.
 type NotifyScriptableRunAlertNotifyScriptableRunAlertNotifyScriptableRunAlertPayload struct {
 	Success bool `json:"success"`
@@ -387,6 +437,92 @@ type NotifyScriptableRunAlertResponse struct {
 func (v *NotifyScriptableRunAlertResponse) GetNotifyScriptableRunAlert() *NotifyScriptableRunAlertNotifyScriptableRunAlertNotifyScriptableRunAlertPayload {
 	return v.NotifyScriptableRunAlert
 }
+
+// RunResumeStatusModelProject includes the requested fields of the GraphQL type Project.
+type RunResumeStatusModelProject struct {
+	Id     string                                `json:"id"`
+	Name   string                                `json:"name"`
+	Entity RunResumeStatusModelProjectEntity     `json:"entity"`
+	Bucket *RunResumeStatusModelProjectBucketRun `json:"bucket"`
+}
+
+// GetId returns RunResumeStatusModelProject.Id, and is useful for accessing the field via an interface.
+func (v *RunResumeStatusModelProject) GetId() string { return v.Id }
+
+// GetName returns RunResumeStatusModelProject.Name, and is useful for accessing the field via an interface.
+func (v *RunResumeStatusModelProject) GetName() string { return v.Name }
+
+// GetEntity returns RunResumeStatusModelProject.Entity, and is useful for accessing the field via an interface.
+func (v *RunResumeStatusModelProject) GetEntity() RunResumeStatusModelProjectEntity { return v.Entity }
+
+// GetBucket returns RunResumeStatusModelProject.Bucket, and is useful for accessing the field via an interface.
+func (v *RunResumeStatusModelProject) GetBucket() *RunResumeStatusModelProjectBucketRun {
+	return v.Bucket
+}
+
+// RunResumeStatusModelProjectBucketRun includes the requested fields of the GraphQL type Run.
+type RunResumeStatusModelProjectBucketRun struct {
+	Id               string  `json:"id"`
+	Name             string  `json:"name"`
+	SummaryMetrics   *string `json:"summaryMetrics"`
+	DisplayName      *string `json:"displayName"`
+	LogLineCount     *int    `json:"logLineCount"`
+	HistoryLineCount *int    `json:"historyLineCount"`
+	EventsLineCount  *int    `json:"eventsLineCount"`
+	HistoryTail      *string `json:"historyTail"`
+	EventsTail       *string `json:"eventsTail"`
+	Config           *string `json:"config"`
+}
+
+// GetId returns RunResumeStatusModelProjectBucketRun.Id, and is useful for accessing the field via an interface.
+func (v *RunResumeStatusModelProjectBucketRun) GetId() string { return v.Id }
+
+// GetName returns RunResumeStatusModelProjectBucketRun.Name, and is useful for accessing the field via an interface.
+func (v *RunResumeStatusModelProjectBucketRun) GetName() string { return v.Name }
+
+// GetSummaryMetrics returns RunResumeStatusModelProjectBucketRun.SummaryMetrics, and is useful for accessing the field via an interface.
+func (v *RunResumeStatusModelProjectBucketRun) GetSummaryMetrics() *string { return v.SummaryMetrics }
+
+// GetDisplayName returns RunResumeStatusModelProjectBucketRun.DisplayName, and is useful for accessing the field via an interface.
+func (v *RunResumeStatusModelProjectBucketRun) GetDisplayName() *string { return v.DisplayName }
+
+// GetLogLineCount returns RunResumeStatusModelProjectBucketRun.LogLineCount, and is useful for accessing the field via an interface.
+func (v *RunResumeStatusModelProjectBucketRun) GetLogLineCount() *int { return v.LogLineCount }
+
+// GetHistoryLineCount returns RunResumeStatusModelProjectBucketRun.HistoryLineCount, and is useful for accessing the field via an interface.
+func (v *RunResumeStatusModelProjectBucketRun) GetHistoryLineCount() *int { return v.HistoryLineCount }
+
+// GetEventsLineCount returns RunResumeStatusModelProjectBucketRun.EventsLineCount, and is useful for accessing the field via an interface.
+func (v *RunResumeStatusModelProjectBucketRun) GetEventsLineCount() *int { return v.EventsLineCount }
+
+// GetHistoryTail returns RunResumeStatusModelProjectBucketRun.HistoryTail, and is useful for accessing the field via an interface.
+func (v *RunResumeStatusModelProjectBucketRun) GetHistoryTail() *string { return v.HistoryTail }
+
+// GetEventsTail returns RunResumeStatusModelProjectBucketRun.EventsTail, and is useful for accessing the field via an interface.
+func (v *RunResumeStatusModelProjectBucketRun) GetEventsTail() *string { return v.EventsTail }
+
+// GetConfig returns RunResumeStatusModelProjectBucketRun.Config, and is useful for accessing the field via an interface.
+func (v *RunResumeStatusModelProjectBucketRun) GetConfig() *string { return v.Config }
+
+// RunResumeStatusModelProjectEntity includes the requested fields of the GraphQL type Entity.
+type RunResumeStatusModelProjectEntity struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns RunResumeStatusModelProjectEntity.Id, and is useful for accessing the field via an interface.
+func (v *RunResumeStatusModelProjectEntity) GetId() string { return v.Id }
+
+// GetName returns RunResumeStatusModelProjectEntity.Name, and is useful for accessing the field via an interface.
+func (v *RunResumeStatusModelProjectEntity) GetName() string { return v.Name }
+
+// RunResumeStatusResponse is returned by RunResumeStatus on success.
+type RunResumeStatusResponse struct {
+	Model *RunResumeStatusModelProject `json:"model"`
+}
+
+// GetModel returns RunResumeStatusResponse.Model, and is useful for accessing the field via an interface.
+func (v *RunResumeStatusResponse) GetModel() *RunResumeStatusModelProject { return v.Model }
 
 // RunUploadUrlsModelProject includes the requested fields of the GraphQL type Project.
 type RunUploadUrlsModelProject struct {
@@ -465,6 +601,17 @@ type RunUploadUrlsResponse struct {
 
 // GetModel returns RunUploadUrlsResponse.Model, and is useful for accessing the field via an interface.
 func (v *RunUploadUrlsResponse) GetModel() *RunUploadUrlsModelProject { return v.Model }
+
+type UploadPartsInput struct {
+	PartNumber int    `json:"partNumber"`
+	HexMD5     string `json:"hexMD5"`
+}
+
+// GetPartNumber returns UploadPartsInput.PartNumber, and is useful for accessing the field via an interface.
+func (v *UploadPartsInput) GetPartNumber() int { return v.PartNumber }
+
+// GetHexMD5 returns UploadPartsInput.HexMD5, and is useful for accessing the field via an interface.
+func (v *UploadPartsInput) GetHexMD5() string { return v.HexMD5 }
 
 // UpsertBucketResponse is returned by UpsertBucket on success.
 type UpsertBucketResponse struct {
@@ -746,6 +893,26 @@ func (v *__CreateArtifactManifestInput) GetTypeManifest() *ArtifactManifestType 
 	return v.TypeManifest
 }
 
+// __CreateRunFilesInput is used internally by genqlient
+type __CreateRunFilesInput struct {
+	Entity  string   `json:"entity"`
+	Project string   `json:"project"`
+	Run     string   `json:"run"`
+	Files   []string `json:"files"`
+}
+
+// GetEntity returns __CreateRunFilesInput.Entity, and is useful for accessing the field via an interface.
+func (v *__CreateRunFilesInput) GetEntity() string { return v.Entity }
+
+// GetProject returns __CreateRunFilesInput.Project, and is useful for accessing the field via an interface.
+func (v *__CreateRunFilesInput) GetProject() string { return v.Project }
+
+// GetRun returns __CreateRunFilesInput.Run, and is useful for accessing the field via an interface.
+func (v *__CreateRunFilesInput) GetRun() string { return v.Run }
+
+// GetFiles returns __CreateRunFilesInput.Files, and is useful for accessing the field via an interface.
+func (v *__CreateRunFilesInput) GetFiles() []string { return v.Files }
+
 // __NotifyScriptableRunAlertInput is used internally by genqlient
 type __NotifyScriptableRunAlertInput struct {
 	EntityName   string         `json:"entityName"`
@@ -777,6 +944,22 @@ func (v *__NotifyScriptableRunAlertInput) GetSeverity() *AlertSeverity { return 
 
 // GetWaitDuration returns __NotifyScriptableRunAlertInput.WaitDuration, and is useful for accessing the field via an interface.
 func (v *__NotifyScriptableRunAlertInput) GetWaitDuration() *time.Duration { return v.WaitDuration }
+
+// __RunResumeStatusInput is used internally by genqlient
+type __RunResumeStatusInput struct {
+	Project *string `json:"project"`
+	Entity  *string `json:"entity"`
+	Name    string  `json:"name"`
+}
+
+// GetProject returns __RunResumeStatusInput.Project, and is useful for accessing the field via an interface.
+func (v *__RunResumeStatusInput) GetProject() *string { return v.Project }
+
+// GetEntity returns __RunResumeStatusInput.Entity, and is useful for accessing the field via an interface.
+func (v *__RunResumeStatusInput) GetEntity() *string { return v.Entity }
+
+// GetName returns __RunResumeStatusInput.Name, and is useful for accessing the field via an interface.
+func (v *__RunResumeStatusInput) GetName() string { return v.Name }
 
 // __RunUploadUrlsInput is used internally by genqlient
 type __RunUploadUrlsInput struct {
@@ -1104,6 +1287,52 @@ func CreateArtifactManifest(
 	return &data, err
 }
 
+// The query or mutation executed by CreateRunFiles.
+const CreateRunFiles_Operation = `
+mutation CreateRunFiles ($entity: String!, $project: String!, $run: String!, $files: [String!]!) {
+	createRunFiles(input: {entityName:$entity,projectName:$project,runName:$run,files:$files}) {
+		runID
+		uploadHeaders
+		files {
+			name
+			uploadUrl
+		}
+	}
+}
+`
+
+func CreateRunFiles(
+	ctx context.Context,
+	client graphql.Client,
+	entity string,
+	project string,
+	run string,
+	files []string,
+) (*CreateRunFilesResponse, error) {
+	req := &graphql.Request{
+		OpName: "CreateRunFiles",
+		Query:  CreateRunFiles_Operation,
+		Variables: &__CreateRunFilesInput{
+			Entity:  entity,
+			Project: project,
+			Run:     run,
+			Files:   files,
+		},
+	}
+	var err error
+
+	var data CreateRunFilesResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
 // The query or mutation executed by NotifyScriptableRunAlert.
 const NotifyScriptableRunAlert_Operation = `
 mutation NotifyScriptableRunAlert ($entityName: String!, $projectName: String!, $runName: String!, $title: String!, $text: String!, $severity: AlertSeverity = INFO, $waitDuration: Duration) {
@@ -1140,6 +1369,62 @@ func NotifyScriptableRunAlert(
 	var err error
 
 	var data NotifyScriptableRunAlertResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+// The query or mutation executed by RunResumeStatus.
+const RunResumeStatus_Operation = `
+query RunResumeStatus ($project: String, $entity: String, $name: String!) {
+	model(name: $project, entityName: $entity) {
+		id
+		name
+		entity {
+			id
+			name
+		}
+		bucket(name: $name, missingOk: true) {
+			id
+			name
+			summaryMetrics
+			displayName
+			logLineCount
+			historyLineCount
+			eventsLineCount
+			historyTail
+			eventsTail
+			config
+		}
+	}
+}
+`
+
+func RunResumeStatus(
+	ctx context.Context,
+	client graphql.Client,
+	project *string,
+	entity *string,
+	name string,
+) (*RunResumeStatusResponse, error) {
+	req := &graphql.Request{
+		OpName: "RunResumeStatus",
+		Query:  RunResumeStatus_Operation,
+		Variables: &__RunResumeStatusInput{
+			Project: project,
+			Entity:  entity,
+			Name:    name,
+		},
+	}
+	var err error
+
+	var data RunResumeStatusResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(

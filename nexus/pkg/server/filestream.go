@@ -96,9 +96,8 @@ type FileStream struct {
 }
 
 // NewFileStream creates a new filestream
-func NewFileStream(path string, settings *service.Settings, logger *observability.NexusLogger) *FileStream {
+func NewFileStream(settings *service.Settings, logger *observability.NexusLogger) *FileStream {
 	fs := FileStream{
-		path:       path,
 		settings:   settings,
 		logger:     logger,
 		httpClient: newRetryClient(settings.GetApiKey().GetValue(), logger),
@@ -110,6 +109,14 @@ func NewFileStream(path string, settings *service.Settings, logger *observabilit
 		replyChan:  make(chan map[string]interface{}, BufferSize),
 	}
 	return &fs
+}
+
+func (fs *FileStream) SetPath(path string) {
+	fs.path = path
+}
+
+func (fs *FileStream) SetOffset(offset int) {
+	fs.offset = offset
 }
 
 func (fs *FileStream) Start() {
