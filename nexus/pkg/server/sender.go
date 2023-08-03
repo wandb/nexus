@@ -181,9 +181,7 @@ func (s *Sender) sendMetadata(request *service.MetadataRequest) {
 		Indent: "  ",
 		// EmitUnpopulated: true,
 	}
-	fmt.Printf("request: %v\n", request)
 	jsonBytes, _ := mo.Marshal(request)
-	fmt.Printf("jsonBytes: %v\n", string(jsonBytes))
 	_ = os.WriteFile(filepath.Join(s.settings.GetFilesDir().GetValue(), MetaFilename), jsonBytes, 0644)
 	s.sendFile(MetaFilename)
 }
@@ -386,7 +384,6 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 		s.resultChan <- result
 		return
 	}
-	fmt.Println("run record", s.RunRecord)
 
 	config := s.parseConfigUpdate(run.Config)
 	s.updateConfigTelemetry(config)
@@ -444,10 +441,9 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 	s.RunRecord.Entity = data.UpsertBucket.Bucket.Project.Entity.Name
 	s.RunRecord.Resumed = s.resumeState.Resumed
 	s.RunRecord.StartingStep = s.resumeState.ResumeStep
-	// TODO: update config and summary
-	//if s.resumeState.Summary != nil {
-	//	s.RunRecord.Summary = s.resumeState.Summary
-	//}
+	if s.resumeState.Summary != nil {
+		s.RunRecord.Summary = s.resumeState.Summary
+	}
 
 	result := &service.Result{
 		ResultType: &service.Result_RunResult{
