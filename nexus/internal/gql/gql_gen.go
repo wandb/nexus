@@ -524,84 +524,6 @@ type RunResumeStatusResponse struct {
 // GetModel returns RunResumeStatusResponse.Model, and is useful for accessing the field via an interface.
 func (v *RunResumeStatusResponse) GetModel() *RunResumeStatusModelProject { return v.Model }
 
-// RunUploadUrlsModelProject includes the requested fields of the GraphQL type Project.
-type RunUploadUrlsModelProject struct {
-	Bucket *RunUploadUrlsModelProjectBucketRun `json:"bucket"`
-}
-
-// GetBucket returns RunUploadUrlsModelProject.Bucket, and is useful for accessing the field via an interface.
-func (v *RunUploadUrlsModelProject) GetBucket() *RunUploadUrlsModelProjectBucketRun { return v.Bucket }
-
-// RunUploadUrlsModelProjectBucketRun includes the requested fields of the GraphQL type Run.
-type RunUploadUrlsModelProjectBucketRun struct {
-	Id    string                                                 `json:"id"`
-	Files *RunUploadUrlsModelProjectBucketRunFilesFileConnection `json:"files"`
-}
-
-// GetId returns RunUploadUrlsModelProjectBucketRun.Id, and is useful for accessing the field via an interface.
-func (v *RunUploadUrlsModelProjectBucketRun) GetId() string { return v.Id }
-
-// GetFiles returns RunUploadUrlsModelProjectBucketRun.Files, and is useful for accessing the field via an interface.
-func (v *RunUploadUrlsModelProjectBucketRun) GetFiles() *RunUploadUrlsModelProjectBucketRunFilesFileConnection {
-	return v.Files
-}
-
-// RunUploadUrlsModelProjectBucketRunFilesFileConnection includes the requested fields of the GraphQL type FileConnection.
-type RunUploadUrlsModelProjectBucketRunFilesFileConnection struct {
-	UploadHeaders []string                                                             `json:"uploadHeaders"`
-	Edges         []RunUploadUrlsModelProjectBucketRunFilesFileConnectionEdgesFileEdge `json:"edges"`
-}
-
-// GetUploadHeaders returns RunUploadUrlsModelProjectBucketRunFilesFileConnection.UploadHeaders, and is useful for accessing the field via an interface.
-func (v *RunUploadUrlsModelProjectBucketRunFilesFileConnection) GetUploadHeaders() []string {
-	return v.UploadHeaders
-}
-
-// GetEdges returns RunUploadUrlsModelProjectBucketRunFilesFileConnection.Edges, and is useful for accessing the field via an interface.
-func (v *RunUploadUrlsModelProjectBucketRunFilesFileConnection) GetEdges() []RunUploadUrlsModelProjectBucketRunFilesFileConnectionEdgesFileEdge {
-	return v.Edges
-}
-
-// RunUploadUrlsModelProjectBucketRunFilesFileConnectionEdgesFileEdge includes the requested fields of the GraphQL type FileEdge.
-type RunUploadUrlsModelProjectBucketRunFilesFileConnectionEdgesFileEdge struct {
-	Node *RunUploadUrlsModelProjectBucketRunFilesFileConnectionEdgesFileEdgeNodeFile `json:"node"`
-}
-
-// GetNode returns RunUploadUrlsModelProjectBucketRunFilesFileConnectionEdgesFileEdge.Node, and is useful for accessing the field via an interface.
-func (v *RunUploadUrlsModelProjectBucketRunFilesFileConnectionEdgesFileEdge) GetNode() *RunUploadUrlsModelProjectBucketRunFilesFileConnectionEdgesFileEdgeNodeFile {
-	return v.Node
-}
-
-// RunUploadUrlsModelProjectBucketRunFilesFileConnectionEdgesFileEdgeNodeFile includes the requested fields of the GraphQL type File.
-type RunUploadUrlsModelProjectBucketRunFilesFileConnectionEdgesFileEdgeNodeFile struct {
-	Name      string     `json:"name"`
-	Url       *string    `json:"url"`
-	UpdatedAt *time.Time `json:"updatedAt"`
-}
-
-// GetName returns RunUploadUrlsModelProjectBucketRunFilesFileConnectionEdgesFileEdgeNodeFile.Name, and is useful for accessing the field via an interface.
-func (v *RunUploadUrlsModelProjectBucketRunFilesFileConnectionEdgesFileEdgeNodeFile) GetName() string {
-	return v.Name
-}
-
-// GetUrl returns RunUploadUrlsModelProjectBucketRunFilesFileConnectionEdgesFileEdgeNodeFile.Url, and is useful for accessing the field via an interface.
-func (v *RunUploadUrlsModelProjectBucketRunFilesFileConnectionEdgesFileEdgeNodeFile) GetUrl() *string {
-	return v.Url
-}
-
-// GetUpdatedAt returns RunUploadUrlsModelProjectBucketRunFilesFileConnectionEdgesFileEdgeNodeFile.UpdatedAt, and is useful for accessing the field via an interface.
-func (v *RunUploadUrlsModelProjectBucketRunFilesFileConnectionEdgesFileEdgeNodeFile) GetUpdatedAt() *time.Time {
-	return v.UpdatedAt
-}
-
-// RunUploadUrlsResponse is returned by RunUploadUrls on success.
-type RunUploadUrlsResponse struct {
-	Model *RunUploadUrlsModelProject `json:"model"`
-}
-
-// GetModel returns RunUploadUrlsResponse.Model, and is useful for accessing the field via an interface.
-func (v *RunUploadUrlsResponse) GetModel() *RunUploadUrlsModelProject { return v.Model }
-
 type UploadPartsInput struct {
 	PartNumber int    `json:"partNumber"`
 	HexMD5     string `json:"hexMD5"`
@@ -960,30 +882,6 @@ func (v *__RunResumeStatusInput) GetEntity() *string { return v.Entity }
 
 // GetName returns __RunResumeStatusInput.Name, and is useful for accessing the field via an interface.
 func (v *__RunResumeStatusInput) GetName() string { return v.Name }
-
-// __RunUploadUrlsInput is used internally by genqlient
-type __RunUploadUrlsInput struct {
-	Name        string    `json:"name"`
-	Files       []*string `json:"files"`
-	Entity      *string   `json:"entity"`
-	Run         string    `json:"run"`
-	Description *string   `json:"description"`
-}
-
-// GetName returns __RunUploadUrlsInput.Name, and is useful for accessing the field via an interface.
-func (v *__RunUploadUrlsInput) GetName() string { return v.Name }
-
-// GetFiles returns __RunUploadUrlsInput.Files, and is useful for accessing the field via an interface.
-func (v *__RunUploadUrlsInput) GetFiles() []*string { return v.Files }
-
-// GetEntity returns __RunUploadUrlsInput.Entity, and is useful for accessing the field via an interface.
-func (v *__RunUploadUrlsInput) GetEntity() *string { return v.Entity }
-
-// GetRun returns __RunUploadUrlsInput.Run, and is useful for accessing the field via an interface.
-func (v *__RunUploadUrlsInput) GetRun() string { return v.Run }
-
-// GetDescription returns __RunUploadUrlsInput.Description, and is useful for accessing the field via an interface.
-func (v *__RunUploadUrlsInput) GetDescription() *string { return v.Description }
 
 // __UpsertBucketInput is used internally by genqlient
 type __UpsertBucketInput struct {
@@ -1425,61 +1323,6 @@ func RunResumeStatus(
 	var err error
 
 	var data RunResumeStatusResponse
-	resp := &graphql.Response{Data: &data}
-
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
-	)
-
-	return &data, err
-}
-
-// The query or mutation executed by RunUploadUrls.
-const RunUploadUrls_Operation = `
-query RunUploadUrls ($name: String!, $files: [String]!, $entity: String, $run: String!, $description: String) {
-	model(name: $name, entityName: $entity) {
-		bucket(name: $run, desc: $description) {
-			id
-			files(names: $files) {
-				uploadHeaders
-				edges {
-					node {
-						name
-						url(upload: true)
-						updatedAt
-					}
-				}
-			}
-		}
-	}
-}
-`
-
-func RunUploadUrls(
-	ctx context.Context,
-	client graphql.Client,
-	name string,
-	files []*string,
-	entity *string,
-	run string,
-	description *string,
-) (*RunUploadUrlsResponse, error) {
-	req := &graphql.Request{
-		OpName: "RunUploadUrls",
-		Query:  RunUploadUrls_Operation,
-		Variables: &__RunUploadUrlsInput{
-			Name:        name,
-			Files:       files,
-			Entity:      entity,
-			Run:         run,
-			Description: description,
-		},
-	}
-	var err error
-
-	var data RunUploadUrlsResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(

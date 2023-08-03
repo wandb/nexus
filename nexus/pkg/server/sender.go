@@ -163,8 +163,7 @@ func (s *Sender) sendRunStart(_ *service.RunStartRequest) {
 	if !s.settings.GetXOffline().GetValue() {
 		fsPath := fmt.Sprintf("%s/files/%s/%s/%s/file_stream",
 			s.settings.GetBaseUrl().GetValue(), s.RunRecord.Entity, s.RunRecord.Project, s.RunRecord.RunId)
-		s.fileStream = NewFileStream(s.settings, s.logger)
-		s.fileStream.SetPath(fsPath)
+		s.fileStream = NewFileStream(fsPath, s.settings, s.logger)
 		for k, v := range s.resumeState.FileStreamOffset {
 			s.fileStream.SetOffset(k, v)
 		}
@@ -256,7 +255,7 @@ func (s *Sender) getValueConfig(config map[string]interface{}) map[string]map[st
 	return datas
 }
 
-func (s *Sender) sendResume(run *service.RunRecord) error {
+func (s *Sender) checkAndUpdateResumeState(run *service.RunRecord) error {
 	s.resumeState = &ResumeState{}
 
 	// There was no resume status set, so we don't need to do anything
@@ -268,7 +267,7 @@ func (s *Sender) sendResume(run *service.RunRecord) error {
 	data, err := gql.RunResumeStatus(s.ctx, s.graphqlClient, &run.Project, emptyAsNil(&run.Entity), run.RunId)
 	if err != nil {
 		err = fmt.Errorf("failed to get run resume status: %s", err)
-		s.logger.Error("sender: sendResume:", "error", err)
+		s.logger.Error("sender: checkAndUpdateResumeState:", "error", err)
 		s.resumeState.Error = service.ErrorInfo{
 			Message: err.Error(),
 			Code:    service.ErrorInfo_INTERNAL,
@@ -286,7 +285,7 @@ func (s *Sender) sendResume(run *service.RunRecord) error {
 				"The value 'must' is not a valid option for resuming a run (%s/%s) that does not exist. "+
 				"Please check your inputs and try again with a valid run ID. "+
 				"If you are trying to start a new run, please omit the `resume` argument or use `resume='allow'`.\n", run.Project, run.RunId)
-			s.logger.Error("sender: sendResume:", "error", err)
+			s.logger.Error("sender: checkAndUpdateResumeState:", "error", err)
 			s.resumeState.Error = service.ErrorInfo{
 				Message: err.Error(),
 				Code:    service.ErrorInfo_USAGE,
@@ -298,7 +297,7 @@ func (s *Sender) sendResume(run *service.RunRecord) error {
 		err = fmt.Errorf("You provided an invalid value for the `resume` argument. "+
 			"The value 'never' is not a valid option for resuming a run (%s/%s) that already exists. "+
 			"Please check your inputs and try again with a valid value for the `resume` argument.\n", run.Project, run.RunId)
-		s.logger.Error("sender: sendResume:", "error", err)
+		s.logger.Error("sender: checkAndUpdateResumeState:", "error", err)
 		s.resumeState.Error = service.ErrorInfo{
 			Message: err.Error(),
 			Code:    service.ErrorInfo_USAGE,
@@ -314,12 +313,12 @@ func (s *Sender) sendResume(run *service.RunRecord) error {
 	var historyTailMap map[string]interface{}
 	if err = json.Unmarshal([]byte(*bucket.GetHistoryTail()), &historyTail); err != nil {
 		err = fmt.Errorf("failed to unmarshal history tail: %s", err)
-		s.logger.Error("sender: sendResume:", "error", err)
+		s.logger.Error("sender: checkAndUpdateResumeState:", "error", err)
 		rerr = err
 		// TODO: verify the list is not empty and has one element
 	} else if err = json.Unmarshal([]byte(historyTail[0]), &historyTailMap); err != nil {
 		err = fmt.Errorf("failed to unmarshal history tail map: %s", err)
-		s.logger.Error("sender: sendResume:", "error", err)
+		s.logger.Error("sender: checkAndUpdateResumeState:", "error", err)
 		rerr = err
 	} else {
 		if step, ok := historyTailMap["_step"].(float64); ok {
@@ -339,7 +338,7 @@ func (s *Sender) sendResume(run *service.RunRecord) error {
 	var summary map[string]interface{}
 	if err = json.Unmarshal([]byte(*bucket.GetSummaryMetrics()), &summary); err != nil {
 		err = fmt.Errorf("failed to unmarshal summary metrics: %s", err)
-		s.logger.Error("sender: sendResume:", "error", err)
+		s.logger.Error("sender: checkAndUpdateResumeState:", "error", err)
 		rerr = err
 	} else {
 		summaryRecord := service.SummaryRecord{}
@@ -355,8 +354,8 @@ func (s *Sender) sendResume(run *service.RunRecord) error {
 
 	var config map[string]interface{}
 	if err = json.Unmarshal([]byte(*bucket.GetConfig()), &config); err != nil {
-		err = fmt.Errorf("sender: sendResume: failed to unmarshal config: %s", err)
-		s.logger.Error("sender: sendResume:", "error", err)
+		err = fmt.Errorf("sender: checkAndUpdateResumeState: failed to unmarshal config: %s", err)
+		s.logger.Error("sender: checkAndUpdateResumeState:", "error", err)
 		rerr = err
 	} else {
 		configRecord := service.ConfigRecord{}
@@ -371,7 +370,7 @@ func (s *Sender) sendResume(run *service.RunRecord) error {
 	}
 	if rerr != nil && s.settings.GetResume().GetValue() == "must" {
 		err = fmt.Errorf("failed to parse resume state but resume is set to must")
-		s.logger.Error("sender: sendResume:", "error", err)
+		s.logger.Error("sender: checkAndUpdateResumeState:", "error", err)
 		s.resumeState.Error = service.ErrorInfo{
 			Message: err.Error(),
 			Code:    service.ErrorInfo_INTERNAL,
@@ -386,11 +385,12 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 	var ok bool
 	s.RunRecord, ok = proto.Clone(run).(*service.RunRecord)
 	if !ok {
-		err := fmt.Errorf("sender: sendRun: failed to clone RunRecord")
-		s.logger.CaptureFatalAndPanic("sender received error", err)
+		err := fmt.Errorf("failed to clone RunRecord")
+		s.logger.CaptureFatalAndPanic("sender: sendRun: ", err)
 	}
 
-	if err := s.sendResume(s.RunRecord); err != nil {
+	if err := s.checkAndUpdateResumeState(s.RunRecord); err != nil {
+		s.logger.Error("sender: sendRun: failed to checkAndUpdateResumeState", "error", err)
 		result := &service.Result{
 			ResultType: &service.Result_RunResult{
 				RunResult: &service.RunUpdateResult{
@@ -409,8 +409,8 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 	valueConfig := s.getValueConfig(config)
 	configJson, err := json.Marshal(valueConfig)
 	if err != nil {
-		err = fmt.Errorf("sender: sendRun: failed to marshal config: %s", err)
-		s.logger.CaptureFatalAndPanic("sender received error", err)
+		err = fmt.Errorf("failed to marshal config: %s", err)
+		s.logger.CaptureFatalAndPanic("sender: sendRun: ", err)
 	}
 	configString := string(configJson)
 
@@ -450,6 +450,8 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 					},
 				},
 			},
+			Control: record.Control,
+			Uuid:    record.Uuid,
 		}
 		s.resultChan <- result
 		return

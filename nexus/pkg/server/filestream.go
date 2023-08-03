@@ -97,7 +97,7 @@ type FileStream struct {
 }
 
 // NewFileStream creates a new filestream
-func NewFileStream(settings *service.Settings, logger *observability.NexusLogger) *FileStream {
+func NewFileStream(path string, settings *service.Settings, logger *observability.NexusLogger) *FileStream {
 	fs := FileStream{
 		settings:   settings,
 		logger:     logger,
@@ -109,12 +109,9 @@ func NewFileStream(settings *service.Settings, logger *observability.NexusLogger
 		chunkChan:  make(chan chunkData, BufferSize),
 		replyChan:  make(chan map[string]interface{}, BufferSize),
 		offset:     make(map[chunkFile]int),
+		path:       path,
 	}
 	return &fs
-}
-
-func (fs *FileStream) SetPath(path string) {
-	fs.path = path
 }
 
 func (fs *FileStream) SetOffset(file chunkFile, offset int) {
