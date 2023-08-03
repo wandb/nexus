@@ -64,10 +64,14 @@ type Sender struct {
 	// RunRecord is the run record
 	RunRecord *service.RunRecord
 
+	// resumeState is the resume state
 	resumeState *ResumeState
 
 	// Keep track of summary which is being updated incrementally
 	summaryMap map[string]*service.SummaryItem
+
+	// Keep track of config which is being updated incrementally
+	configMap map[string]*string
 }
 
 func emptyAsNil(s *string) *string {
@@ -124,6 +128,8 @@ func (s *Sender) sendRecord(record *service.Record) {
 		s.sendHistory(record, x.History)
 	case *service.Record_Summary:
 		s.sendSummary(record, x.Summary)
+	case *service.Record_Config:
+		s.sendConfig(record, x.Config)
 	case *service.Record_Stats:
 		s.sendSystemMetrics(record, x.Stats)
 	case *service.Record_OutputRaw:
@@ -380,6 +386,46 @@ func (s *Sender) checkAndUpdateResumeState(run *service.RunRecord) error {
 	return nil
 }
 
+func (s *Sender) updateConfig(configRecord *service.ConfigRecord) {
+	//config := s.parseConfigUpdate(configRecord)
+	cfg := make(map[string]interface{})
+
+	// TODO: handle deletes and nested key updates
+	for _, d := range configRecord.GetUpdate() {
+		j := d.GetValueJson()
+		var data interface{}
+		if err := json.Unmarshal([]byte(j), &data); err != nil {
+			s.logger.CaptureFatalAndPanic("unmarshal problem", err)
+		}
+		cfg[d.GetKey()] = data
+	}
+	fmt.Println("cfg after parse config update", cfg)
+
+	//s.updateConfigTelemetry(config)
+	got := cfg["_wandb"]
+	switch v := got.(type) {
+	case map[string]interface{}:
+		v["cli_version"] = CliVersion
+	default:
+		err := fmt.Errorf("can not parse config _wandb, saw: %v", v)
+		s.logger.CaptureFatalAndPanic("sender received error", err)
+	}
+	fmt.Println("cfg after update config telemetry", cfg)
+
+	valueConfig := s.getValueConfig(cfg)
+	configJson, err := json.Marshal(valueConfig)
+	if err != nil {
+		err = fmt.Errorf("failed to marshal config: %s", err)
+		s.logger.CaptureFatalAndPanic("sender: sendRun: ", err)
+	}
+	configString := string(configJson)
+	fmt.Println("configString", configString)
+}
+
+func (s *Sender) configToJSON() {
+
+}
+
 func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 
 	var ok bool
@@ -404,15 +450,18 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 		return
 	}
 
-	config := s.parseConfigUpdate(run.Config)
-	s.updateConfigTelemetry(config)
-	valueConfig := s.getValueConfig(config)
-	configJson, err := json.Marshal(valueConfig)
-	if err != nil {
-		err = fmt.Errorf("failed to marshal config: %s", err)
-		s.logger.CaptureFatalAndPanic("sender: sendRun: ", err)
-	}
-	configString := string(configJson)
+	//config := s.parseConfigUpdate(run.Config)
+	//s.updateConfigTelemetry(config)
+	//valueConfig := s.getValueConfig(config)
+	//configJson, err := json.Marshal(valueConfig)
+	//if err != nil {
+	//	err = fmt.Errorf("failed to marshal config: %s", err)
+	//	s.logger.CaptureFatalAndPanic("sender: sendRun: ", err)
+	//}
+	//configString := string(configJson)
+
+	//s.updateConfig(s.resumeState.Config)  // todo
+	s.updateConfig(run.Config)
 
 	var tags []string
 	data, err := gql.UpsertBucket(
@@ -427,16 +476,17 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 		nil,                      // displayName
 		nil,                      // notes
 		nil,                      // commit
-		&configString,            // config
-		nil,                      // host
-		nil,                      // debug
-		nil,                      // program
-		nil,                      // repo
-		nil,                      // jobType
-		nil,                      // state
-		nil,                      // sweep
-		tags,                     // tags []string,
-		nil,                      // summaryMetrics
+		//string(s.configMap),            // config
+		nil,  // config
+		nil,  // host
+		nil,  // debug
+		nil,  // program
+		nil,  // repo
+		nil,  // jobType
+		nil,  // state
+		nil,  // sweep
+		tags, // tags []string,
+		nil,  // summaryMetrics
 	)
 	if err != nil {
 		err = fmt.Errorf("failed to upsert bucket: %s", err)
@@ -517,6 +567,10 @@ func (s *Sender) sendSummary(_ *service.Record, summary *service.SummaryRecord) 
 	if s.fileStream != nil {
 		s.fileStream.StreamRecord(record)
 	}
+}
+
+func (s *Sender) sendConfig(_ *service.Record, config *service.ConfigRecord) {
+	fmt.Println("sendConfig", config)
 }
 
 func (s *Sender) sendSystemMetrics(record *service.Record, _ *service.StatsRecord) {
