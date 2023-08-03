@@ -531,8 +531,37 @@ func (s *Sender) sendSummary(_ *service.Record, summary *service.SummaryRecord) 
 	}
 }
 
-func (s *Sender) sendConfig(_ *service.Record, config *service.ConfigRecord) {
-	fmt.Println("sendConfig", config)
+func (s *Sender) sendConfig(_ *service.Record, configRecord *service.ConfigRecord) {
+	fmt.Println("sendConfig", configRecord)
+	s.updateConfig(configRecord)
+	config := s.serializeConfig()
+
+	_, err := gql.UpsertBucket(
+		s.ctx,                            // ctx
+		s.graphqlClient,                  // client
+		nil,                              // id
+		&s.RunRecord.RunId,               // name
+		emptyAsNil(&s.RunRecord.Project), // project
+		emptyAsNil(&s.RunRecord.Entity),  // entity
+		nil,                              // groupName
+		nil,                              // description
+		nil,                              // displayName
+		nil,                              // notes
+		nil,                              // commit
+		&config,                          // config
+		nil,                              // host
+		nil,                              // debug
+		nil,                              // program
+		nil,                              // repo
+		nil,                              // jobType
+		nil,                              // state
+		nil,                              // sweep
+		nil,                              // tags []string,
+		nil,                              // summaryMetrics
+	)
+	if err != nil {
+		s.logger.Error("sender: sendConfig:", "error", err)
+	}
 }
 
 func (s *Sender) sendSystemMetrics(record *service.Record, _ *service.StatsRecord) {
