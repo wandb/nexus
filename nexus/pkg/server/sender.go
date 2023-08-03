@@ -54,6 +54,8 @@ type Sender struct {
 	// RunRecord is the run record
 	RunRecord *service.RunRecord
 
+	telemetry *service.TelemetryRecord
+
 	// Keep track of summary which is being updated incrementally
 	summaryMap map[string]*service.SummaryItem
 }
@@ -78,6 +80,7 @@ func NewSender(ctx context.Context, settings *service.Settings, logger *observab
 		logger:        logger,
 		graphqlClient: newGraphqlClient(url, apiKey, logger),
 		summaryMap:    make(map[string]*service.SummaryItem),
+		telemetry:     &service.TelemetryRecord{},
 	}
 }
 
@@ -240,6 +243,7 @@ func (s *Sender) getValueConfig(config map[string]interface{}) map[string]map[st
 }
 
 func (s *Sender) sendTelemetry(record *service.Record, telemetry *service.TelemetryRecord) {
+	proto.Merge(s.telemetry, telemetry)
 }
 
 func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
