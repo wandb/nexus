@@ -30,7 +30,7 @@ type ResumeState struct {
 	ResumeRuntime    time.Time
 	Summary          *service.SummaryRecord
 	Config           *service.ConfigRecord
-	FileStreamOffset map[string]int
+	FileStreamOffset map[chunkFile]int
 	Error            service.ErrorInfo
 }
 
@@ -165,8 +165,9 @@ func (s *Sender) sendRunStart(_ *service.RunStartRequest) {
 			s.settings.GetBaseUrl().GetValue(), s.RunRecord.Entity, s.RunRecord.Project, s.RunRecord.RunId)
 		s.fileStream = NewFileStream(s.settings, s.logger)
 		s.fileStream.SetPath(fsPath)
-		// TODO: handle all offsets!
-		s.fileStream.SetOffset(s.resumeState.FileStreamOffset["history"])
+		for k, v := range s.resumeState.FileStreamOffset {
+			s.fileStream.SetOffset(k, v)
+		}
 		s.fileStream.Start()
 	}
 	s.uploader = uploader.NewUploader(s.ctx, s.logger)
@@ -326,10 +327,12 @@ func (s *Sender) sendResume(run *service.RunRecord) error {
 		}
 	}
 
-	s.resumeState.FileStreamOffset = map[string]int{}
-	s.resumeState.FileStreamOffset["history"] = *bucket.GetHistoryLineCount()
-	s.resumeState.FileStreamOffset["stats"] = *bucket.GetEventsLineCount()
-	s.resumeState.FileStreamOffset["output"] = *bucket.GetLogLineCount()
+	if s.resumeState.FileStreamOffset == nil {
+		s.resumeState.FileStreamOffset = make(map[chunkFile]int)
+	}
+	s.resumeState.FileStreamOffset[historyChunk] = *bucket.GetHistoryLineCount()
+	s.resumeState.FileStreamOffset[eventsChunk] = *bucket.GetEventsLineCount()
+	s.resumeState.FileStreamOffset[outputChunk] = *bucket.GetLogLineCount()
 
 	// If we are unable to parse the config, we should fail if resume is set to must
 	// for any other case of resume status, it is fine to ignore it
