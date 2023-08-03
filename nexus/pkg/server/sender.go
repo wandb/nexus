@@ -94,6 +94,7 @@ func NewSender(ctx context.Context, settings *service.Settings, logger *observab
 		logger:        logger,
 		graphqlClient: newGraphqlClient(url, apiKey, logger),
 		summaryMap:    make(map[string]*service.SummaryItem),
+		configMap:     make(map[string]interface{}),
 	}
 }
 
@@ -225,42 +226,6 @@ func (s *Sender) sendRequestDefer(request *service.DeferRequest) {
 	s.recordChan <- rec
 }
 
-func (s *Sender) parseConfigUpdate(config *service.ConfigRecord) map[string]interface{} {
-	datas := make(map[string]interface{})
-
-	// TODO: handle deletes and nested key updates
-	for _, d := range config.GetUpdate() {
-		j := d.GetValueJson()
-		var data interface{}
-		if err := json.Unmarshal([]byte(j), &data); err != nil {
-			s.logger.CaptureFatalAndPanic("unmarshal problem", err)
-		}
-		datas[d.GetKey()] = data
-	}
-	return datas
-}
-
-func (s *Sender) updateConfigTelemetry(config map[string]interface{}) {
-	got := config["_wandb"]
-	switch v := got.(type) {
-	case map[string]interface{}:
-		v["cli_version"] = CliVersion
-	default:
-		err := fmt.Errorf("can not parse config _wandb, saw: %v", v)
-		s.logger.CaptureFatalAndPanic("sender received error", err)
-	}
-}
-
-func (s *Sender) getValueConfig(config map[string]interface{}) map[string]map[string]interface{} {
-
-	datas := make(map[string]map[string]interface{})
-	for key, elem := range config {
-		datas[key] = make(map[string]interface{})
-		datas[key]["value"] = elem
-	}
-	return datas
-}
-
 func (s *Sender) checkAndUpdateResumeState(run *service.RunRecord) error {
 	s.resumeState = &ResumeState{}
 
@@ -387,12 +352,6 @@ func (s *Sender) checkAndUpdateResumeState(run *service.RunRecord) error {
 }
 
 func (s *Sender) updateConfig(configRecord *service.ConfigRecord) {
-	//config := s.parseConfigUpdate(configRecord)
-	//cfg := make(map[string]interface{})
-	if s.configMap == nil {
-		s.configMap = make(map[string]interface{})
-	}
-
 	// TODO: handle nested key updates and deletes
 	for _, d := range configRecord.GetUpdate() {
 		var value interface{}
@@ -407,8 +366,10 @@ func (s *Sender) updateConfig(configRecord *service.ConfigRecord) {
 	}
 
 	fmt.Println("cfg after parse config update", s.configMap)
+}
 
-	//s.updateConfigTelemetry(config)
+func (s *Sender) updateTelemetry(configRecord *service.TelemetryRecord) {
+	// todo: actually do it
 	switch v := s.configMap["_wandb"].(type) {
 	case map[string]interface{}:
 		v["cli_version"] = CliVersion
@@ -417,8 +378,9 @@ func (s *Sender) updateConfig(configRecord *service.ConfigRecord) {
 		s.logger.CaptureFatalAndPanic("sender received error", err)
 	}
 	fmt.Println("cfg after update config telemetry", s.configMap)
+}
 
-	//valueConfig := s.getValueConfig(cfg)
+func (s *Sender) serializeConfig() string {
 	// Prepare to send config to the server
 	valueConfig := make(map[string]map[string]interface{})
 	for key, elem := range s.configMap {
@@ -432,10 +394,8 @@ func (s *Sender) updateConfig(configRecord *service.ConfigRecord) {
 	}
 	configString := string(configJson)
 	fmt.Println("configString", configString)
-}
 
-func (s *Sender) configToJSON() {
-
+	return configString
 }
 
 func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
@@ -462,18 +422,9 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 		return
 	}
 
-	//config := s.parseConfigUpdate(run.Config)
-	//s.updateConfigTelemetry(config)
-	//valueConfig := s.getValueConfig(config)
-	//configJson, err := json.Marshal(valueConfig)
-	//if err != nil {
-	//	err = fmt.Errorf("failed to marshal config: %s", err)
-	//	s.logger.CaptureFatalAndPanic("sender: sendRun: ", err)
-	//}
-	//configString := string(configJson)
-
-	//s.updateConfig(s.resumeState.Config)  // todo
 	s.updateConfig(run.Config)
+	s.updateTelemetry(run.Telemetry)
+	config := s.serializeConfig()
 
 	var tags []string
 	data, err := gql.UpsertBucket(
@@ -488,17 +439,16 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 		nil,                      // displayName
 		nil,                      // notes
 		nil,                      // commit
-		//string(s.configMap),            // config
-		nil,  // config
-		nil,  // host
-		nil,  // debug
-		nil,  // program
-		nil,  // repo
-		nil,  // jobType
-		nil,  // state
-		nil,  // sweep
-		tags, // tags []string,
-		nil,  // summaryMetrics
+		&config,                  // config
+		nil,                      // host
+		nil,                      // debug
+		nil,                      // program
+		nil,                      // repo
+		nil,                      // jobType
+		nil,                      // state
+		nil,                      // sweep
+		tags,                     // tags []string,
+		nil,                      // summaryMetrics
 	)
 	if err != nil {
 		err = fmt.Errorf("failed to upsert bucket: %s", err)
