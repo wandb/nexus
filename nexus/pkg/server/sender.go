@@ -31,7 +31,7 @@ type ResumeState struct {
 	Summary          *service.SummaryRecord
 	Config           *service.ConfigRecord
 	FileStreamOffset map[string]int
-	Error            error
+	Error            service.ErrorInfo
 }
 
 // Sender is the sender for a stream it handles the incoming messages and sends to the server
@@ -268,14 +268,11 @@ func (s *Sender) sendResume(run *service.RunRecord) error {
 	if err != nil {
 		err = fmt.Errorf("failed to get run resume status: %s", err)
 		s.logger.Error("sender: sendResume:", "error", err)
-		s.resumeState.Error = err
+		s.resumeState.Error = service.ErrorInfo{
+			Message: err.Error(),
+			Code:    service.ErrorInfo_INTERNAL,
+		}
 		return err
-	}
-	fmt.Printf("got resume status: %v\n", data)
-	project := data.GetModel()
-	fmt.Printf("got resume status: %v\n", project)
-	if project != nil {
-		fmt.Printf("got resume status: %v\n", project.GetBucket())
 	}
 
 	// If we get that the run is not a resume run, we should fail if resume is set to must
@@ -284,25 +281,37 @@ func (s *Sender) sendResume(run *service.RunRecord) error {
 	// for any other case of resume status, we should continue to process the resume response
 	if data.GetModel() == nil || data.GetModel().GetBucket() == nil {
 		if s.settings.GetResume().GetValue() == "must" {
-			err = fmt.Errorf("run resume status not found but resume is set to must")
+			err = fmt.Errorf("You provided an invalid value for the `resume` argument. "+
+				"The value 'must' is not a valid option for resuming a run (%s/%s) that does not exist. "+
+				"Please check your inputs and try again with a valid run ID. "+
+				"If you are trying to start a new run, please omit the `resume` argument or use `resume='allow'`.\n", run.Project, run.RunId)
 			s.logger.Error("sender: sendResume:", "error", err)
-			s.resumeState.Error = err
+			s.resumeState.Error = service.ErrorInfo{
+				Message: err.Error(),
+				Code:    service.ErrorInfo_USAGE,
+			}
 			return err
 		}
 		return nil
 	} else if s.settings.GetResume().GetValue() == "never" {
-		err = fmt.Errorf("run resume status found but resume is set to never")
+		err = fmt.Errorf("You provided an invalid value for the `resume` argument. "+
+			"The value 'never' is not a valid option for resuming a run (%s/%s) that already exists. "+
+			"Please check your inputs and try again with a valid value for the `resume` argument.\n", run.Project, run.RunId)
 		s.logger.Error("sender: sendResume:", "error", err)
-		s.resumeState.Error = err
+		s.resumeState.Error = service.ErrorInfo{
+			Message: err.Error(),
+			Code:    service.ErrorInfo_USAGE,
+		}
 		return err
 	}
 
 	var rerr error
+	bucket := data.GetModel().GetBucket()
 	s.resumeState.Resumed = true
 
 	var historyTail []string
 	var historyTailMap map[string]interface{}
-	if err = json.Unmarshal([]byte(*project.GetBucket().GetHistoryTail()), &historyTail); err != nil {
+	if err = json.Unmarshal([]byte(*bucket.GetHistoryTail()), &historyTail); err != nil {
 		err = fmt.Errorf("failed to unmarshal history tail: %s", err)
 		s.logger.Error("sender: sendResume:", "error", err)
 		rerr = err
@@ -318,14 +327,14 @@ func (s *Sender) sendResume(run *service.RunRecord) error {
 	}
 
 	s.resumeState.FileStreamOffset = map[string]int{}
-	s.resumeState.FileStreamOffset["history"] = *project.GetBucket().GetHistoryLineCount()
-	s.resumeState.FileStreamOffset["stats"] = *project.GetBucket().GetEventsLineCount()
-	s.resumeState.FileStreamOffset["output"] = *project.GetBucket().GetLogLineCount()
+	s.resumeState.FileStreamOffset["history"] = *bucket.GetHistoryLineCount()
+	s.resumeState.FileStreamOffset["stats"] = *bucket.GetEventsLineCount()
+	s.resumeState.FileStreamOffset["output"] = *bucket.GetLogLineCount()
 
 	// If we are unable to parse the config, we should fail if resume is set to must
 	// for any other case of resume status, it is fine to ignore it
 	var summary map[string]interface{}
-	if err = json.Unmarshal([]byte(*project.GetBucket().GetSummaryMetrics()), &summary); err != nil {
+	if err = json.Unmarshal([]byte(*bucket.GetSummaryMetrics()), &summary); err != nil {
 		err = fmt.Errorf("failed to unmarshal summary metrics: %s", err)
 		s.logger.Error("sender: sendResume:", "error", err)
 		rerr = err
@@ -342,7 +351,7 @@ func (s *Sender) sendResume(run *service.RunRecord) error {
 	}
 
 	var config map[string]interface{}
-	if err = json.Unmarshal([]byte(*project.GetBucket().GetConfig()), &config); err != nil {
+	if err = json.Unmarshal([]byte(*bucket.GetConfig()), &config); err != nil {
 		err = fmt.Errorf("sender: sendResume: failed to unmarshal config: %s", err)
 		s.logger.Error("sender: sendResume:", "error", err)
 		rerr = err
@@ -360,7 +369,10 @@ func (s *Sender) sendResume(run *service.RunRecord) error {
 	if rerr != nil && s.settings.GetResume().GetValue() == "must" {
 		err = fmt.Errorf("failed to parse resume state but resume is set to must")
 		s.logger.Error("sender: sendResume:", "error", err)
-		s.resumeState.Error = err
+		s.resumeState.Error = service.ErrorInfo{
+			Message: err.Error(),
+			Code:    service.ErrorInfo_INTERNAL,
+		}
 		return err
 	}
 	return nil
@@ -379,10 +391,7 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 		result := &service.Result{
 			ResultType: &service.Result_RunResult{
 				RunResult: &service.RunUpdateResult{
-					Error: &service.ErrorInfo{
-						Message: err.Error(),
-						Code:    service.ErrorInfo_INTERNAL,
-					},
+					Error: &s.resumeState.Error,
 				},
 			},
 			Control: record.Control,
