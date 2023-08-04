@@ -9,10 +9,9 @@ import (
 	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
-
 func reflectEncodeToDict(v reflect.Value) map[int]string {
 	m := make(map[int]string)
-    for i := 0; i < v.NumField(); i++ {
+	for i := 0; i < v.NumField(); i++ {
 		field := v.Field(i)
 		str := v.Type().Field(i)
 		fmt.Printf("got %d %s %+v\n", i, str.Name, field)

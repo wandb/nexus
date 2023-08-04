@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/wandb/wandb/nexus/internal/gql"
-	"github.com/wandb/wandb/nexus/internal/uploader"
 	"github.com/wandb/wandb/nexus/internal/nexuslib"
+	"github.com/wandb/wandb/nexus/internal/uploader"
 	"github.com/wandb/wandb/nexus/pkg/artifacts"
 	"github.com/wandb/wandb/nexus/pkg/observability"
 
@@ -232,43 +232,6 @@ func (s *Sender) sendRequestDefer(request *service.DeferRequest) {
 	s.recordChan <- rec
 }
 
-func (s *Sender) parseConfigUpdate(config *service.ConfigRecord) map[string]interface{} {
-	datas := make(map[string]interface{})
-
-	// TODO: handle deletes and nested key updates
-	for _, d := range config.GetUpdate() {
-		j := d.GetValueJson()
-		var data interface{}
-		if err := json.Unmarshal([]byte(j), &data); err != nil {
-			s.logger.CaptureFatalAndPanic("unmarshal problem", err)
-		}
-		datas[d.GetKey()] = data
-	}
-	return datas
-}
-
-func (s *Sender) updateConfigTelemetry(config map[string]interface{}) {
-	got := config["_wandb"]
-	switch v := got.(type) {
-	case map[string]interface{}:
-		v["cli_version"] = CliVersion
-		v["t"] = nexuslib.ProtoEncodeToDict(s.telemetry)
-	default:
-		err := fmt.Errorf("can not parse config _wandb, saw: %v", v)
-		s.logger.CaptureFatalAndPanic("sender received error", err)
-	}
-}
-
-func (s *Sender) getValueConfig(config map[string]interface{}) map[string]map[string]interface{} {
-
-	datas := make(map[string]map[string]interface{})
-	for key, elem := range config {
-		datas[key] = make(map[string]interface{})
-		datas[key]["value"] = elem
-	}
-	return datas
-}
-
 func (s *Sender) sendTelemetry(record *service.Record, telemetry *service.TelemetryRecord) {
 	proto.Merge(s.telemetry, telemetry)
 }
@@ -425,13 +388,14 @@ func (s *Sender) updateTelemetry(configRecord *service.TelemetryRecord) {
 
 	switch v := s.configMap["_wandb"].(type) {
 	case map[string]interface{}:
-		v["nexus_version"] = NexusVersion
+		// v["nexus_version"] = NexusVersion
 		if configRecord.CliVersion != "" {
 			v["cli_version"] = configRecord.CliVersion
 		}
 		if configRecord.PythonVersion != "" {
 			v["python_version"] = configRecord.PythonVersion
 		}
+		v["t"] = nexuslib.ProtoEncodeToDict(s.telemetry)
 
 		// todo: add the rest of the telemetry from configRecord
 	default:
