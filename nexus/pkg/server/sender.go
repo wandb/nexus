@@ -366,10 +366,14 @@ func (s *Sender) updateConfig(configRecord *service.ConfigRecord) {
 }
 
 func (s *Sender) updateTelemetry(configRecord *service.TelemetryRecord) {
+	if configRecord == nil {
+		return
+	}
+
 	if _, ok := s.configMap["_wandb"]; !ok {
 		s.configMap["_wandb"] = make(map[string]interface{})
 	}
-	fmt.Println("configRecord", configRecord, s.configMap)
+
 	switch v := s.configMap["_wandb"].(type) {
 	case map[string]interface{}:
 		v["nexus_version"] = NexusVersion
