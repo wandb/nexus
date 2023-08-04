@@ -370,20 +370,20 @@ func (s *Sender) updateTelemetry(configRecord *service.TelemetryRecord) {
 		s.configMap["_wandb"] = make(map[string]interface{})
 	}
 
-	//switch v := s.configMap["_wandb"].(type) {
-	//case map[string]interface{}:
-	//	v["nexus_version"] = NexusVersion
-	//	if configRecord.CliVersion != "" {
-	//		v["cli_version"] = configRecord.CliVersion
-	//	}
-	//	if configRecord.PythonVersion != "" {
-	//		v["python_version"] = configRecord.PythonVersion
-	//	}
-	//	// todo: add the rest of the telemetry from configRecord
-	//default:
-	//	err := fmt.Errorf("can not parse config _wandb, saw: %v", v)
-	//	s.logger.CaptureFatalAndPanic("sender received error", err)
-	//}
+	switch v := s.configMap["_wandb"].(type) {
+	case map[string]interface{}:
+		v["nexus_version"] = NexusVersion
+		if configRecord.CliVersion != "" {
+			v["cli_version"] = configRecord.CliVersion
+		}
+		if configRecord.PythonVersion != "" {
+			v["python_version"] = configRecord.PythonVersion
+		}
+		// todo: add the rest of the telemetry from configRecord
+	default:
+		//err := fmt.Errorf("can not parse config _wandb, saw: %v", v)
+		//s.logger.CaptureFatalAndPanic("sender received error", err)
+	}
 }
 
 func (s *Sender) serializeConfig() string {
