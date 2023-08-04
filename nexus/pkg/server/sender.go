@@ -363,8 +363,6 @@ func (s *Sender) updateConfig(configRecord *service.ConfigRecord) {
 	for _, d := range configRecord.GetRemove() {
 		delete(s.configMap, d.GetKey())
 	}
-
-	fmt.Println("cfg after parse config update", s.configMap)
 }
 
 func (s *Sender) updateTelemetry(configRecord *service.TelemetryRecord) {
@@ -401,7 +399,6 @@ func (s *Sender) serializeConfig() string {
 		s.logger.CaptureFatalAndPanic("sender: sendRun: ", err)
 	}
 	configString := string(configJson)
-	fmt.Println("configString", configString)
 
 	return configString
 }
@@ -540,7 +537,6 @@ func (s *Sender) sendSummary(_ *service.Record, summary *service.SummaryRecord) 
 }
 
 func (s *Sender) sendConfig(_ *service.Record, configRecord *service.ConfigRecord) {
-	fmt.Println("sendConfig", configRecord)
 	s.updateConfig(configRecord)
 	config := s.serializeConfig()
 
