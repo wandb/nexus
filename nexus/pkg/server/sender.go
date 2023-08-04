@@ -25,7 +25,6 @@ const (
 )
 
 type ResumeState struct {
-	ResumeRuntime    time.Time
 	FileStreamOffset map[chunkFile]int
 	Error            service.ErrorInfo
 }
@@ -388,7 +387,6 @@ func (s *Sender) updateTelemetry(configRecord *service.TelemetryRecord) {
 		if configRecord.PythonVersion != "" {
 			v["python_version"] = configRecord.PythonVersion
 		}
-
 		// todo: add the rest of the telemetry from configRecord
 	default:
 		err := fmt.Errorf("can not parse config _wandb, saw: %v", v)
@@ -409,9 +407,7 @@ func (s *Sender) serializeConfig() string {
 		err = fmt.Errorf("failed to marshal config: %s", err)
 		s.logger.CaptureFatalAndPanic("sender: sendRun: ", err)
 	}
-	configString := string(configJson)
-
-	return configString
+	return string(configJson)
 }
 
 func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
