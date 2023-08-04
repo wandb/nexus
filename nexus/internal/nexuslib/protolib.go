@@ -1,69 +1,62 @@
 package nexuslib
 
 import (
-	"fmt"
-	// "reflect"
+	"strings"
 
 	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
-// func reflectEncodeToDict(v reflect.Value) map[int]string {
-// 	m := make(map[int]string)
-// 	for i := 0; i < v.NumField(); i++ {
-// 		field := v.Field(i)
-// 		str := v.Type().Field(i)
-// 		fmt.Printf("got %d %s %+v\n", i, str.Name, field)
-// 	}
-// 	return m
-// }
-
-func reflectProtoToDict(pm protoreflect.Message) map[int]string {
-	m := make(map[int]string)
-	fds := pm.Descriptor().Fields()
-	for k := 0; k < fds.Len(); k++ {
-		fd := fds.Get(k)
-		fmt.Printf("got %d %+v\n", k, fd)
+func isBoolMessage(m protoreflect.Message) bool {
+	fds := m.Descriptor().Fields()
+	for i := 0; i < fds.Len(); i++ {
+		if fds.Get(i).Kind() != protoreflect.BoolKind {
+			return false
+		}
 	}
+	return true
+}
+
+func ProtoEncodeToDict(p *service.TelemetryRecord) map[int]interface{} {
+	pm := p.ProtoReflect()
+
+	m := make(map[int]interface{})
+	pm.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
+		num := fd.Number()
+		name := fd.Name()
+		if strings.HasPrefix(string(name), "_") {
+			return true
+		}
+		switch fd.Kind() {
+		case protoreflect.Int32Kind:
+			m[int(num)] = v
+		case protoreflect.StringKind:
+			m[int(num)] = v
+		case protoreflect.EnumKind:
+			m[int(num)] = v
+		case protoreflect.MessageKind:
+			pm2 := pm.Get(fd).Message()
+			// TODO(perf2): cache isbool based on field
+			bmsg := isBoolMessage(pm2)
+			if bmsg {
+				var lst []int
+				pm2.Range(func(fd2 protoreflect.FieldDescriptor, v2 protoreflect.Value) bool {
+					lst = append(lst, int(fd2.Number()))
+					return true
+				})
+				m[int(num)] = lst
+			} else {
+				m2 := make(map[int]interface{})
+				pm2.Range(func(fd2 protoreflect.FieldDescriptor, v2 protoreflect.Value) bool {
+					m2[int(fd2.Number())] = v2
+					return true
+				})
+				m[int(num)] = m2
+			}
+
+		}
+		return true
+	})
 	return m
 }
-
-func ProtoEncodeToDict(p *service.TelemetryRecord) map[int]string {
-	// return reflectEncodeToDict(reflect.ValueOf(*p))
-	pm := p.ProtoReflect()
-	return reflectProtoToDict(pm)
-}
-
-/*
-def proto_encode_to_dict(
-    pb_obj: Union["tpb.TelemetryRecord", "pb.MetricRecord"]
-) -> Dict[int, Any]:
-    data: Dict[int, Any] = dict()
-    fields = pb_obj.ListFields()
-    for desc, value in fields:
-        if desc.name.startswith("_"):
-            continue
-        if desc.type == desc.TYPE_STRING:
-            data[desc.number] = value
-        elif desc.type == desc.TYPE_INT32:
-            data[desc.number] = value
-        elif desc.type == desc.TYPE_ENUM:
-            data[desc.number] = value
-        elif desc.type == desc.TYPE_MESSAGE:
-            nested = value.ListFields()
-            bool_msg = all(d.type == d.TYPE_BOOL for d, _ in nested)
-            if bool_msg:
-                items = [d.number for d, v in nested if v]
-                if items:
-                    data[desc.number] = items
-            else:
-                # TODO: for now this code only handles sub-messages with strings
-                md = {}
-                for d, v in nested:
-                    if not v or d.type != d.TYPE_STRING:
-                        continue
-                    md[d.number] = v
-                data[desc.number] = md
-    return data
-*/

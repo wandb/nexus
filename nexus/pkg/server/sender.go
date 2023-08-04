@@ -234,6 +234,7 @@ func (s *Sender) sendRequestDefer(request *service.DeferRequest) {
 
 func (s *Sender) sendTelemetry(record *service.Record, telemetry *service.TelemetryRecord) {
 	proto.Merge(s.telemetry, telemetry)
+	s.updateTelemetry(s.telemetry)
 }
 
 func (s *Sender) checkAndUpdateResumeState(run *service.RunRecord) error {
