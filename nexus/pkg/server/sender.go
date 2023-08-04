@@ -350,6 +350,7 @@ func (s *Sender) checkAndUpdateResumeState(run *service.RunRecord) error {
 	return nil
 }
 
+// updateConfig updates the config map with the config record
 func (s *Sender) updateConfig(configRecord *service.ConfigRecord) {
 	// TODO: handle nested key updates and deletes
 	for _, d := range configRecord.GetUpdate() {
@@ -365,6 +366,7 @@ func (s *Sender) updateConfig(configRecord *service.ConfigRecord) {
 	}
 }
 
+// updateTelemetry updates the config map with the telemetry record
 func (s *Sender) updateTelemetry(configRecord *service.TelemetryRecord) {
 	if configRecord == nil {
 		return
@@ -390,8 +392,9 @@ func (s *Sender) updateTelemetry(configRecord *service.TelemetryRecord) {
 	}
 }
 
+// serializeConfig serializes the config map to a json string
+// that can be sent to the server
 func (s *Sender) serializeConfig() string {
-	// Prepare to send config to the server
 	valueConfig := make(map[string]map[string]interface{})
 	for key, elem := range s.configMap {
 		valueConfig[key] = make(map[string]interface{})
@@ -540,6 +543,8 @@ func (s *Sender) sendSummary(_ *service.Record, summary *service.SummaryRecord) 
 	}
 }
 
+// sendConfig sends a config record to the server via an upsertBucket mutation
+// and updates the in memory config
 func (s *Sender) sendConfig(_ *service.Record, configRecord *service.ConfigRecord) {
 	s.updateConfig(configRecord)
 	config := s.serializeConfig()
@@ -572,6 +577,7 @@ func (s *Sender) sendConfig(_ *service.Record, configRecord *service.ConfigRecor
 	}
 }
 
+// sendSystemMetrics sends a system metrics record via the file stream
 func (s *Sender) sendSystemMetrics(record *service.Record, _ *service.StatsRecord) {
 	if s.fileStream != nil {
 		s.fileStream.StreamRecord(record)
