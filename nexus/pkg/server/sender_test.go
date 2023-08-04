@@ -44,7 +44,7 @@ func TestSendRun(t *testing.T) {
 		Control: &service.Control{
 			MailboxSlot: "junk",
 		},
-		}
+	}
 
 	respEncode := &graphql.Response{
 		Data: &gql.UpsertBucketResponse{
