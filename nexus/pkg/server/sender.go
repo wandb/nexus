@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	CliVersion   = "0.0.1a2"
 	MetaFilename = "wandb-metadata.json"
+	NexusVersion = "0.0.1a2"
 )
 
 type ResumeState struct {
@@ -368,15 +368,24 @@ func (s *Sender) updateConfig(configRecord *service.ConfigRecord) {
 }
 
 func (s *Sender) updateTelemetry(configRecord *service.TelemetryRecord) {
-	// todo: actually do it
+	if _, ok := s.configMap["_wandb"]; !ok {
+		s.configMap["_wandb"] = make(map[string]interface{})
+	}
+
 	switch v := s.configMap["_wandb"].(type) {
 	case map[string]interface{}:
-		v["cli_version"] = CliVersion
+		v["nexus_version"] = NexusVersion
+		if configRecord.CliVersion != "" {
+			v["cli_version"] = configRecord.CliVersion
+		}
+		if configRecord.PythonVersion != "" {
+			v["python_version"] = configRecord.PythonVersion
+		}
+		// todo: add the rest of the telemetry from configRecord
 	default:
 		err := fmt.Errorf("can not parse config _wandb, saw: %v", v)
 		s.logger.CaptureFatalAndPanic("sender received error", err)
 	}
-	fmt.Println("cfg after update config telemetry", s.configMap)
 }
 
 func (s *Sender) serializeConfig() string {
