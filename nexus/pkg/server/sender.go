@@ -10,6 +10,7 @@ import (
 
 	"github.com/wandb/wandb/nexus/internal/gql"
 	"github.com/wandb/wandb/nexus/internal/uploader"
+	"github.com/wandb/wandb/nexus/internal/nexuslib"
 	"github.com/wandb/wandb/nexus/pkg/artifacts"
 	"github.com/wandb/wandb/nexus/pkg/observability"
 
@@ -251,6 +252,7 @@ func (s *Sender) updateConfigTelemetry(config map[string]interface{}) {
 	switch v := got.(type) {
 	case map[string]interface{}:
 		v["cli_version"] = CliVersion
+		v["t"] = nexuslib.ProtoEncodeToDict(s.telemetry)
 	default:
 		err := fmt.Errorf("can not parse config _wandb, saw: %v", v)
 		s.logger.CaptureFatalAndPanic("sender received error", err)
