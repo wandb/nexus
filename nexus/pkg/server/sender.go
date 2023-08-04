@@ -329,15 +329,14 @@ func (s *Sender) checkAndUpdateResumeState(run *service.RunRecord) error {
 		s.logger.Error("sender: checkAndUpdateResumeState:", "error", err)
 		rerr = err
 	} else {
-		configRecord := service.ConfigRecord{}
 		for key, value := range config {
-			jsonValue, _ := json.Marshal(value)
-			configRecord.Update = append(configRecord.Update, &service.ConfigItem{
-				Key:       key,
-				ValueJson: string(jsonValue),
-			})
+			switch v := value.(type) {
+			case map[string]interface{}:
+				s.configMap[key] = v["value"]
+			default:
+				s.logger.Error("sender: checkAndUpdateResumeState: config value is not a map[string]interface{}")
+			}
 		}
-		s.resumeState.Config = &configRecord
 	}
 	if rerr != nil && s.settings.GetResume().GetValue() == "must" {
 		err = fmt.Errorf("failed to parse resume state but resume is set to must")
