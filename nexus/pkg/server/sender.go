@@ -90,22 +90,19 @@ func NewSender(ctx context.Context, settings *service.Settings, logger *observab
 		graphqlClient: newGraphqlClient(url, apiKey, logger),
 		summaryMap:    make(map[string]*service.SummaryItem),
 		configMap:     make(map[string]interface{}),
+		recordChan:    make(chan *service.Record, BufferSize),
+		resultChan:    make(chan *service.Result, BufferSize),
 	}
 }
 
 // do sending of messages to the server
-func (s *Sender) do(inChan <-chan *service.Record) (<-chan *service.Result, <-chan *service.Record) {
+func (s *Sender) do(inChan <-chan *service.Record) {
 	s.logger.Info("sender: started", "stream_id", s.settings.RunId)
-	s.recordChan = make(chan *service.Record, BufferSize)
-	s.resultChan = make(chan *service.Result, BufferSize)
 
-	go func() {
-		for record := range inChan {
-			s.sendRecord(record)
-		}
-		s.logger.Info("sender: closed", "stream_id", s.settings.RunId)
-	}()
-	return s.resultChan, s.recordChan
+	for record := range inChan {
+		s.sendRecord(record)
+	}
+	s.logger.Info("sender: closed", "stream_id", s.settings.RunId)
 }
 
 // sendRecord sends a record
@@ -209,6 +206,7 @@ func (s *Sender) sendDefer(request *service.DeferRequest) {
 		request.State++
 		s.sendRequestDefer(request)
 	}
+	fmt.Println("sender: sendRecord: sending record", request)
 }
 
 func (s *Sender) sendRequestDefer(request *service.DeferRequest) {

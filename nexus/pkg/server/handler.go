@@ -8,7 +8,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/wandb/wandb/nexus/internal/nexuslib"
-	"github.com/wandb/wandb/nexus/pkg/monitor"
 	"github.com/wandb/wandb/nexus/pkg/observability"
 	"github.com/wandb/wandb/nexus/pkg/service"
 )
@@ -50,7 +49,7 @@ type Handler struct {
 	historyRecord *service.HistoryRecord
 
 	// systemMonitor is the system monitor for the stream
-	systemMonitor *monitor.SystemMonitor
+	// systemMonitor *monitor.SystemMonitor
 }
 
 // NewHandler creates a new handler
@@ -58,36 +57,32 @@ func NewHandler(
 	ctx context.Context,
 	settings *service.Settings,
 	logger *observability.NexusLogger,
-	systemMonitor *monitor.SystemMonitor,
 ) *Handler {
+	// init the system monitor
+	// systemMonitorChan := make(chan *service.Record, BufferSize)
+	// systemMonitor := monitor.NewSystemMonitor(systemMonitorChan, settings, logger)
 	h := &Handler{
-		ctx:                 ctx,
-		settings:            settings,
-		logger:              logger,
-		systemMonitor:       systemMonitor,
+		ctx:      ctx,
+		settings: settings,
+		logger:   logger,
+		//systemMonitor:       systemMonitor,
 		consolidatedSummary: make(map[string]string),
+		recordChan:          make(chan *service.Record, BufferSize),
+		resultChan:          make(chan *service.Result, BufferSize),
 	}
 	return h
 }
 
 // do this starts the handler
-func (h *Handler) do(inChan <-chan *service.Record) (<-chan *service.Record, <-chan *service.Result) {
+func (h *Handler) do(inChan <-chan *service.Record) {
 	defer observability.Reraise()
 
 	h.logger.Info("handler: started", "stream_id", h.settings.RunId)
-
-	h.recordChan = make(chan *service.Record, BufferSize)
-	h.resultChan = make(chan *service.Result, BufferSize)
-
-	go func() {
-		for record := range inChan {
-			h.handleRecord(record)
-		}
-		close(h.recordChan)
-		close(h.resultChan)
-		h.logger.Debug("handler: closed", "stream_id", h.settings.RunId)
-	}()
-	return h.recordChan, h.resultChan
+	for record := range inChan {
+		h.handleRecord(record)
+	}
+	h.close()
+	h.logger.Debug("handler: closed", "stream_id", h.settings.RunId)
 }
 
 func (h *Handler) sendResponse(record *service.Record, response *service.Response) {
@@ -97,6 +92,11 @@ func (h *Handler) sendResponse(record *service.Record, response *service.Respons
 		Uuid:       record.Uuid,
 	}
 	h.resultChan <- result
+}
+
+func (h *Handler) close() {
+	close(h.resultChan)
+	close(h.recordChan)
 }
 
 func (h *Handler) sendRecord(record *service.Record) {
@@ -187,7 +187,7 @@ func (h *Handler) handleDefer(record *service.Record) {
 	switch request.State {
 	case service.DeferRequest_BEGIN:
 	case service.DeferRequest_FLUSH_STATS:
-		h.systemMonitor.Stop()
+		// h.systemMonitor.Stop()
 	case service.DeferRequest_FLUSH_PARTIAL_HISTORY:
 		h.flushHistory(h.historyRecord)
 	case service.DeferRequest_FLUSH_TB:
@@ -232,7 +232,7 @@ func (h *Handler) handleRunStart(record *service.Record, request *service.RunSta
 	h.handleMetadata(record, request)
 
 	// start the system monitor
-	h.systemMonitor.Do()
+	// h.systemMonitor.Do()
 }
 
 func (h *Handler) handleAttach(_ *service.Record, response *service.Response) {
