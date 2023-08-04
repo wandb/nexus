@@ -363,6 +363,8 @@ func (s *Sender) updateConfig(configRecord *service.ConfigRecord) {
 	for _, d := range configRecord.GetRemove() {
 		delete(s.configMap, d.GetKey())
 	}
+
+	fmt.Println("cfg after parse config update", s.configMap)
 }
 
 func (s *Sender) updateTelemetry(configRecord *service.TelemetryRecord) {
