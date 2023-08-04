@@ -25,11 +25,7 @@ const (
 )
 
 type ResumeState struct {
-	Resumed          bool
-	ResumeStep       int64
 	ResumeRuntime    time.Time
-	Summary          *service.SummaryRecord
-	Config           *service.ConfigRecord
 	FileStreamOffset map[chunkFile]int
 	Error            service.ErrorInfo
 }
@@ -278,7 +274,7 @@ func (s *Sender) checkAndUpdateResumeState(run *service.RunRecord) error {
 
 	var rerr error
 	bucket := data.GetModel().GetBucket()
-	s.resumeState.Resumed = true
+	run.Resumed = true
 
 	var historyTail []string
 	var historyTailMap map[string]interface{}
@@ -293,7 +289,14 @@ func (s *Sender) checkAndUpdateResumeState(run *service.RunRecord) error {
 		rerr = err
 	} else {
 		if step, ok := historyTailMap["_step"].(float64); ok {
-			s.resumeState.ResumeStep = int64(step)
+			// if we are resuming, we need to update the starting step
+			// to be the next step after the last step we ran
+			if step > 0 {
+				run.StartingStep = int64(step) + 1
+			}
+		}
+		if runtime, ok := historyTailMap["_runtime"].(float64); ok {
+			run.Runtime = int32(runtime)
 		}
 	}
 
@@ -320,7 +323,7 @@ func (s *Sender) checkAndUpdateResumeState(run *service.RunRecord) error {
 				ValueJson: string(jsonValue),
 			})
 		}
-		s.resumeState.Summary = &summaryRecord
+		run.Summary = &summaryRecord
 	}
 
 	var config map[string]interface{}
@@ -434,15 +437,6 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 			}
 			s.resultChan <- result
 			return
-		}
-		s.RunRecord.Resumed = s.resumeState.Resumed
-		// if we are resuming, we need to update the starting step
-		// to be the next step after the last step we ran
-		if s.RunRecord.Resumed && s.resumeState.ResumeStep > 0 {
-			s.RunRecord.StartingStep = s.resumeState.ResumeStep + 1
-		}
-		if s.resumeState.Summary != nil {
-			s.RunRecord.Summary = s.resumeState.Summary
 		}
 	}
 
