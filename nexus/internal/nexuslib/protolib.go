@@ -2,22 +2,22 @@ package nexuslib
 
 import (
 	"fmt"
-	"reflect"
+	// "reflect"
 
 	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
-func reflectEncodeToDict(v reflect.Value) map[int]string {
-	m := make(map[int]string)
-	for i := 0; i < v.NumField(); i++ {
-		field := v.Field(i)
-		str := v.Type().Field(i)
-		fmt.Printf("got %d %s %+v\n", i, str.Name, field)
-	}
-	return m
-}
+// func reflectEncodeToDict(v reflect.Value) map[int]string {
+// 	m := make(map[int]string)
+// 	for i := 0; i < v.NumField(); i++ {
+// 		field := v.Field(i)
+// 		str := v.Type().Field(i)
+// 		fmt.Printf("got %d %s %+v\n", i, str.Name, field)
+// 	}
+// 	return m
+// }
 
 func reflectProtoToDict(pm protoreflect.Message) map[int]string {
 	m := make(map[int]string)
