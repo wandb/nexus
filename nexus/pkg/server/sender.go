@@ -91,6 +91,7 @@ func emptyAsNil(s *string) *string {
 func NewSender(ctx context.Context, settings *service.Settings, logger *observability.NexusLogger) *Sender {
 	url := fmt.Sprintf("%s/graphql", settings.GetBaseUrl().GetValue())
 	apiKey := settings.GetApiKey().GetValue()
+	telemetry := &service.TelemetryRecord{CoreVersion: NexusVersion}
 	return &Sender{
 		ctx:           ctx,
 		settings:      settings,
@@ -98,7 +99,7 @@ func NewSender(ctx context.Context, settings *service.Settings, logger *observab
 		graphqlClient: newGraphqlClient(url, apiKey, logger),
 		summaryMap:    make(map[string]*service.SummaryItem),
 		configMap:     make(map[string]interface{}),
-		telemetry:     &service.TelemetryRecord{},
+		telemetry:     telemetry,
 	}
 }
 
@@ -234,7 +235,9 @@ func (s *Sender) sendRequestDefer(request *service.DeferRequest) {
 
 func (s *Sender) sendTelemetry(record *service.Record, telemetry *service.TelemetryRecord) {
 	proto.Merge(s.telemetry, telemetry)
-	s.updateTelemetry(s.telemetry)
+	s.updateConfigPrivate(s.telemetry)
+	// TODO(perf): improve we we add debounce config
+	s.sendConfig(nil, nil)
 }
 
 func (s *Sender) checkAndUpdateResumeState(run *service.RunRecord) error {
@@ -377,8 +380,8 @@ func (s *Sender) updateConfig(configRecord *service.ConfigRecord) {
 	}
 }
 
-// updateTelemetry updates the config map with the telemetry record
-func (s *Sender) updateTelemetry(configRecord *service.TelemetryRecord) {
+// updateConfigPrivate updates the private part of the config map
+func (s *Sender) updateConfigPrivate(configRecord *service.TelemetryRecord) {
 	if configRecord == nil {
 		return
 	}
@@ -389,7 +392,6 @@ func (s *Sender) updateTelemetry(configRecord *service.TelemetryRecord) {
 
 	switch v := s.configMap["_wandb"].(type) {
 	case map[string]interface{}:
-		// v["nexus_version"] = NexusVersion
 		if configRecord.CliVersion != "" {
 			v["cli_version"] = configRecord.CliVersion
 		}
@@ -419,36 +421,45 @@ func (s *Sender) serializeConfig() string {
 		s.logger.CaptureFatalAndPanic("sender: sendRun: ", err)
 	}
 	configString := string(configJson)
-
 	return configString
 }
 
 func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 
-	var ok bool
-	s.RunRecord, ok = proto.Clone(run).(*service.RunRecord)
-	if !ok {
-		err := fmt.Errorf("failed to clone RunRecord")
-		s.logger.CaptureFatalAndPanic("sender: sendRun: ", err)
+	// sendRun is called when updating as well as on the final run
+
+	var isWandbInit bool
+	if s.RunRecord == nil {
+		var ok bool
+		s.RunRecord, ok = proto.Clone(run).(*service.RunRecord)
+		if !ok {
+			err := fmt.Errorf("failed to clone RunRecord")
+			s.logger.CaptureFatalAndPanic("sender: sendRun: ", err)
+		}
+		isWandbInit = true
 	}
 
-	if err := s.checkAndUpdateResumeState(s.RunRecord); err != nil {
-		s.logger.Error("sender: sendRun: failed to checkAndUpdateResumeState", "error", err)
-		result := &service.Result{
-			ResultType: &service.Result_RunResult{
-				RunResult: &service.RunUpdateResult{
-					Error: &s.resumeState.Error,
-				},
-			},
-			Control: record.Control,
-			Uuid:    record.Uuid,
+	if isWandbInit {
+		if err := s.checkAndUpdateResumeState(s.RunRecord); err != nil {
+			s.logger.Error("sender: sendRun: failed to checkAndUpdateResumeState", "error", err)
+			if record.Control.ReqResp || record.Control.MailboxSlot != "" {
+				result := &service.Result{
+					ResultType: &service.Result_RunResult{
+						RunResult: &service.RunUpdateResult{
+							Error: &s.resumeState.Error,
+						},
+					},
+					Control: record.Control,
+					Uuid:    record.Uuid,
+				}
+				s.resultChan <- result
+			}
+			return
 		}
-		s.resultChan <- result
-		return
 	}
 
 	s.updateConfig(run.Config)
-	s.updateTelemetry(run.Telemetry)
+	s.updateConfigPrivate(run.Telemetry)
 	config := s.serializeConfig()
 
 	var tags []string
@@ -488,19 +499,21 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 	if err != nil {
 		err = fmt.Errorf("failed to upsert bucket: %s", err)
 		s.logger.Error("sender: sendRun:", "error", err)
-		result := &service.Result{
-			ResultType: &service.Result_RunResult{
-				RunResult: &service.RunUpdateResult{
-					Error: &service.ErrorInfo{
-						Message: err.Error(),
-						Code:    service.ErrorInfo_INTERNAL,
+		if record.Control.ReqResp || record.Control.MailboxSlot != "" {
+			result := &service.Result{
+				ResultType: &service.Result_RunResult{
+					RunResult: &service.RunUpdateResult{
+						Error: &service.ErrorInfo{
+							Message: err.Error(),
+							Code:    service.ErrorInfo_INTERNAL,
+						},
 					},
 				},
-			},
-			Control: record.Control,
-			Uuid:    record.Uuid,
+				Control: record.Control,
+				Uuid:    record.Uuid,
+			}
+			s.resultChan <- result
 		}
-		s.resultChan <- result
 		return
 	}
 
@@ -517,14 +530,16 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 		s.RunRecord.Summary = s.resumeState.Summary
 	}
 
-	result := &service.Result{
-		ResultType: &service.Result_RunResult{
-			RunResult: &service.RunUpdateResult{Run: s.RunRecord},
-		},
-		Control: record.Control,
-		Uuid:    record.Uuid,
+	if record.Control.ReqResp || record.Control.MailboxSlot != "" {
+		result := &service.Result{
+			ResultType: &service.Result_RunResult{
+				RunResult: &service.RunUpdateResult{Run: s.RunRecord},
+			},
+			Control: record.Control,
+			Uuid:    record.Uuid,
+		}
+		s.resultChan <- result
 	}
-	s.resultChan <- result
 }
 
 // sendHistory sends a history record to the file stream,
@@ -569,7 +584,9 @@ func (s *Sender) sendSummary(_ *service.Record, summary *service.SummaryRecord) 
 // sendConfig sends a config record to the server via an upsertBucket mutation
 // and updates the in memory config
 func (s *Sender) sendConfig(_ *service.Record, configRecord *service.ConfigRecord) {
-	s.updateConfig(configRecord)
+	if configRecord != nil {
+		s.updateConfig(configRecord)
+	}
 	config := s.serializeConfig()
 
 	_, err := gql.UpsertBucket(

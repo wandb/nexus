@@ -32,12 +32,13 @@ func ProtoEncodeToDict(p *service.TelemetryRecord) map[int]interface{} {
 		case protoreflect.Int32Kind:
 			m[int(num)] = v
 		case protoreflect.StringKind:
-			m[int(num)] = v
+			// TODO(compat): figure out how to get a string out of this
+			// m[int(num)] = v
 		case protoreflect.EnumKind:
 			m[int(num)] = v
 		case protoreflect.MessageKind:
 			pm2 := pm.Get(fd).Message()
-			// TODO(perf2): cache isbool based on field
+			// TODO(perf2): cache isBoolMessage based on field number
 			bmsg := isBoolMessage(pm2)
 			if bmsg {
 				var lst []int
@@ -58,5 +59,6 @@ func ProtoEncodeToDict(p *service.TelemetryRecord) map[int]interface{} {
 		}
 		return true
 	})
+
 	return m
 }
