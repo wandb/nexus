@@ -399,6 +399,7 @@ func (s *Sender) serializeConfig() string {
 		s.logger.CaptureFatalAndPanic("sender: sendRun: ", err)
 	}
 	configString := string(configJson)
+	fmt.Println("configString", configString)
 
 	return configString
 }
@@ -537,6 +538,7 @@ func (s *Sender) sendSummary(_ *service.Record, summary *service.SummaryRecord) 
 }
 
 func (s *Sender) sendConfig(_ *service.Record, configRecord *service.ConfigRecord) {
+	fmt.Println("sendConfig", configRecord)
 	s.updateConfig(configRecord)
 	config := s.serializeConfig()
 
