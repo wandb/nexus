@@ -413,26 +413,37 @@ func (s *Sender) serializeConfig() string {
 
 func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 
-	var ok bool
-	s.RunRecord, ok = proto.Clone(run).(*service.RunRecord)
-	if !ok {
-		err := fmt.Errorf("failed to clone RunRecord")
-		s.logger.CaptureFatalAndPanic("sender: sendRun: ", err)
-	}
-
-	if err := s.checkAndUpdateResumeState(s.RunRecord); err != nil {
-		s.logger.Error("sender: sendRun: failed to checkAndUpdateResumeState", "error", err)
-		result := &service.Result{
-			ResultType: &service.Result_RunResult{
-				RunResult: &service.RunUpdateResult{
-					Error: &s.resumeState.Error,
-				},
-			},
-			Control: record.Control,
-			Uuid:    record.Uuid,
+	if s.RunRecord == nil {
+		var ok bool
+		s.RunRecord, ok = proto.Clone(run).(*service.RunRecord)
+		if !ok {
+			err := fmt.Errorf("failed to clone RunRecord")
+			s.logger.CaptureFatalAndPanic("sender: sendRun: ", err)
 		}
-		s.resultChan <- result
-		return
+
+		if err := s.checkAndUpdateResumeState(s.RunRecord); err != nil {
+			s.logger.Error("sender: sendRun: failed to checkAndUpdateResumeState", "error", err)
+			result := &service.Result{
+				ResultType: &service.Result_RunResult{
+					RunResult: &service.RunUpdateResult{
+						Error: &s.resumeState.Error,
+					},
+				},
+				Control: record.Control,
+				Uuid:    record.Uuid,
+			}
+			s.resultChan <- result
+			return
+		}
+		s.RunRecord.Resumed = s.resumeState.Resumed
+		// if we are resuming, we need to update the starting step
+		// to be the next step after the last step we ran
+		if s.RunRecord.Resumed && s.resumeState.ResumeStep > 0 {
+			s.RunRecord.StartingStep = s.resumeState.ResumeStep + 1
+		}
+		if s.resumeState.Summary != nil {
+			s.RunRecord.Summary = s.resumeState.Summary
+		}
 	}
 
 	s.updateConfig(run.Config)
@@ -495,15 +506,6 @@ func (s *Sender) sendRun(record *service.Record, run *service.RunRecord) {
 	s.RunRecord.DisplayName = *data.UpsertBucket.Bucket.DisplayName
 	s.RunRecord.Project = data.UpsertBucket.Bucket.Project.Name
 	s.RunRecord.Entity = data.UpsertBucket.Bucket.Project.Entity.Name
-	s.RunRecord.Resumed = s.resumeState.Resumed
-	// if we are resuming, we need to update the starting step
-	// to be the next step after the last step we ran
-	if s.RunRecord.Resumed && s.resumeState.ResumeStep > 0 {
-		s.RunRecord.StartingStep = s.resumeState.ResumeStep + 1
-	}
-	if s.resumeState.Summary != nil {
-		s.RunRecord.Summary = s.resumeState.Summary
-	}
 
 	result := &service.Result{
 		ResultType: &service.Result_RunResult{
