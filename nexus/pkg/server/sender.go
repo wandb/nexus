@@ -369,7 +369,7 @@ func (s *Sender) updateTelemetry(configRecord *service.TelemetryRecord) {
 	if _, ok := s.configMap["_wandb"]; !ok {
 		s.configMap["_wandb"] = make(map[string]interface{})
 	}
-
+	fmt.Println("configRecord", configRecord, s.configMap)
 	switch v := s.configMap["_wandb"].(type) {
 	case map[string]interface{}:
 		v["nexus_version"] = NexusVersion
@@ -381,8 +381,8 @@ func (s *Sender) updateTelemetry(configRecord *service.TelemetryRecord) {
 		}
 		// todo: add the rest of the telemetry from configRecord
 	default:
-		//err := fmt.Errorf("can not parse config _wandb, saw: %v", v)
-		//s.logger.CaptureFatalAndPanic("sender received error", err)
+		err := fmt.Errorf("can not parse config _wandb, saw: %v", v)
+		s.logger.CaptureFatalAndPanic("sender received error", err)
 	}
 }
 
