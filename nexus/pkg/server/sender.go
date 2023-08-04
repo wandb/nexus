@@ -605,11 +605,15 @@ func (s *Sender) sendSystemMetrics(record *service.Record, _ *service.StatsRecor
 	}
 }
 
-func (s *Sender) sendOutputRaw(record *service.Record, outputRaw *service.OutputRawRecord) {
+func (s *Sender) sendOutputRaw(record *service.Record, _ *service.OutputRawRecord) {
 	// TODO: match logic handling of lines to the one in the python version
 	// - handle carriage returns (for tqdm-like progress bars)
 	// - handle caching multiple (non-new lines) and sending them in one chunk
 	// - handle lines longer than ~60_000 characters
+
+	// copy the record to avoid mutating the original
+	recordCopy := proto.Clone(record).(*service.Record)
+	outputRaw := recordCopy.GetOutputRaw()
 
 	// ignore empty "new lines"
 	if outputRaw.Line == "\n" {
@@ -622,7 +626,7 @@ func (s *Sender) sendOutputRaw(record *service.Record, outputRaw *service.Output
 	}
 
 	if s.fileStream != nil {
-		s.fileStream.StreamRecord(record)
+		s.fileStream.StreamRecord(recordCopy)
 	}
 }
 
