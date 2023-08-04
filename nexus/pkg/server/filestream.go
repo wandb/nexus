@@ -399,5 +399,4 @@ func (fs *FileStream) Close() {
 	close(fs.replyChan)
 	fs.replyWait.Wait()
 	fs.logger.Debug("filestream: closed")
-
 }
