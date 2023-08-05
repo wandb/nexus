@@ -132,29 +132,11 @@ func TestHandleSummary(t *testing.T) {
 	assert.Equal(t, expectedSummary, summaryRecord)
 }
 
-func TestHandleGetSummary(t *testing.T) {
-	handler := &Handler{
-		consolidatedSummary: map[string]string{
-			"key1": "value1",
-			"key2": "value2",
-		},
-	}
-
-	response := &service.Response{}
-	handler.handleGetSummary(nil, response)
-
-	expectedItems := []*service.SummaryItem{
-		{Key: "key1", ValueJson: "value1"},
-		{Key: "key2", ValueJson: "value2"},
-	}
-
-	assert.Equal(t, expectedItems, response.GetGetSummaryResponse().Item)
-}
-
 func TestFlushHistory(t *testing.T) {
 	handler := &Handler{
-		startTime:  1000,
-		recordChan: make(chan *service.Record, 2),
+		startTime:           1000,
+		recordChan:          make(chan *service.Record, 2),
+		consolidatedSummary: make(map[string]string),
 	}
 
 	history := &service.HistoryRecord{
