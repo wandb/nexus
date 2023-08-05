@@ -67,6 +67,13 @@ func TestGetRun(t *testing.T) {
 	assert.Equal(t, runRecord, returnedRunRecord)
 }
 
+// Create a mock version of SystemMonitor
+type MockSystemMonitor struct {}
+func (sm *MockSystemMonitor) Do() {}
+func (sm *MockSystemMonitor) Monitor(asset monitor.Asset) {}
+func (sm *MockSystemMonitor) GetOutChan() chan *service.Record { return nil }
+func (sm *MockSystemMonitor) Stop() {}
+
 func TestHandleRunStart(t *testing.T) {
 	ctx := context.Background()
 	settings := &service.Settings{}
@@ -76,6 +83,7 @@ func TestHandleRunStart(t *testing.T) {
 	}
 
 	handler := NewHandler(ctx, settings, logger)
+	handler.systemMonitor = &MockSystemMonitor{}
 
 	startTime := time.Unix(1000000, 0)
 	run := &service.RunRecord{
