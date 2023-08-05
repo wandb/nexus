@@ -216,7 +216,7 @@ func (s *Stream) FinishAndClose(exitCode int32) {
 			Exit: &service.RunExitRecord{
 				ExitCode: exitCode,
 			}},
-		Control:    &service.Control{AlwaysSend: true},
+		Control: &service.Control{AlwaysSend: true},
 	}
 	s.HandleRecord(record)
 
