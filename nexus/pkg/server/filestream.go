@@ -26,10 +26,7 @@ const (
 	heartbeatTime   = 2 * time.Second
 )
 
-var (
-	exitcodeZero int32 = 0
-	completeTrue bool  = true
-)
+var completeTrue bool = true
 
 type chunkFile int8
 
