@@ -72,7 +72,7 @@ func TestHandleRunStart(t *testing.T) {
 	settings := &service.Settings{}
 	// Create a mock logger.
 	logger := &observability.NexusLogger{
-		Logger: slog.NewLogger(func(_ slog.Level, _ string, _ ...interface{}) {}),
+		Logger: &slog.Logger{},
 	}
 
 	// Create a mock system monitor.
