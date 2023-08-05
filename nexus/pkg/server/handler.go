@@ -189,6 +189,7 @@ func (h *Handler) handleDefer(record *service.Record) {
 	switch request.State {
 	case service.DeferRequest_BEGIN:
 	case service.DeferRequest_FLUSH_STATS:
+		h.systemMonitor.Stop()
 	case service.DeferRequest_FLUSH_PARTIAL_HISTORY:
 		h.flushHistory(h.historyRecord)
 	case service.DeferRequest_FLUSH_TB:
@@ -298,9 +299,6 @@ func (h *Handler) handleAlert(record *service.Record) {
 }
 
 func (h *Handler) handleExit(record *service.Record) {
-	// stop the system monitor to ensure that we don't send any more system metrics
-	// after the run has exited
-	h.systemMonitor.Stop()
 	h.sendRecord(record)
 }
 
