@@ -2,11 +2,12 @@ package server
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/wandb/wandb/nexus/internal/nexuslib"
 	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/wandb/wandb/nexus/pkg/monitor"
@@ -71,9 +72,18 @@ func TestHandleRunStart(t *testing.T) {
 	settings := &service.Settings{}
 	// Create a mock logger.
 	logger := &observability.NexusLogger{
-		Logger: &slog.Logger{},
+		Logger: slog.NewLogger(func(_ slog.Level, _ string, _ ...interface{}) {}),
 	}
+
+	// Create a mock system monitor.
+	mockSystemMonitor := &monitor.SystemMonitor{
+		// You might need to set additional fields or methods to avoid nil pointer dereferences.
+		OutChan: make(chan *service.Record, 1), // Example, adjust as needed.
+	}
+
 	handler := NewHandler(ctx, settings, logger)
+	// Assign the mock system monitor.
+	handler.systemMonitor = mockSystemMonitor
 
 	startTime := time.Unix(1000000, 0)
 	run := &service.RunRecord{
