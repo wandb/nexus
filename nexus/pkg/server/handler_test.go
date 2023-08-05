@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"github.com/wandb/wandb/nexus/internal/nexuslib"
+	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"testing"
 	"time"
@@ -68,7 +69,10 @@ func TestGetRun(t *testing.T) {
 func TestHandleRunStart(t *testing.T) {
 	ctx := context.Background()
 	settings := &service.Settings{}
-	logger := &observability.NexusLogger{}
+	// Create a mock logger.
+	logger := &observability.NexusLogger{
+		Logger: &slog.Logger{},
+	}
 	handler := NewHandler(ctx, settings, logger)
 
 	startTime := time.Unix(1000000, 0)
