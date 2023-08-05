@@ -70,6 +70,9 @@ type Sender struct {
 
 	// Keep track of config which is being updated incrementally
 	configMap map[string]interface{}
+
+	// Keep track of exit record to pass to file stream when the time comes
+	exitRecord *service.Record
 }
 
 func emptyAsNil(s *string) *string {
@@ -194,26 +197,64 @@ func (s *Sender) sendMetadata(request *service.MetadataRequest) {
 
 func (s *Sender) sendDefer(request *service.DeferRequest) {
 	switch request.State {
+	case service.DeferRequest_BEGIN:
+		request.State++
+		s.sendRequestDefer(request)
+	case service.DeferRequest_FLUSH_STATS:
+		request.State++
+		s.sendRequestDefer(request)
+	case service.DeferRequest_FLUSH_PARTIAL_HISTORY:
+		request.State++
+		s.sendRequestDefer(request)
+	case service.DeferRequest_FLUSH_TB:
+		request.State++
+		s.sendRequestDefer(request)
+	case service.DeferRequest_FLUSH_SUM:
+		request.State++
+		s.sendRequestDefer(request)
+	case service.DeferRequest_FLUSH_DEBOUNCER:
+		request.State++
+		s.sendRequestDefer(request)
+	case service.DeferRequest_FLUSH_OUTPUT:
+		request.State++
+		s.sendRequestDefer(request)
+	case service.DeferRequest_FLUSH_DIR:
+		request.State++
+		s.sendRequestDefer(request)
 	case service.DeferRequest_FLUSH_FP:
 		if s.uploader != nil {
 			s.uploader.Close()
 		}
 		request.State++
 		s.sendRequestDefer(request)
+	case service.DeferRequest_JOIN_FP:
+		request.State++
+		s.sendRequestDefer(request)
 	case service.DeferRequest_FLUSH_FS:
 		if s.fileStream != nil {
+			if s.exitRecord == nil {
+				// todo: revisit this logic as this should never happen
+				s.exitRecord = &service.Record{
+					RecordType: &service.Record_Exit{Exit: &service.RunExitRecord{ExitCode: 1}},
+					Control:    &service.Control{AlwaysSend: true},
+				}
+			}
+			s.fileStream.StreamRecord(s.exitRecord)
 			s.fileStream.Close()
 		}
 		request.State++
 		s.sendRequestDefer(request)
+	case service.DeferRequest_FLUSH_FINAL:
+		request.State++
+		s.sendRequestDefer(request)
 	case service.DeferRequest_END:
+		request.State++
 		close(s.recordChan)
 		close(s.resultChan)
 	default:
-		request.State++
-		s.sendRequestDefer(request)
+		err := fmt.Errorf("sender: sendDefer: unexpected state %v", request.State)
+		s.logger.CaptureFatalAndPanic("sender: sendDefer: unexpected state", err)
 	}
-	fmt.Println("sender: sendRecord: sending record", request)
 }
 
 func (s *Sender) sendRequestDefer(request *service.DeferRequest) {
@@ -661,9 +702,9 @@ func (s *Sender) sendAlert(_ *service.Record, alert *service.AlertRecord) {
 
 // sendExit sends an exit record to the server and triggers the shutdown of the stream
 func (s *Sender) sendExit(record *service.Record, _ *service.RunExitRecord) {
-	if s.fileStream != nil {
-		s.fileStream.StreamRecord(record)
-	}
+	s.exitRecord = record
+
+	// todo: this should probably happen later on
 	result := &service.Result{
 		ResultType: &service.Result_ExitResult{ExitResult: &service.RunExitResult{}},
 		Control:    record.Control,
@@ -671,6 +712,8 @@ func (s *Sender) sendExit(record *service.Record, _ *service.RunExitRecord) {
 	}
 	s.resultChan <- result
 
+	// send a defer request to the handler to indicate that the user requested to finish the stream
+	// and the defer state machine can kick in triggering the shutdown process
 	request := &service.Request{RequestType: &service.Request_Defer{
 		Defer: &service.DeferRequest{State: service.DeferRequest_BEGIN}},
 	}
@@ -679,7 +722,6 @@ func (s *Sender) sendExit(record *service.Record, _ *service.RunExitRecord) {
 		Control:    record.Control,
 		Uuid:       record.Uuid,
 	}
-	// s.sendRecord(rec)
 	s.recordChan <- rec
 }
 

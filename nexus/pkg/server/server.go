@@ -111,6 +111,7 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 		}
 	}
 	close(nc.inChan)
+	//nc.Close()
 }
 
 /*
