@@ -160,7 +160,8 @@ func TestFlushHistory(t *testing.T) {
 
 func TestHandlePartialHistory(t *testing.T) {
 	handler := &Handler{
-		historyRecord: &service.HistoryRecord{Step: &service.HistoryStep{Num: 1}},
+		historyRecord:       &service.HistoryRecord{Step: &service.HistoryStep{Num: 1}},
+		consolidatedSummary: make(map[string]string),
 	}
 
 	request := &service.PartialHistoryRequest{
