@@ -160,7 +160,6 @@ func (s *Stream) Start() {
 	//  on the close channel for writes coming from the connections.
 	streamInChan := s.inChan
 	go func() {
-		// for s.sender.recordChan != nil || streamInChan != nil || systemMonitorChan != nil {
 		for s.sender.recordChan != nil || streamInChan != nil {
 			select {
 			case record, ok := <-s.sender.recordChan:
@@ -175,12 +174,6 @@ func (s *Stream) Start() {
 					continue
 				}
 				handlerInChan <- record
-				// case record, ok := <-systemMonitorChan:
-				//	if !ok {
-				//		systemMonitorChan = nil
-				//		continue
-				//	}
-				//	handlerInChan <- record
 			}
 		}
 		s.logger.Debug("dispatch: finished")
