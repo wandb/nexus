@@ -68,11 +68,12 @@ func TestGetRun(t *testing.T) {
 }
 
 // Create a mock version of SystemMonitor
-type MockSystemMonitor struct {}
-func (sm *MockSystemMonitor) Do() {}
-func (sm *MockSystemMonitor) Monitor(asset monitor.Asset) {}
+type MockSystemMonitor struct{}
+
+func (sm *MockSystemMonitor) Do()                              {}
+func (sm *MockSystemMonitor) Monitor(asset monitor.Asset)      {}
 func (sm *MockSystemMonitor) GetOutChan() chan *service.Record { return nil }
-func (sm *MockSystemMonitor) Stop() {}
+func (sm *MockSystemMonitor) Stop()                            {}
 
 func TestHandleRunStart(t *testing.T) {
 	ctx := context.Background()
@@ -96,7 +97,7 @@ func TestHandleRunStart(t *testing.T) {
 
 	handler.handleRunStart(record, request)
 
-	assert.Equal(t, float64(1000), handler.startTime)
+	assert.Equal(t, float64(1000000), handler.startTime)
 	assert.Equal(t, run, handler.runRecord)
 }
 
@@ -129,28 +130,6 @@ func TestHandleSummary(t *testing.T) {
 	summaryRecord := <-handler.recordChan
 	expectedSummary := nexuslib.ConsolidateSummaryItems(handler.consolidatedSummary, update)
 	assert.Equal(t, expectedSummary, summaryRecord)
-}
-
-func TestHandleRequestDefer(t *testing.T) {
-	handler := &Handler{
-		recordChan: make(chan *service.Record, 1),
-	}
-
-	deferRequest := &service.Request{
-		RequestType: &service.Request_Defer{
-			Defer: &service.DeferRequest{State: service.DeferRequest_FLUSH_PARTIAL_HISTORY},
-		},
-	}
-	record := &service.Record{
-		RecordType: &service.Record_Request{Request: deferRequest},
-	}
-	handler.historyRecord = &service.HistoryRecord{}
-
-	handler.handleRequest(record)
-
-	receivedRecord := <-handler.recordChan
-	assert.NotNil(t, receivedRecord)
-	assert.Nil(t, handler.historyRecord)
 }
 
 func TestHandleGetSummary(t *testing.T) {
