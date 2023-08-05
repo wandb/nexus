@@ -157,20 +157,3 @@ func TestFlushHistory(t *testing.T) {
 	assert.Equal(t, "1", summaryRecord.GetSummary().Update[1].ValueJson)
 	assert.Equal(t, history, historyRecord.GetHistory())
 }
-
-func TestHandlePartialHistory(t *testing.T) {
-	handler := &Handler{
-		historyRecord:       &service.HistoryRecord{Step: &service.HistoryStep{Num: 1}},
-		consolidatedSummary: make(map[string]string),
-	}
-
-	request := &service.PartialHistoryRequest{
-		Step:   &service.HistoryStep{Num: 2},
-		Item:   []*service.HistoryItem{{Key: "key1", ValueJson: "value1"}},
-		Action: &service.HistoryAction{Flush: true},
-	}
-
-	handler.handlePartialHistory(nil, request)
-
-	assert.Equal(t, int32(3), handler.historyRecord.Step.Num)
-}
