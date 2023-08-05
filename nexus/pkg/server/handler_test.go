@@ -75,15 +75,7 @@ func TestHandleRunStart(t *testing.T) {
 		Logger: &slog.Logger{},
 	}
 
-	// Create a mock system monitor.
-	mockSystemMonitor := &monitor.SystemMonitor{
-		// You might need to set additional fields or methods to avoid nil pointer dereferences.
-		OutChan: make(chan *service.Record, 1), // Example, adjust as needed.
-	}
-
 	handler := NewHandler(ctx, settings, logger)
-	// Assign the mock system monitor.
-	handler.systemMonitor = mockSystemMonitor
 
 	startTime := time.Unix(1000000, 0)
 	run := &service.RunRecord{

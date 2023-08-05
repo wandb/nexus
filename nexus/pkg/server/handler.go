@@ -242,7 +242,10 @@ func (h *Handler) handleRunStart(record *service.Record, request *service.RunSta
 		}
 		h.logger.Debug("system monitor channel closed")
 	}()
-	h.systemMonitor.Do()
+
+	if h.systemMonitor != nil {
+		h.systemMonitor.Do()
+	}
 }
 
 func (h *Handler) handleAttach(_ *service.Record, response *service.Response) {
