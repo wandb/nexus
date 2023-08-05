@@ -151,9 +151,9 @@ func TestFlushHistory(t *testing.T) {
 	summaryRecord := <-handler.recordChan
 	historyRecord := <-handler.recordChan
 
-	assert.Equal(t, "_runtime", summaryRecord.GetSummary().Update[0].Key)
-	assert.Equal(t, "1.000000", summaryRecord.GetSummary().Update[0].ValueJson)
-	assert.Equal(t, "_step", summaryRecord.GetSummary().Update[1].Key)
-	assert.Equal(t, "1", summaryRecord.GetSummary().Update[1].ValueJson)
+	assert.Equal(t, "_timestamp", summaryRecord.GetSummary().Update[0].Key)
+	assert.Equal(t, "2000", summaryRecord.GetSummary().Update[0].ValueJson)
+	assert.Equal(t, "_runtime", summaryRecord.GetSummary().Update[1].Key)
+	assert.Equal(t, "1000.000000", summaryRecord.GetSummary().Update[1].ValueJson)
 	assert.Equal(t, history, historyRecord.GetHistory())
 }
