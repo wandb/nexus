@@ -64,26 +64,9 @@ func NewConnection(
 	return nc
 }
 
-func (nc *Connection) readConnection() {
-	scanner := bufio.NewScanner(nc.conn)
-	buf := make([]byte, connSize)
-	scanner.Buffer(buf, connSize)
-	tokenizer := &Tokenizer{}
-	scanner.Split(tokenizer.split)
-	for scanner.Scan() {
-		msg := &service.ServerRequest{}
-		if err := proto.Unmarshal(scanner.Bytes(), msg); err != nil {
-			slog.Error(
-				"unmarshalling error",
-				"err", err,
-				"conn", nc.conn.RemoteAddr())
-		} else {
-			nc.inChan <- msg
-		}
-	}
-	close(nc.inChan)
-}
-
+// HandleConnection handles the connection by reading from the connection
+// and passing the messages to the stream
+// and writing messages from the stream to the connection
 func (nc *Connection) HandleConnection() {
 	slog.Info("created new connection", "id", nc.id)
 
@@ -108,8 +91,10 @@ func (nc *Connection) HandleConnection() {
 	}()
 
 	wg.Wait()
+	slog.Info("connection closed", "id", nc.id)
 }
 
+// Close closes the connection
 func (nc *Connection) Close() {
 	slog.Debug("closing connection", "id", nc.id)
 	if err := nc.conn.Close(); err != nil {
@@ -122,8 +107,33 @@ func (nc *Connection) Respond(resp *service.ServerResponse) {
 	nc.outChan <- resp
 }
 
+// readConnection reads the streaming connection
+// it reads raw bytes from the connection and parses them into protobuf messages
+// it passes the messages to the inChan to be handled by handleServerRequest
+// it closes the inChan when the connection is closed
+func (nc *Connection) readConnection() {
+	scanner := bufio.NewScanner(nc.conn)
+	buf := make([]byte, connSize)
+	scanner.Buffer(buf, connSize)
+	tokenizer := &Tokenizer{}
+	scanner.Split(tokenizer.split)
+	for scanner.Scan() {
+		msg := &service.ServerRequest{}
+		if err := proto.Unmarshal(scanner.Bytes(), msg); err != nil {
+			slog.Error(
+				"unmarshalling error",
+				"err", err,
+				"conn", nc.conn.RemoteAddr())
+		} else {
+			nc.inChan <- msg
+		}
+	}
+	close(nc.inChan)
+}
+
 // handleServerRequest handles outgoing messages from the server
-// to the client
+// to the client, it writes the messages to the connection
+// the client is responsible for reading and parsing the messages
 func (nc *Connection) handleServerResponse() {
 	slog.Debug("starting handleServerResponse", "id", nc.id)
 	for msg := range nc.outChan {
@@ -153,6 +163,7 @@ func (nc *Connection) handleServerResponse() {
 }
 
 // handleServerRequest handles incoming messages from the client
+// to the server, it passes the messages to the stream
 func (nc *Connection) handleServerRequest() {
 	slog.Debug("starting handleServerRequest", "id", nc.id)
 	for msg := range nc.inChan {
@@ -222,12 +233,18 @@ func (nc *Connection) handleInformInit(msg *service.ServerInformInitRequest) {
 	}
 }
 
+// handleInformStart is called when the client sends an InformStart message
+// TODO: probably can remove this, we should be able to update the settings
+// using the regular InformRecord messages
 func (nc *Connection) handleInformStart(_ *service.ServerInformStartRequest) {
 	// todo: if we keep this and end up updating the settings here
 	//       we should update the stream logger to use the new settings as well
 }
 
 // handleInformAttach is called when the client sends an InformAttach message
+// to the server, to attach to an existing stream.
+// this is used for attaching to a stream that was previously started
+// hence multiple clients can attach to the same stream
 func (nc *Connection) handleInformAttach(msg *service.ServerInformAttachRequest) {
 	streamId := msg.GetXInfo().GetStreamId()
 	slog.Debug("handle record received", "streamId", streamId, "id", nc.id)
@@ -252,6 +269,9 @@ func (nc *Connection) handleInformAttach(msg *service.ServerInformAttachRequest)
 }
 
 // handleInformRecord is called when the client sends a record message
+// this is the regular communication between the client and the server
+// for a specific stream, the messages are part of the regular execution
+// and are not control messages like the other Inform* messages
 func (nc *Connection) handleInformRecord(msg *service.Record) {
 	streamId := msg.GetXInfo().GetStreamId()
 	slog.Debug("handle record received", "streamId", streamId, "id", nc.id)
@@ -270,8 +290,8 @@ func (nc *Connection) handleInformRecord(msg *service.Record) {
 	}
 }
 
-// handleInformFinish is called when the client sends a Close message
-// for a stream
+// handleInformFinish is called when the client sends a finish message
+// this should happen when the client want to close a specific stream
 func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest) {
 	streamId := msg.XInfo.StreamId
 	slog.Info("handle finish received", "streamId", streamId, "id", nc.id)
@@ -283,7 +303,8 @@ func (nc *Connection) handleInformFinish(msg *service.ServerInformFinishRequest)
 }
 
 // handleInformTeardown is called when the client sends a teardown message
-// for the entire server session
+// this should happen when the client is shutting down and wants to close
+// all streams
 func (nc *Connection) handleInformTeardown(teardown *service.ServerInformTeardownRequest) {
 	slog.Debug("handle teardown received", "id", nc.id)
 	close(nc.teardownChan)
