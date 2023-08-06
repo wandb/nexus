@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 package monitor
 
 import (
@@ -106,8 +108,7 @@ func NewSystemMonitor(
 		NewCPU(settings),
 		NewDisk(settings),
 		NewNetwork(settings),
-		NewGPUNvidia(settings),
-	}
+		NewGPUNvidia(settings)}
 
 	// if asset is available, add it to the list of assets to monitor
 	for _, asset := range assets {
