@@ -3,8 +3,9 @@
 package monitor
 
 import (
-	"github.com/wandb/wandb/nexus/pkg/service"
 	"sync"
+
+	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
 type GPUNvidia struct {
