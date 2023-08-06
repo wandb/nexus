@@ -51,7 +51,10 @@ class NexusBase:
             env["GOOS"] = goos
         if goarch:
             env["GOARCH"] = goarch
-        env["CGO_ENABLED"] = "0"
+        # if not an arm mac, disable cgo. cgo is needed on arm macs to build the
+        # gopsutil dependency, otherwise several system metrics will be unavailable.
+        if not (goos == "darwin" and goarch == "arm64"):
+            env["CGO_ENABLED"] = "0"
         os.makedirs(nexus_path.parent, exist_ok=True)
 
         # Sentry only allows 12 characters for release names, the full commit hash won't fit
