@@ -16,6 +16,8 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
+const connSize = 1024 * 1024 // 1MB buffer size for connection reads
+
 // Connection is the connection for a stream.
 // It is a wrapper around the underlying connection
 // It handles the incoming messages from the client
@@ -63,15 +65,37 @@ func NewConnection(
 		outChan:      make(chan *service.ServerResponse, BufferSize),
 		teardownChan: teardown, //TODO: should we trigger teardown from a connection?
 	}
-	// nc.wg.Add(1)
-	nc.handle()
 	return nc
 }
 
-func (nc *Connection) handle() {
+func (nc *Connection) readConnection() {
+	scanner := bufio.NewScanner(nc.conn)
+	buf := make([]byte, connSize)
+	scanner.Buffer(buf, connSize)
+	tokenizer := &Tokenizer{}
+	scanner.Split(tokenizer.split)
+	for scanner.Scan() {
+		msg := &service.ServerRequest{}
+		if err := proto.Unmarshal(scanner.Bytes(), msg); err != nil {
+			slog.Error(
+				"unmarshalling error",
+				"err", err,
+				"conn", nc.conn.RemoteAddr())
+		} else {
+			nc.inChan <- msg
+		}
+	}
+	close(nc.inChan)
+}
+
+func (nc *Connection) HandleConnection() {
 	slog.Info("created new connection", "id", nc.id)
 
-	// defer nc.wg.Done()
+	nc.wg.Add(1)
+	go func() {
+		nc.readConnection()
+		nc.wg.Done()
+	}()
 
 	nc.wg.Add(1)
 	go func() {
@@ -131,7 +155,6 @@ func (nc *Connection) handleServerResponse() {
 
 // handleServerRequest handles incoming messages from the client
 func (nc *Connection) handleServerRequest() {
-	defer close(nc.outChan)
 	slog.Debug("starting handleServerRequest", "id", nc.id)
 	for msg := range nc.inChan {
 		slog.Debug("handling server request", "msg", msg, "id", nc.id)
@@ -158,6 +181,7 @@ func (nc *Connection) handleServerRequest() {
 			panic(fmt.Sprintf("ServerRequestType is unknown, %T", x))
 		}
 	}
+	close(nc.outChan)
 	slog.Debug("finished handleServerRequest", "id", nc.id)
 }
 
