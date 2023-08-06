@@ -29,9 +29,6 @@ type Connection struct {
 	// conn is the underlying connection
 	conn net.Conn
 
-	// wg is the WaitGroup for the connection
-	wg sync.WaitGroup
-
 	// id is the unique id for the connection
 	id string
 
@@ -44,8 +41,8 @@ type Connection struct {
 	// teardownChan is the channel for signaling teardown
 	teardownChan chan struct{}
 
-	// logger is the logger for the connection
-	// logger *observability.NexusLogger
+	// stream is the stream for the connection, each connection has a single stream
+	// however, a stream can have multiple connections
 	stream *Stream
 }
 
@@ -58,7 +55,6 @@ func NewConnection(
 
 	nc := &Connection{
 		ctx:          ctx,
-		wg:           sync.WaitGroup{},
 		conn:         conn,
 		id:           conn.RemoteAddr().String(), // TODO: check if this is properly unique
 		inChan:       make(chan *service.ServerRequest, BufferSize),
@@ -91,25 +87,27 @@ func (nc *Connection) readConnection() {
 func (nc *Connection) HandleConnection() {
 	slog.Info("created new connection", "id", nc.id)
 
-	nc.wg.Add(1)
+	wg := sync.WaitGroup{}
+
+	wg.Add(1)
 	go func() {
 		nc.readConnection()
-		nc.wg.Done()
+		wg.Done()
 	}()
 
-	nc.wg.Add(1)
+	wg.Add(1)
 	go func() {
 		nc.handleServerRequest()
-		nc.wg.Done()
+		wg.Done()
 	}()
 
-	nc.wg.Add(1)
+	wg.Add(1)
 	go func() {
 		nc.handleServerResponse()
-		nc.wg.Done()
+		wg.Done()
 	}()
 
-	nc.wg.Wait()
+	wg.Wait()
 }
 
 func (nc *Connection) Close() {
