@@ -3,22 +3,17 @@
 package monitor
 
 import (
-	"sync"
-
 	"github.com/wandb/wandb/nexus/pkg/service"
 )
 
 type GPUNvidia struct {
 	name     string
-	metrics  map[string][]float64
 	settings *service.Settings
-	mutex    sync.RWMutex
 }
 
 func NewGPUNvidia(settings *service.Settings) *GPUNvidia {
 	gpu := &GPUNvidia{
 		name:     "gpu",
-		metrics:  map[string][]float64{},
 		settings: settings,
 	}
 
