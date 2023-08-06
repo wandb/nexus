@@ -16,7 +16,7 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-const connSize = 1024 * 1024 // 1MB buffer size for connection reads
+const maxScanSize = 1024 * 1024 // 1MB buffer size for connection reads
 
 // Connection is the connection for a stream.
 // It is a wrapper around the underlying connection
@@ -113,8 +113,8 @@ func (nc *Connection) Respond(resp *service.ServerResponse) {
 // it closes the inChan when the connection is closed
 func (nc *Connection) readConnection() {
 	scanner := bufio.NewScanner(nc.conn)
-	buf := make([]byte, connSize)
-	scanner.Buffer(buf, connSize)
+	buf := make([]byte, maxScanSize)
+	scanner.Buffer(buf, maxScanSize)
 	tokenizer := &Tokenizer{}
 	scanner.Split(tokenizer.split)
 	for scanner.Scan() {
