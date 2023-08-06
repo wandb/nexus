@@ -104,7 +104,7 @@ func (c *GPUNvidia) IsAvailable() bool {
 	defer func() {
 		ret := nvml.Shutdown()
 		if ret != nvml.SUCCESS {
-			log.Fatalf("Unable to shutdown NVML: %v", nvml.ErrorString(ret))
+			// log.Debug("Unable to shutdown NVML: %v", nvml.ErrorString(ret))
 		}
 	}()
 
