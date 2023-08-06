@@ -108,6 +108,8 @@ func (nc *Connection) HandleConnection() {
 		nc.handleServerResponse()
 		nc.wg.Done()
 	}()
+
+	nc.wg.Wait()
 }
 
 func (nc *Connection) Close() {
@@ -115,7 +117,6 @@ func (nc *Connection) Close() {
 	if err := nc.conn.Close(); err != nil {
 		slog.Error("error closing connection", "err", err, "id", nc.id)
 	}
-	nc.wg.Wait()
 	slog.Info("closed connection", "id", nc.id)
 }
 
