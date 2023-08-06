@@ -2,10 +2,11 @@ package monitor
 
 import (
 	"fmt"
-	"github.com/NVIDIA/go-nvml/pkg/nvml"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/NVIDIA/go-nvml/pkg/nvml"
 
 	"github.com/wandb/wandb/nexus/pkg/service"
 )

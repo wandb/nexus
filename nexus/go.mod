@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/Khan/genqlient v0.6.0
+	github.com/NVIDIA/go-nvml v0.12.0-1
 	github.com/getsentry/sentry-go v0.22.0
 	github.com/golang/mock v1.6.0
 	github.com/hashicorp/go-retryablehttp v0.7.4
@@ -14,7 +15,6 @@ require (
 )
 
 require (
-	github.com/NVIDIA/go-nvml v0.12.0-1 // indirect
 	github.com/agnivade/levenshtein v1.1.1 // indirect
 	github.com/alexflint/go-arg v1.4.2 // indirect
 	github.com/alexflint/go-scalar v1.0.0 // indirect
