@@ -16,11 +16,9 @@ type Disk struct {
 }
 
 func NewDisk(settings *service.Settings) *Disk {
-	metrics := map[string][]float64{}
-
 	d := &Disk{
 		name:     "disk",
-		metrics:  metrics,
+		metrics:  map[string][]float64{},
 		settings: settings,
 	}
 
