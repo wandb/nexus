@@ -51,7 +51,7 @@ type Handler struct {
 	historyRecord *service.HistoryRecord
 
 	// systemMonitor is the system monitor for the stream
-	systemMonitor *monitor.SystemMonitor
+	systemMonitor monitor.Monitor
 }
 
 // NewHandler creates a new handler
@@ -240,12 +240,15 @@ func (h *Handler) handleRunStart(record *service.Record, request *service.RunSta
 		// this goroutine reads from the system monitor channel and writes
 		// to the handler's record channel. it will exit when the system
 		// monitor channel is closed
-		for msg := range h.systemMonitor.OutChan {
+		for msg := range h.systemMonitor.GetOutChan() {
 			h.recordChan <- msg
 		}
 		h.logger.Debug("system monitor channel closed")
 	}()
-	h.systemMonitor.Do()
+
+	if h.systemMonitor != nil {
+		h.systemMonitor.Do()
+	}
 }
 
 func (h *Handler) handleAttach(_ *service.Record, response *service.Response) {

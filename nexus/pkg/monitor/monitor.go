@@ -59,6 +59,13 @@ type Asset interface {
 	Probe() map[string]map[string]interface{}
 }
 
+type Monitor interface {
+	Do()
+	Monitor(asset Asset)
+	GetOutChan() chan *service.Record
+	Stop()
+}
+
 type SystemMonitor struct {
 	// ctx is the context for the system monitor
 	ctx    context.Context
@@ -130,6 +137,10 @@ func (sm *SystemMonitor) Do() {
 		sm.wg.Add(1)
 		go sm.Monitor(asset)
 	}
+}
+
+func (sm *SystemMonitor) GetOutChan() chan *service.Record {
+	return sm.OutChan
 }
 
 func (sm *SystemMonitor) Monitor(asset Asset) {
